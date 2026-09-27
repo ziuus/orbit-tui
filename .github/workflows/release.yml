@@ -24,7 +24,7 @@ jobs:
             target: aarch64-apple-darwin
             artifact_name: vanta
             asset_name: vanta-aarch64-apple-darwin.tar.gz
-          - os: macos-13
+          - os: macos-latest
             target: x86_64-apple-darwin
             artifact_name: vanta
             asset_name: vanta-x86_64-apple-darwin.tar.gz
