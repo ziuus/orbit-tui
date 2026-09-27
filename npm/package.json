@@ -6,8 +6,7 @@
     "vanta": "bin/vanta.js"
   },
   "scripts": {
-    "prepack": "cp ../README.md ../LICENSE . && cp ../target/release/vanta bin/vanta-bin && chmod +x bin/vanta-bin && sed -i 's|src=\"docs/|src=\"https://raw.githubusercontent.com/ziuus/vanta/main/docs/|g' README.md",
-    "release": "node sync-version.js && npm publish --access public"
+    "postinstall": "node install.js"
   },
   "publishConfig": {
     "access": "public",
@@ -15,8 +14,9 @@
   },
   "files": [
     "bin/vanta.js",
-    "bin/vanta-bin",
-    "install.js"
+    "install.js",
+    "README.md",
+    "LICENSE"
   ],
   "os": [
     "linux",
@@ -24,7 +24,8 @@
     "win32"
   ],
   "cpu": [
-    "x64"
+    "x64",
+    "arm64"
   ],
   "engines": {
     "node": ">=16"

@@ -43,16 +43,16 @@ jobs:
           targets: ${{ matrix.target }}
       - name: Build
         run: cargo build --release --locked --target ${{ matrix.target }}
-      
+
       - name: Package
         run: tar -czf ${{ matrix.asset_name }} -C target/${{ matrix.target }}/release ${{ matrix.artifact_name }}
-      
+
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: vanta-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
-      
+          path: ${{ matrix.asset_name }}
+
       - name: Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')
@@ -78,16 +78,15 @@ jobs:
       - name: Upgrade npm
         run: npm install -g npm@latest
 
-      - name: download binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: vanta-x86_64-unknown-linux-gnu
-          path: target/release
-
-      - name: sync version to tag
+      - name: Sync version to tag
         run: node npm/sync-version.js "${GITHUB_REF_NAME#v}"
 
-      - name: publish to npm
+      - name: Copy README and LICENSE into npm package
+        run: |
+          cp README.md npm/README.md
+          cp LICENSE npm/LICENSE
+
+      - name: Publish to npm
         working-directory: npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
