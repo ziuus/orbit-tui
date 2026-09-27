@@ -169,7 +169,6 @@ fn read_cmdline(pid: u32) -> String {
 static DEMAND: super::Demand = super::Demand::new();
 
 /// Walk /proc once and rebuild the snapshot. Called on the tick, never per frame.
-
 #[cfg(not(target_os = "linux"))]
 pub fn sample(total_mem_bytes: u64) {
     // Vanta's custom /proc walker is Linux-only. Use sysinfo on macOS/Windows.

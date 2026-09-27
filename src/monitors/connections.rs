@@ -110,7 +110,6 @@ static DEMAND: super::Demand = super::Demand::new();
 ///
 /// The expensive work (inode walk + procfs parse) happens *outside* the lock.
 /// The lock is held only during the final Vec swap.
-
 #[cfg(not(target_os = "linux"))]
 pub fn sample() {}
 
@@ -135,7 +134,6 @@ pub fn sample() {
 /// read-locks are concurrent, and the write-lock is held for < 1 µs.
 ///
 /// Falls back to a live scan only on first call before the sampler ticks.
-
 #[cfg(not(target_os = "linux"))]
 pub fn snapshot() -> Vec<Connection> {
     DEMAND.touch();
