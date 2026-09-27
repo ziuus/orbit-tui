@@ -42,7 +42,7 @@ npm install -g @ziuus/vanta && vanta
 <tr>
   <td><strong>npm</strong></td>
   <td><code>npm install -g @ziuus/vanta</code></td>
-  <td>Fetches the prebuilt <code>linux-x64</code> binary. No Rust needed.</td>
+  <td>Fetches prebuilt binary for Linux, macOS (Apple Silicon &amp; Intel), or Windows. No Rust needed.</td>
 </tr>
 <tr>
   <td><strong>Prebuilt binary</strong></td>
