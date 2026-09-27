@@ -201,14 +201,14 @@ fn read_core_temps() -> (Vec<f64>, std::collections::HashMap<u32, f64>) {
             return (temps_out.into_iter().map(|(_, t)| t).collect(), by_core);
         }
     }
-    
+
     let comps = sysinfo::Components::new_with_refreshed_list();
     for comp in &comps {
         if let Some(temp) = comp.temperature() {
             temps_out.push((temps_out.len(), temp as f64));
         }
     }
-    
+
     (temps_out.into_iter().map(|(_, c)| c).collect(), by_core)
 }
 

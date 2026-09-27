@@ -74,7 +74,7 @@ fn read_counters() -> Option<(u64, u64)> {
         }
         return Some((rx, tx));
     }
-    
+
     let nets = sysinfo::Networks::new_with_refreshed_list();
     let mut rx = 0;
     let mut tx = 0;

@@ -184,14 +184,20 @@ pub fn sample(total_mem_bytes: u64) {
     }
 
     // We keep a static System just for processes on non-Linux
-    static SYS: std::sync::LazyLock<std::sync::Mutex<sysinfo::System>> = std::sync::LazyLock::new(|| std::sync::Mutex::new(sysinfo::System::new()));
+    static SYS: std::sync::LazyLock<std::sync::Mutex<sysinfo::System>> =
+        std::sync::LazyLock::new(|| std::sync::Mutex::new(sysinfo::System::new()));
     let mut sys = SYS.lock().unwrap();
     sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
     let mut procs = Vec::new();
     for (pid, p) in sys.processes() {
         let name = p.name().to_string_lossy().to_string();
-        let cmd = p.cmd().iter().map(|s| s.to_string_lossy()).collect::<Vec<_>>().join(" ");
+        let cmd = p
+            .cmd()
+            .iter()
+            .map(|s| s.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(" ");
         procs.push(ProcInfo {
             name: std::sync::Arc::from(name.as_str()),
             cmdline: std::sync::Arc::from(cmd.as_str()),

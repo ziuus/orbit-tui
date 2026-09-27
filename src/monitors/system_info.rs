@@ -30,8 +30,12 @@ pub static FACTS: LazyLock<Facts> = LazyLock::new(|| {
     let os_id = sysinfo::System::name().unwrap_or_default().to_lowercase();
     let host = sysinfo::System::host_name().unwrap_or_else(|| "?".into());
     let kernel = sysinfo::System::kernel_version().unwrap_or_default();
-    
-    let cpu = sys.cpus().first().map(|c| short_cpu(c.brand())).unwrap_or_default();
+
+    let cpu = sys
+        .cpus()
+        .first()
+        .map(|c| short_cpu(c.brand()))
+        .unwrap_or_default();
 
     Facts {
         os,

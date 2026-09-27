@@ -46,7 +46,7 @@ pub fn sample() {
 fn sample_with(conn: &dbus::blocking::Connection) {
     use dbus::arg::{RefArg, Variant};
     use std::time::Duration;
-    
+
     let proxy = conn.with_proxy(
         "org.freedesktop.systemd1",
         "/org/freedesktop/systemd1",
