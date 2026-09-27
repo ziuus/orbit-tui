@@ -159,6 +159,54 @@ pub fn fmt_uptime(secs: u64) -> String {
 /// rather than the stair-stepped block art it replaces. Any non-space cell in
 /// a row is a lit dot; short rows are padded, so the input can be ragged.
 fn logo_lines(id: &str, height: u16, width: u16) -> Vec<String> {
+    let known = [
+        "arch", "archarm", "endeavouros", "manjaro", "cachyos", "ubuntu", "pop",
+        "linuxmint", "fedora", "nobara", "debian", "raspbian", "nixos", "gentoo",
+        "opensuse", "opensuse-tumbleweed", "opensuse-leap",
+    ];
+    if !known.contains(&id) {
+        crate::anim::request(2);
+        let millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let step = (millis / 500) % 4;
+
+        if height >= 14 && width >= 25 {
+            let (eyes, ant, mouth) = match step {
+                0 => ("◉ ◉", "  ⤐", "==="),
+                1 => ("◉ ◉", " ⤐ ", " - "),
+                2 => ("- -", "⤐  ", "==="),
+                3 => ("◉ ◉", " ⤐ ", " ▄ "),
+                _ => ("◉ ◉", "  ⤐", "==="),
+            };
+            return vec![
+                format!("        {}    ", ant),
+                format!("        │    "),
+                format!("    ┌───┴───┐"),
+                format!("    │ ╭───╮ │"),
+                format!("  ──┤ │{}│ ├──", eyes),
+                format!("  ──┤ ╰───╯ ├──"),
+                format!("    │  {}  │", mouth),
+                format!("    └─┬───┬─┘"),
+                format!("   ╭──┴───┴──╮"),
+                format!("   │ ⚙     ⚙ │"),
+                format!("   ╰─────────╯"),
+            ];
+        } else {
+            let eyes = if step == 2 { "- -" } else { "◉ ◉" };
+            let mouth = if step % 2 == 0 { "▄" } else { "-" };
+            return vec![
+                "   ▄▄▄▄▄   ".into(),
+                "  ◢█▀▀▀█◣  ".into(),
+                format!(" ▐█ {} █▌ ", eyes),
+                format!(" ▐█  {}  █▌ ", mouth),
+                "  ◥█▄▄▄█◤  ".into(),
+                "  ▀▀▀▀▀▀▀  ".into(),
+            ];
+        }
+    }
+
     block_logo(id, height, width)
         .into_iter()
         .map(String::from)
@@ -255,14 +303,7 @@ fn block_logo(id: &str, height: u16, width: u16) -> Vec<&'static str> {
             " ◥█▄▄▄▄▄█◤ ",
             "   ▀▀▀▀▀   ",
         ],
-        _ => vec![
-            "   ▄▄▄▄▄   ",
-            "  ◢█▀▀▀█◣  ",
-            " ▐█ ▀ ▀ █▌ ",
-            " ▐█  ▄  █▌ ",
-            "  ◥█▄▄▄█◤  ",
-            "  ▀▀▀▀▀▀▀  ",
-        ],
+        _ => vec![],
     }
 }
 
