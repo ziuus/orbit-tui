@@ -57,19 +57,31 @@ pub fn snapshot() -> NetSnapshot {
 }
 
 fn read_counters() -> Option<(u64, u64)> {
-    let s = std::fs::read_to_string("/proc/net/dev").ok()?;
-    let (mut rx, mut tx) = (0u64, 0u64);
-    for line in s.lines().skip(2) {
-        let Some((iface, rest)) = line.split_once(':') else {
-            continue;
-        };
-        if iface.trim() == "lo" {
-            continue;
+    if let Ok(s) = std::fs::read_to_string("/proc/net/dev") {
+        let (mut rx, mut tx) = (0u64, 0u64);
+        for line in s.lines().skip(2) {
+            let Some((iface, rest)) = line.split_once(':') else {
+                continue;
+            };
+            if iface.trim() == "lo" {
+                continue;
+            }
+            let f: Vec<&str> = rest.split_whitespace().collect();
+            if f.len() >= 9 {
+                rx += f[0].parse::<u64>().unwrap_or(0);
+                tx += f[8].parse::<u64>().unwrap_or(0);
+            }
         }
-        let f: Vec<&str> = rest.split_whitespace().collect();
-        if f.len() >= 9 {
-            rx += f[0].parse::<u64>().unwrap_or(0);
-            tx += f[8].parse::<u64>().unwrap_or(0);
+        return Some((rx, tx));
+    }
+    
+    let nets = sysinfo::Networks::new_with_refreshed_list();
+    let mut rx = 0;
+    let mut tx = 0;
+    for (name, data) in &nets {
+        if name != "lo" && name != "loopback" {
+            rx += data.total_received();
+            tx += data.total_transmitted();
         }
     }
     Some((rx, tx))

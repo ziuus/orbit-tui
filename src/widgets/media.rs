@@ -1,8 +1,11 @@
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
+#[cfg(target_os = "linux")]
 use dbus::arg::{PropMap, RefArg, Variant};
+#[cfg(target_os = "linux")]
 use dbus::blocking::{BlockingSender, Connection};
+#[cfg(target_os = "linux")]
 use dbus::Message;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
@@ -43,6 +46,7 @@ pub struct Track {
 }
 
 struct State {
+    #[cfg(target_os = "linux")]
     conn: Option<Connection>,
     track: Option<Track>,
     all_tracks: Vec<Track>,
@@ -54,6 +58,7 @@ struct State {
 
 static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
     Mutex::new(State {
+        #[cfg(target_os = "linux")]
         conn: None,
         track: None,
         all_tracks: Vec::new(),
@@ -62,6 +67,7 @@ static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
     })
 });
 
+#[cfg(target_os = "linux")]
 fn prop_msg(player: &str, prop: &str) -> Message {
     Message::call_with_args(
         player,
@@ -72,6 +78,7 @@ fn prop_msg(player: &str, prop: &str) -> Message {
     )
 }
 
+#[cfg(target_os = "linux")]
 fn get<T: for<'a> dbus::arg::Get<'a>>(conn: &Connection, player: &str, prop: &str) -> Option<T> {
     let reply = conn
         .send_with_reply_and_block(prop_msg(player, prop), TIMEOUT)
@@ -79,6 +86,7 @@ fn get<T: for<'a> dbus::arg::Get<'a>>(conn: &Connection, player: &str, prop: &st
     reply.get1::<Variant<T>>().map(|v| v.0)
 }
 
+#[cfg(target_os = "linux")]
 fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
@@ -97,6 +105,7 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+#[cfg(target_os = "linux")]
 fn read_track(conn: &Connection, player: &str) -> Option<Track> {
     let status = match get::<String>(conn, player, "PlaybackStatus")?.as_str() {
         "Playing" => Status::Playing,
@@ -150,6 +159,10 @@ fn read_track(conn: &Connection, player: &str) -> Option<Track> {
 }
 
 /// Poll MPRIS once. Prefers a playing player, then a paused one.
+#[cfg(not(target_os = "linux"))]
+pub fn sample() {}
+
+#[cfg(target_os = "linux")]
 pub fn sample() {
     // Take the connection out so the D-Bus round trips happen unlocked.
     let conn = {
@@ -222,6 +235,10 @@ pub fn current_track() -> Option<Track> {
 }
 
 /// Playback control on the currently displayed player. Fire-and-forget.
+#[cfg(not(target_os = "linux"))]
+pub fn control(_action: Action) {}
+
+#[cfg(target_os = "linux")]
 pub fn control(action: Action) {
     let st = STATE.lock().unwrap();
     let (Some(conn), Some(track)) = (st.conn.as_ref(), st.track.as_ref()) else {

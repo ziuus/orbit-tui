@@ -19,7 +19,9 @@
     "install.js"
   ],
   "os": [
-    "linux"
+    "linux",
+    "darwin",
+    "win32"
   ],
   "cpu": [
     "x64"

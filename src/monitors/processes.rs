@@ -125,10 +125,17 @@ fn read_stat(pid: u32) -> Option<Stat> {
 /// Owner of the process: a stat() on the /proc dir is one syscall, far cheaper
 /// than parsing the Uid: line out of /proc/[pid]/status.
 fn read_uid(pid: u32) -> u32 {
-    use std::os::unix::fs::MetadataExt;
-    fs::metadata(format!("/proc/{}", pid))
-        .map(|m| m.uid())
-        .unwrap_or(0)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        fs::metadata(format!("/proc/{}", pid))
+            .map(|m| m.uid())
+            .unwrap_or(0)
+    }
+    #[cfg(not(unix))]
+    {
+        0
+    }
 }
 
 fn read_io(pid: u32) -> (u64, u64) {
@@ -162,6 +169,57 @@ fn read_cmdline(pid: u32) -> String {
 static DEMAND: super::Demand = super::Demand::new();
 
 /// Walk /proc once and rebuild the snapshot. Called on the tick, never per frame.
+
+#[cfg(not(target_os = "linux"))]
+pub fn sample(total_mem_bytes: u64) {
+    // Vanta's custom /proc walker is Linux-only. Use sysinfo on macOS/Windows.
+    let now = Instant::now();
+    let stale = STATE
+        .lock()
+        .unwrap()
+        .prev_time
+        .is_none_or(|t| now.duration_since(t) >= std::time::Duration::from_secs(5));
+    if !DEMAND.due(std::time::Duration::from_millis(950)) && !stale {
+        return;
+    }
+
+    // We keep a static System just for processes on non-Linux
+    static SYS: std::sync::LazyLock<std::sync::Mutex<sysinfo::System>> = std::sync::LazyLock::new(|| std::sync::Mutex::new(sysinfo::System::new()));
+    let mut sys = SYS.lock().unwrap();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    let mut procs = Vec::new();
+    for (pid, p) in sys.processes() {
+        let name = p.name().to_string_lossy().to_string();
+        let cmd = p.cmd().join(" ");
+        procs.push(ProcInfo {
+            name: std::sync::Arc::from(name),
+            cmdline: std::sync::Arc::from(cmd),
+            pid: pid.as_u32(),
+            ppid: p.parent().map(|p| p.as_u32()).unwrap_or(0),
+            mem_kb: p.memory() / 1024,
+            cpu_pct: p.cpu_usage() as f64,
+            state: match p.status() {
+                sysinfo::ProcessStatus::Run => 'R',
+                sysinfo::ProcessStatus::Sleep => 'S',
+                sysinfo::ProcessStatus::Stop => 'T',
+                sysinfo::ProcessStatus::Zombie => 'Z',
+                _ => '?',
+            },
+            threads: 1, // sysinfo doesn't easily expose thread count per proc in 0.33 without extra calls
+            uid: 0,
+            read_bps: p.disk_usage().read_bytes as f64,
+            write_bps: p.disk_usage().written_bytes as f64,
+        });
+    }
+
+    let mut st = STATE.lock().unwrap();
+    st.snapshot = procs;
+    st.prev_time = Some(now);
+    st.total_mem_kb = (total_mem_bytes as f64) / 1024.0;
+}
+
+#[cfg(target_os = "linux")]
 pub fn sample(total_mem_bytes: u64) {
     // The walk is the sampler's biggest cost. Once a second is plenty while
     // a process table is on screen; otherwise every 5s just keeps counters

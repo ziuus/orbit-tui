@@ -161,47 +161,55 @@ fn core_label_id(label: &str) -> Option<u32> {
 /// core id to its temperature, taken from the `tempN_label` files.
 fn read_core_temps() -> (Vec<f64>, std::collections::HashMap<u32, f64>) {
     let mut by_core = std::collections::HashMap::new();
-    let Ok(hwmon_dir) = fs::read_dir("/sys/class/hwmon/") else {
-        return (Vec::new(), by_core);
-    };
-    for hwmon_entry in hwmon_dir.flatten() {
-        let Ok(name) = fs::read_to_string(hwmon_entry.path().join("name")) else {
-            continue;
-        };
-        if !matches!(name.trim(), "coretemp" | "k10temp" | "zenpower") {
-            continue;
-        }
-        let mut temps: Vec<(usize, f64)> = Vec::new();
-        if let Ok(temp_dir) = fs::read_dir(hwmon_entry.path()) {
-            for te in temp_dir.flatten() {
-                let fname = te.file_name().to_string_lossy().to_string();
-                let Some(num) = fname
-                    .strip_prefix("temp")
-                    .and_then(|s| s.strip_suffix("_input"))
-                    .and_then(|s| s.parse::<usize>().ok())
-                else {
-                    continue;
-                };
-                if let Some(v) = fs::read_to_string(te.path())
-                    .ok()
-                    .and_then(|v| v.trim().parse::<f64>().ok())
-                {
-                    let c = v / 1000.0;
-                    temps.push((num, c));
-                    let label = hwmon_entry.path().join(format!("temp{}_label", num));
-                    if let Some(id) = fs::read_to_string(label)
+    let mut temps_out = Vec::new();
+
+    if let Ok(hwmon_dir) = fs::read_dir("/sys/class/hwmon/") {
+        for hwmon_entry in hwmon_dir.flatten() {
+            let Ok(name) = fs::read_to_string(hwmon_entry.path().join("name")) else {
+                continue;
+            };
+            if !matches!(name.trim(), "coretemp" | "k10temp" | "zenpower") {
+                continue;
+            }
+            if let Ok(temp_dir) = fs::read_dir(hwmon_entry.path()) {
+                for te in temp_dir.flatten() {
+                    let fname = te.file_name().to_string_lossy().to_string();
+                    let Some(num) = fname
+                        .strip_prefix("temp")
+                        .and_then(|s| s.strip_suffix("_input"))
+                        .and_then(|s| s.parse::<usize>().ok())
+                    else {
+                        continue;
+                    };
+                    if let Some(v) = fs::read_to_string(te.path())
                         .ok()
-                        .and_then(|l| core_label_id(&l))
+                        .and_then(|v| v.trim().parse::<f64>().ok())
                     {
-                        by_core.insert(id, c);
+                        let c = v / 1000.0;
+                        temps_out.push((num, c));
+                        let label = hwmon_entry.path().join(format!("temp{}_label", num));
+                        if let Some(id) = fs::read_to_string(label)
+                            .ok()
+                            .and_then(|l| core_label_id(&l))
+                        {
+                            by_core.insert(id, c);
+                        }
                     }
                 }
             }
+            temps_out.sort_by_key(|(idx, _)| *idx);
+            return (temps_out.into_iter().map(|(_, t)| t).collect(), by_core);
         }
-        temps.sort_by_key(|(idx, _)| *idx);
-        return (temps.into_iter().map(|(_, t)| t).collect(), by_core);
     }
-    (Vec::new(), by_core)
+    
+    let comps = sysinfo::Components::new_with_refreshed_list();
+    for comp in &comps {
+        if let Some(temp) = comp.temperature() {
+            temps_out.push((temps_out.len(), temp as f64));
+        }
+    }
+    
+    (temps_out.into_iter().map(|(_, c)| c).collect(), by_core)
 }
 
 /// One row of per-core load: each core gets an equal slice filled with a

@@ -69,13 +69,17 @@ npx @ziuus/vanta@latest
 
 ### Requirements
 
-Linux (vanta reads `/proc` and `/sys`). Building from source also needs `libdbus`:
+Linux, macOS, and Windows.
+
+Linux optionally requires `libdbus` for systemd and media player monitoring:
 
 ```bash
 sudo pacman -S dbus              # Arch
 sudo apt install libdbus-1-dev   # Debian / Ubuntu
 sudo dnf install dbus-devel      # Fedora
 ```
+
+On macOS and Windows, Vanta compiles natively and monitors standard system metrics out-of-the-box via `sysinfo`.
 
 Optional tools that light up extra panels — vanta degrades quietly without them:
 

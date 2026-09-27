@@ -110,6 +110,11 @@ static DEMAND: super::Demand = super::Demand::new();
 ///
 /// The expensive work (inode walk + procfs parse) happens *outside* the lock.
 /// The lock is held only during the final Vec swap.
+
+#[cfg(not(target_os = "linux"))]
+pub fn sample() {}
+
+#[cfg(target_os = "linux")]
 pub fn sample() {
     // Only extensions read this and the fd walk is expensive: skip it unless
     // a consumer asked recently.
@@ -130,6 +135,14 @@ pub fn sample() {
 /// read-locks are concurrent, and the write-lock is held for < 1 µs.
 ///
 /// Falls back to a live scan only on first call before the sampler ticks.
+
+#[cfg(not(target_os = "linux"))]
+pub fn snapshot() -> Vec<Connection> {
+    DEMAND.touch();
+    Vec::new()
+}
+
+#[cfg(target_os = "linux")]
 pub fn snapshot() -> Vec<Connection> {
     DEMAND.touch();
     // Hot path: read from cache.
@@ -150,6 +163,7 @@ pub fn snapshot() -> Vec<Connection> {
 
 /// Walk `/proc/<pid>/fd/*` for every PID accessible to us and build a map
 /// `socket_inode → pid`.  PIDs that exit during the walk are silently skipped.
+#[cfg(target_os = "linux")]
 fn build_inode_map() -> HashMap<u64, u32> {
     let mut map = HashMap::new();
     let Ok(proc_dir) = fs::read_dir("/proc") else {
@@ -184,6 +198,7 @@ fn build_inode_map() -> HashMap<u64, u32> {
 // ── /proc/net/tcp parser ──────────────────────────────────────────────────────
 
 /// Parse one of `/proc/net/tcp` or `/proc/net/tcp6` into `out`.
+#[cfg(target_os = "linux")]
 fn parse_into(
     path: &str,
     proto: &'static str,

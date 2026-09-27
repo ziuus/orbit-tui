@@ -24,32 +24,20 @@ pub struct Facts {
 }
 
 pub static FACTS: LazyLock<Facts> = LazyLock::new(|| {
-    let os_release = fs::read_to_string("/etc/os-release").unwrap_or_default();
-    let field = |key: &str| -> Option<String> {
-        os_release.lines().find_map(|l| {
-            l.strip_prefix(key)
-                .and_then(|v| v.strip_prefix('='))
-                .map(|v| v.trim_matches('"').to_string())
-        })
-    };
-    let cpu = fs::read_to_string("/proc/cpuinfo")
-        .ok()
-        .and_then(|c| {
-            c.lines()
-                .find(|l| l.starts_with("model name"))
-                .and_then(|l| l.split_once(':'))
-                .map(|(_, v)| short_cpu(v.trim()))
-        })
-        .unwrap_or_default();
+    let mut sys = sysinfo::System::new();
+    sys.refresh_cpu_usage();
+    let os = sysinfo::System::long_os_version().unwrap_or_else(|| "Unknown".into());
+    let os_id = sysinfo::System::name().unwrap_or_default().to_lowercase();
+    let host = sysinfo::System::host_name().unwrap_or_else(|| "?".into());
+    let kernel = sysinfo::System::kernel_version().unwrap_or_default();
+    
+    let cpu = sys.cpus().first().map(|c| short_cpu(c.brand())).unwrap_or_default();
+
     Facts {
-        os: field("PRETTY_NAME").unwrap_or_else(|| "Linux".into()),
-        os_id: field("ID").unwrap_or_default().to_lowercase(),
-        host: fs::read_to_string("/etc/hostname")
-            .map(|s| s.trim().to_string())
-            .unwrap_or_else(|_| "?".into()),
-        kernel: fs::read_to_string("/proc/sys/kernel/osrelease")
-            .map(|s| s.trim().to_string())
-            .unwrap_or_default(),
+        os,
+        os_id,
+        host,
+        kernel,
         shell: std::env::var("SHELL")
             .ok()
             .and_then(|s| s.rsplit('/').next().map(str::to_string))
