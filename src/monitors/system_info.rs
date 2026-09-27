@@ -27,7 +27,7 @@ pub static FACTS: LazyLock<Facts> = LazyLock::new(|| {
     let mut sys = sysinfo::System::new();
     sys.refresh_cpu_usage();
     let os = sysinfo::System::long_os_version().unwrap_or_else(|| "Unknown".into());
-    let os_id = sysinfo::System::name().unwrap_or_default().to_lowercase();
+    let os_id = sysinfo::System::distribution_id().to_lowercase();
     let host = sysinfo::System::host_name().unwrap_or_else(|| "?".into());
     let kernel = sysinfo::System::kernel_version().unwrap_or_default();
 
