@@ -12,6 +12,24 @@ thread_local! {
     static CACHED_IMAGE: RefCell<Option<CachedMedia>> = const { RefCell::new(None) };
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct MediaInfo {
+    pub is_fallback: bool,
+    pub is_dir: bool,
+    pub current_idx: usize,
+    pub total_images: usize,
+    pub file_name: String,
+    pub file_path: String,
+    pub orig_width: u32,
+    pub orig_height: u32,
+    pub file_size_kb: u64,
+    pub palette: Vec<Color>,
+}
+
+pub fn current_media_info() -> Option<MediaInfo> {
+    CACHED_IMAGE.with(|c| c.borrow().as_ref().map(|cache| cache.info.clone()))
+}
+
 struct CachedMedia {
     path: String,
     area_width: u16,
@@ -23,6 +41,7 @@ struct CachedMedia {
     images: Vec<String>,
     current_idx: usize,
     last_tick: u64,
+    info: MediaInfo,
 }
 
 pub fn render(f: &mut Frame, area: Rect, theme: &Theme, path: &str, tick: u64) {
@@ -123,14 +142,37 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, path: &str, tick: u64) {
             image::open(&file_to_load)
         };
 
+        let mut orig_width = 0;
+        let mut orig_height = 0;
+        let mut palette = Vec::new();
+
         match load_result {
             Ok(img) => {
-                let img = img.to_rgb8();
+                orig_width = img.width();
+                orig_height = img.height();
+
+                let rgb_img = img.to_rgb8();
                 let target_w = area.width as u32;
                 let target_h = (area.height * 2) as u32;
 
-                let thumb = image::imageops::thumbnail(&img, target_w, target_h);
+                let thumb = image::imageops::thumbnail(&rgb_img, target_w, target_h);
                 let (w, h) = thumb.dimensions();
+
+                // Sample 6 representative colors across the thumbnail
+                if w > 0 && h > 0 {
+                    let sample_coords = [
+                        (w / 4, h / 4),
+                        (w / 2, h / 3),
+                        (3 * w / 4, h / 4),
+                        (w / 3, h / 2),
+                        (w / 2, h / 2),
+                        (2 * w / 3, 2 * h / 3),
+                    ];
+                    for (sx, sy) in sample_coords {
+                        let p = thumb.get_pixel(sx.min(w - 1), sy.min(h - 1));
+                        palette.push(Color::Rgb(p[0], p[1], p[2]));
+                    }
+                }
 
                 for y in (0..h).step_by(2) {
                     let mut spans = Vec::new();
@@ -163,6 +205,37 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, path: &str, tick: u64) {
             }
         }
 
+        let file_name = if actual_path == "default_fallback" {
+            "porsche_911_dusk.jpg".to_string()
+        } else {
+            std::path::Path::new(&file_to_load)
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "custom_media".to_string())
+        };
+
+        let file_size_kb = if actual_path == "default_fallback" {
+            166
+        } else {
+            std::fs::metadata(&file_to_load)
+                .map(|m| m.len().div_ceil(1024))
+                .unwrap_or(0)
+        };
+
+        let total_images = if is_dir { images.len() } else { 1 };
+        let info = MediaInfo {
+            is_fallback: actual_path == "default_fallback",
+            is_dir,
+            current_idx,
+            total_images,
+            file_name,
+            file_path: file_to_load,
+            orig_width,
+            orig_height,
+            file_size_kb,
+            palette,
+        };
+
         CACHED_IMAGE.with(|c| {
             *c.borrow_mut() = Some(CachedMedia {
                 path: path.to_string(),
@@ -173,6 +246,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, path: &str, tick: u64) {
                 images,
                 current_idx,
                 last_tick: tick,
+                info,
             });
         });
     }

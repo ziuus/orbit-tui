@@ -216,6 +216,11 @@ pub fn current_player() -> Option<String> {
         .map(|t| t.player.clone())
 }
 
+/// Current track info, if any player is active.
+pub fn current_track() -> Option<Track> {
+    STATE.lock().unwrap().track.clone()
+}
+
 /// Playback control on the currently displayed player. Fire-and-forget.
 pub fn control(action: Action) {
     let st = STATE.lock().unwrap();
