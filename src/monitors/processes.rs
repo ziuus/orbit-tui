@@ -191,10 +191,10 @@ pub fn sample(total_mem_bytes: u64) {
     let mut procs = Vec::new();
     for (pid, p) in sys.processes() {
         let name = p.name().to_string_lossy().to_string();
-        let cmd = p.cmd().join(" ");
+        let cmd = p.cmd().iter().map(|s| s.to_string_lossy()).collect::<Vec<_>>().join(" ");
         procs.push(ProcInfo {
-            name: std::sync::Arc::from(name),
-            cmdline: std::sync::Arc::from(cmd),
+            name: std::sync::Arc::from(name.as_str()),
+            cmdline: std::sync::Arc::from(cmd.as_str()),
             pid: pid.as_u32(),
             ppid: p.parent().map(|p| p.as_u32()).unwrap_or(0),
             mem_kb: p.memory() / 1024,

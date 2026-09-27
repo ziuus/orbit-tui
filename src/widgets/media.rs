@@ -86,7 +86,6 @@ fn get<T: for<'a> dbus::arg::Get<'a>>(conn: &Connection, player: &str, prop: &st
     reply.get1::<Variant<T>>().map(|v| v.0)
 }
 
-#[cfg(target_os = "linux")]
 fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
