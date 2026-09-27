@@ -11,23 +11,53 @@ permissions:
 
 jobs:
   binary:
-    name: build linux-x64
-    runs-on: ubuntu-latest
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: vanta
+            asset_name: vanta-x86_64-unknown-linux-gnu.tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: vanta
+            asset_name: vanta-aarch64-apple-darwin.tar.gz
+          - os: macos-13
+            target: x86_64-apple-darwin
+            artifact_name: vanta
+            asset_name: vanta-x86_64-apple-darwin.tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: vanta.exe
+            asset_name: vanta-x86_64-pc-windows-msvc.tar.gz
+
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release --locked
-      - name: package
-        run: tar -czf vanta-x86_64-unknown-linux-gnu.tar.gz -C target/release vanta
-      - name: upload binary artifact
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+      
+      - name: Package
+        run: tar -czf ${{ matrix.asset_name }} -C target/${{ matrix.target }}/release ${{ matrix.artifact_name }}
+      
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vanta-binary
-          path: target/release/vanta
-      - uses: softprops/action-gh-release@v2
+          name: vanta-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+      
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
-          files: vanta-x86_64-unknown-linux-gnu.tar.gz
+          files: ${{ matrix.asset_name }}
           generate_release_notes: true
 
   npm:
@@ -51,7 +81,7 @@ jobs:
       - name: download binary artifact
         uses: actions/download-artifact@v4
         with:
-          name: vanta-binary
+          name: vanta-x86_64-unknown-linux-gnu
           path: target/release
 
       - name: sync version to tag

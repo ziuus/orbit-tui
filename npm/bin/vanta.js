@@ -4,7 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 
-const bin = path.join(__dirname, 'vanta-bin');
+const isWin = process.platform === 'win32';
+const bin = path.join(__dirname, isWin ? 'vanta-bin.exe' : 'vanta-bin');
 
 if (!fs.existsSync(bin)) {
   const installer = path.join(__dirname, '..', 'install.js');

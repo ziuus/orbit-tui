@@ -9,18 +9,27 @@ const https = require('https');
 const { execFileSync } = require('child_process');
 
 const { version } = require('./package.json');
-const TARGET = 'x86_64-unknown-linux-gnu';
-const ASSET = `vanta-${TARGET}.tar.gz`;
-const URL = `https://github.com/ziuus/vanta/releases/download/v${version}/${ASSET}`;
+const TARGET_MAP = {
+  'linux': { 'x64': 'x86_64-unknown-linux-gnu' },
+  'darwin': {
+    'x64': 'x86_64-apple-darwin',
+    'arm64': 'aarch64-apple-darwin'
+  },
+  'win32': { 'x64': 'x86_64-pc-windows-msvc' }
+};
+
+const TARGET = TARGET_MAP[process.platform]?.[process.arch];
 const FROM_SOURCE = 'cargo install --git https://github.com/ziuus/vanta';
 
-if (process.platform !== 'linux' || process.arch !== 'x64') {
-  console.error(
-    `vanta: no prebuilt binary for ${process.platform}-${process.arch} (linux-x64 only).`
-  );
+if (!TARGET) {
+  console.error(`vanta: no prebuilt binary for ${process.platform}-${process.arch}.`);
   console.error(`vanta: build it yourself with:  ${FROM_SOURCE}`);
   process.exit(1);
 }
+
+const isWin = process.platform === 'win32';
+const ASSET = `vanta-${TARGET}.tar.gz`;
+const URL = `https://github.com/ziuus/vanta/releases/download/v${version}/${ASSET}`;
 
 // GitHub redirects release downloads to a CDN host, so follow Location.
 function download(url, hops = 0) {
@@ -62,7 +71,7 @@ function download(url, hops = 0) {
 
 (async () => {
   const binDir = path.join(__dirname, 'bin');
-  const dest = path.join(binDir, 'vanta-bin');
+  const dest = path.join(binDir, isWin ? 'vanta-bin.exe' : 'vanta-bin');
   const tgz = path.join(os.tmpdir(), `vanta-${version}-${process.pid}.tar.gz`);
 
   fs.mkdirSync(binDir, { recursive: true });
@@ -70,8 +79,9 @@ function download(url, hops = 0) {
   fs.writeFileSync(tgz, await download(URL));
 
   try {
-    execFileSync('tar', ['-xzf', tgz, '-C', binDir, 'vanta']);
-    fs.renameSync(path.join(binDir, 'vanta'), dest);
+    const binName = isWin ? 'vanta.exe' : 'vanta';
+    execFileSync('tar', ['-xzf', tgz, '-C', binDir, binName]);
+    fs.renameSync(path.join(binDir, binName), dest);
     fs.chmodSync(dest, 0o755);
   } finally {
     fs.rmSync(tgz, { force: true });
