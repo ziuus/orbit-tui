@@ -628,15 +628,12 @@ fn render_dashboard_panel(
             crate::screens::workspace::render_notes(f, area, app);
         }
         "files" => {
-            let inner = panel(f, area, "yazi (file manager)", theme, focus(PanelId::Files));
-            let files_focused = focus(PanelId::Files);
+            let inner = panel(f, area, "file manager", theme, focus(PanelId::Files));
+
             crate::widgets::files::render(
                 f,
                 inner,
-                theme,
-                files_focused,
-                &mut app.panel_states.files_selected,
-                &mut app.panel_states.files_scroll,
+                app,
             );
         }
         custom_id => {

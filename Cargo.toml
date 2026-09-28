@@ -1,7 +1,7 @@
 [package]
 default-run = "vanta"
 name = "vanta"
-version = "0.10.52"
+version = "0.10.53"
 edition = "2021"
 description = "Aesthetic Rust TUI system dashboard — monitoring meets flex widgets"
 authors = ["zius"]
@@ -32,6 +32,7 @@ log = "0.4.34"
 trash = "5.2.9"
 walkdir = "2.5.0"
 base64 = "0.23.1"
+ratatui-image = { version = "9.0.0", default-features = false, features = ["crossterm", "image-defaults"] }
 
 [profile.release]
 opt-level = 3

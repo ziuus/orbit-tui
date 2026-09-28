@@ -14,11 +14,7 @@ pub struct FileItem {
 #[derive(Clone, Debug)]
 pub enum PreviewContent {
     Text(String),
-    Image {
-        width: u32,
-        height: u32,
-        pixels: Vec<(u8, u8, u8)>,
-    },
+    Image(image::DynamicImage),
 }
 
 #[derive(Clone, Debug)]
@@ -99,19 +95,9 @@ pub fn update_preview(selected_path: &Path) {
         if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp" {
             // Attempt to load image
             if let Ok(img) = image::open(selected_path) {
-                let img = img.to_rgb8();
-                // We'll thumbnail it to a max of 80x80 to save memory in snapshot
-                let thumb = image::imageops::thumbnail(&img, 100, 100);
-                let (w, h) = thumb.dimensions();
-                let mut pixels = Vec::with_capacity((w * h) as usize);
-                for p in thumb.pixels() {
-                    pixels.push((p[0], p[1], p[2]));
-                }
-                Some(PreviewContent::Image {
-                    width: w,
-                    height: h,
-                    pixels,
-                })
+                // Return a downscaled image to save memory while keeping enough detail for terminal rendering
+                let img = img.thumbnail(800, 800);
+                Some(PreviewContent::Image(img))
             } else {
                 Some(PreviewContent::Text("Failed to decode image".to_string()))
             }

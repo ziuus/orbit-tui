@@ -341,6 +341,9 @@ pub struct App {
     sampler_interval: std::sync::Arc<std::sync::atomic::AtomicU64>,
     /// Manager for all user-defined custom widgets.
     pub custom_widgets: CustomWidgetManager,
+    /// Image protocol picker for ratatui-image rendering.
+    pub image_picker: Option<ratatui_image::picker::Picker>,
+    pub image_protocols: std::collections::HashMap<String, ratatui_image::protocol::StatefulProtocol>,
 }
 
 impl App {
@@ -399,6 +402,8 @@ impl App {
             pending_signal: None,
             sampler_interval,
             custom_widgets,
+            image_picker: Some(ratatui_image::picker::Picker::from_query_stdio().unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks())),
+            image_protocols: std::collections::HashMap::new(),
         };
         if mode.clone() == DashboardMode::Monitor {
             app.focused_panel = Some(PanelId::Processes);
@@ -1019,6 +1024,25 @@ impl App {
                             self.panel_states.files_selected = 0;
                         }
                     }
+                }
+                KeyCode::Delete | KeyCode::Char('x') => {
+                    let snap = crate::monitors::files::snapshot();
+                    if let Some(item) = snap.items.get(self.panel_states.files_selected) {
+                        crate::monitors::fs_tasks::start_trash(
+                            format!("trash-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()),
+                            item.path.to_string_lossy().to_string()
+                        );
+                        // Refresh directory contents after a short delay
+                        let current = snap.current_dir.clone();
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(500));
+                            crate::monitors::files::chdir(&current);
+                        });
+                    }
+                }
+                KeyCode::Char('r') => {
+                    let snap = crate::monitors::files::snapshot();
+                    crate::monitors::files::chdir(&snap.current_dir);
                 }
                 KeyCode::Backspace | KeyCode::Left | KeyCode::Char('h') => {
                     let snap = crate::monitors::files::snapshot();

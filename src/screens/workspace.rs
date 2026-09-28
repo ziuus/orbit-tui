@@ -146,18 +146,15 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
     let files_inner = panel(
         f,
         files_area,
-        "yazi (file manager)",
+        "file manager",
         theme,
         focus(PanelId::Files),
     );
-    let files_focused = focus(PanelId::Files);
+
     crate::widgets::files::render(
         f,
         files_inner,
-        theme,
-        files_focused,
-        &mut app.panel_states.files_selected,
-        &mut app.panel_states.files_scroll,
+        app,
     );
 }
 
@@ -166,9 +163,9 @@ pub fn render_notes(f: &mut Frame, area: Rect, app: &mut App) {
     let theme = &app.theme;
     let is_notes_focused = app.focused_panel == Some(PanelId::WriterNotes);
     let notes_title = if snap.vault_name.is_empty() {
-        "obsidian (notes)".to_string()
+        "notes".to_string()
     } else {
-        format!("obsidian ({})", snap.vault_name)
+        format!("notes ({})", snap.vault_name)
     };
     let notes_inner = panel_full(
         f,

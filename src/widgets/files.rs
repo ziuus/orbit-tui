@@ -10,11 +10,12 @@ use ratatui::style::Color;
 pub fn render(
     f: &mut Frame,
     area: Rect,
-    theme: &crate::theme::Theme,
-    is_focused: bool,
-    selected_idx: &mut usize,
-    scroll: &mut usize,
+    app: &mut crate::app::App,
 ) {
+    let theme = &app.theme;
+    let is_focused = app.focused_panel == Some(crate::app::PanelId::Files);
+    let selected_idx = &mut app.panel_states.files_selected;
+    let scroll = &mut app.panel_states.files_scroll;
     let snap = files::snapshot();
 
     // Split 40% list, 60% preview
@@ -110,60 +111,28 @@ pub fn render(
                         )));
                     }
                 }
-                PreviewContent::Image {
-                    width,
-                    height,
-                    pixels,
-                } => {
-                    let w = *width as usize;
-                    let h = *height as usize;
-
-                    // Display image info
+                PreviewContent::Image(dynamic_image) => {
+                    let (w, h) = image::GenericImageView::dimensions(dynamic_image);
                     preview_lines.push(Line::from(Span::styled(
                         format!("Image {}x{}", w, h),
                         Style::default().fg(theme.dim),
                     )));
                     preview_lines.push(Line::from(""));
 
-                    // We need to scale it to fit the preview_area
-                    let term_w = preview_area.width.saturating_sub(4) as usize;
-                    let term_h = (preview_area.height.saturating_sub(4) * 2) as usize; // 2 pixels per char height
-
-                    if term_w > 0 && term_h > 0 && w > 0 && h > 0 {
-                        let scale = (w as f32 / term_w as f32)
-                            .max(h as f32 / term_h as f32)
-                            .max(1.0);
-                        let out_w = (w as f32 / scale) as usize;
-                        let out_h = (h as f32 / scale) as usize;
-
-                        let get_px = |x: usize, y: usize| -> (u8, u8, u8) {
-                            let src_x = (x as f32 * scale).min((w - 1) as f32) as usize;
-                            let src_y = (y as f32 * scale).min((h - 1) as f32) as usize;
-                            pixels[src_y * w + src_x]
-                        };
-
-                        // Render using half-blocks: top is fg, bottom is bg
-                        for y in (0..out_h).step_by(2) {
-                            let mut spans = Vec::with_capacity(out_w);
-                            for x in 0..out_w {
-                                let top = get_px(x, y);
-                                let bot = if y + 1 < out_h {
-                                    get_px(x, y + 1)
-                                } else {
-                                    (0, 0, 0)
-                                };
-
-                                let fg = Color::Rgb(top.0, top.1, top.2);
-                                let bg = if y + 1 < out_h {
-                                    Color::Rgb(bot.0, bot.1, bot.2)
-                                } else {
-                                    theme.bg
-                                };
-
-                                spans.push(Span::styled("▀", Style::default().fg(fg).bg(bg)));
-                            }
-                            preview_lines.push(Line::from(spans));
-                        }
+                    if let Some(picker) = &app.image_picker {
+                        let path_key = snap.items.get(*selected_idx).map(|i| i.path.to_string_lossy().to_string()).unwrap_or_default();
+                        let protocol = app.image_protocols.entry(path_key).or_insert_with(|| {
+                            picker.new_resize_protocol(dynamic_image.clone())
+                        });
+                        let image_widget = ratatui_image::StatefulImage::new();
+                        let mut img_area = preview_area;
+                        img_area.x += 1;
+                        img_area.y += 3;
+                        img_area.width = img_area.width.saturating_sub(2);
+                        img_area.height = img_area.height.saturating_sub(4);
+                        f.render_stateful_widget(image_widget, img_area, protocol);
+                    } else {
+                        preview_lines.push(Line::from("Image rendering not supported on this terminal."));
                     }
                 }
             }
