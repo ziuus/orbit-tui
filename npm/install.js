@@ -32,15 +32,15 @@ const ASSET = `vanta-${TARGET}.tar.gz`;
 const URL = `https://github.com/ziuus/vanta/releases/download/v${version}/${ASSET}`;
 
 // GitHub redirects release downloads to a CDN host, so follow Location.
-function download(url, hops = 0) {
+function download(url, hops = 0, retries = 3) {
   return new Promise((resolve, reject) => {
     if (hops > 5) return reject(new Error('too many redirects'));
-    https
+    const req = https
       .get(url, { headers: { 'user-agent': `@ziuus/vanta/${version}` } }, (res) => {
         const { statusCode, headers } = res;
         if (statusCode >= 300 && statusCode < 400 && headers.location) {
           res.resume();
-          return download(headers.location, hops + 1).then(resolve, reject);
+          return download(headers.location, hops + 1, retries).then(resolve, reject);
         }
         if (statusCode !== 200) {
           res.resume();
@@ -63,9 +63,23 @@ function download(url, hops = 0) {
           if (process.stderr.isTTY) process.stderr.write('\n');
           resolve(Buffer.concat(chunks));
         });
-        res.on('error', reject);
+        res.on('error', (err) => {
+          if (retries > 0) {
+            process.stderr.write(`\nvanta: download error (${err.message}), retrying...\n`);
+            resolve(download(url, hops, retries - 1));
+          } else {
+            reject(err);
+          }
+        });
       })
-      .on('error', reject);
+      .on('error', (err) => {
+        if (retries > 0) {
+          process.stderr.write(`\nvanta: download error (${err.message}), retrying...\n`);
+          resolve(download(url, hops, retries - 1));
+        } else {
+          reject(err);
+        }
+      });
   });
 }
 
