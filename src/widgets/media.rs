@@ -158,8 +158,7 @@ fn read_track(conn: &Connection, player: &str) -> Option<Track> {
 }
 
 /// Poll MPRIS once. Prefers a playing player, then a paused one.
-#[cfg(not(target_os = "linux"))]
-pub fn sample() {}
+
 
 #[cfg(target_os = "linux")]
 pub fn sample() {
@@ -234,8 +233,7 @@ pub fn current_track() -> Option<Track> {
 }
 
 /// Playback control on the currently displayed player. Fire-and-forget.
-#[cfg(not(target_os = "linux"))]
-pub fn control(_action: Action) {}
+
 
 #[cfg(target_os = "linux")]
 pub fn control(action: Action) {
@@ -483,4 +481,80 @@ pub fn snapshot_json() -> serde_json::Value {
         "players": players_json,
         "active": st.track.as_ref().map(|t| t.bus_name.clone())
     })
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+pub fn sample() {
+    // Start the background tokio runtime if it hasn't been started
+    static START: std::sync::Once = std::sync::Once::new();
+    START.call_once(|| {
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            
+            rt.block_on(async {
+                let Ok(controller) = nowplaying::MediaController::new().await else { return };
+                let Ok(mut events) = controller.subscribe().await else { return };
+                
+                let update_track = |current: &nowplaying::MediaSession| {
+                    let mut st = STATE.lock().unwrap();
+                    let t = Track {
+                        player: current.source.display_name.clone().unwrap_or_else(|| current.source.id.clone()),
+                        bus_name: current.id.clone(),
+                        status: match current.playback.status {
+                            nowplaying::PlaybackStatus::Playing => Status::Playing,
+                            nowplaying::PlaybackStatus::Paused => Status::Paused,
+                            _ => Status::Stopped,
+                        },
+                        title: current.track.as_ref().map(|tr| tr.title.clone()).unwrap_or_default(),
+                        artist: current.track.as_ref().and_then(|tr| tr.artist.clone()).unwrap_or_default(),
+                        album: current.track.as_ref().and_then(|tr| tr.album.clone()).unwrap_or_default(),
+                        length_us: current.track.as_ref().and_then(|tr| tr.duration_ms).unwrap_or(0) as i64 * 1000,
+                        position_us: current.playback.position_ms as i64 * 1000,
+                        volume: None,
+                        art_url: String::new(),
+                    };
+                    st.track = Some(t);
+                    st.stamp = Instant::now();
+                };
+
+                if let Ok(Some(current)) = controller.current().await {
+                    update_track(&current);
+                }
+
+                while let Some(_event) = events.recv().await {
+                    if let Ok(Some(current)) = controller.current().await {
+                        update_track(&current);
+                    } else {
+                        STATE.lock().unwrap().track = None;
+                    }
+                }
+            });
+        });
+    });
+}
+
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+pub fn control(action: Action) {
+    let id = {
+        let st = STATE.lock().unwrap();
+        st.track.as_ref().map(|t| t.bus_name.clone())
+    };
+    if let Some(id) = id {
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+            rt.block_on(async {
+                if let Ok(controller) = nowplaying::MediaController::new().await {
+                    let _ = match action {
+                        Action::PlayPause => controller.toggle_play_pause(&id).await,
+                        Action::Next => controller.next(&id).await,
+                        Action::Previous => controller.previous(&id).await,
+                        _ => Ok(()),
+                    };
+                }
+            });
+        });
+    }
 }
