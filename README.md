@@ -116,6 +116,22 @@ Where things live:
 
 Vanta respects `XDG_CONFIG_HOME` if you set it.
 
+## Cross-Platform Support
+
+Vanta was originally built as a Linux-first dashboard (it natively reads `/proc`, `/sys`, and `dbus` on Linux), but it is fully cross-platform and will dynamically fall back to the `sysinfo` crate on Windows and macOS.
+
+**What works everywhere (Windows / macOS / Linux):**
+- **Core System Stats**: CPU usage, Memory, Disk Space, Network I/O
+- **Process Manager**: Shows running processes, CPU/Mem usage, process tree, and kill/terminate signals
+- **File Manager**: Fully functional cross-platform (navigation, search, rename, open, trash)
+- **Image Engine / UI**: The Ratatui UI, terminal graphics (Braille/Clear mode), themes, and custom layouts
+
+**What is Linux-only (Will be hidden or disabled on Windows/macOS):**
+- **Systemd Services**: The services tab only works on Linux
+- **Media Player (MPRIS)**: The "Now Playing" widget uses Linux `dbus`
+- **Open Network Connections**: Port binding info uses Linux-specific socket APIs
+- **Fine-grained CPU stats**: `IOWait` percentage and specific CPU topology/temperature sensors rely directly on `/proc/stat` and `/sys`
+
 ## Pages
 
 | Key | Page | What's on it |
