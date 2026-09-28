@@ -300,7 +300,7 @@ fn render_dashboard_panel(
     match name.to_lowercase().as_str() {
         "system" => {
             let inner = panel(f, area, "system", theme, focus(PanelId::System));
-            system_info::render_neofetch(f, inner, theme, sum, term);
+            system_info::render_neofetch(f, inner, theme, sum, term, app.panel_states.force_robot_logo);
         }
         "gauges" | "gauge" => {
             let inner = panel(f, area, "gauges", theme, focus(PanelId::Gauges));

@@ -158,13 +158,13 @@ pub fn fmt_uptime(secs: u64) -> String {
 /// trick the graphs use, which renders as a solid shape on a capable font
 /// rather than the stair-stepped block art it replaces. Any non-space cell in
 /// a row is a lit dot; short rows are padded, so the input can be ragged.
-fn logo_lines(id: &str, height: u16, width: u16) -> Vec<String> {
+fn logo_lines(id: &str, height: u16, width: u16, force_robot: bool) -> Vec<String> {
     let known = [
         "arch", "archarm", "endeavouros", "manjaro", "cachyos", "ubuntu", "pop",
         "linuxmint", "fedora", "nobara", "debian", "raspbian", "nixos", "gentoo",
-        "opensuse", "opensuse-tumbleweed", "opensuse-leap",
+        "opensuse", "opensuse-tumbleweed", "opensuse-leap", "windows"
     ];
-    if !known.contains(&id) {
+    if force_robot || !known.contains(&id) {
         crate::anim::request(2);
         let millis = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -173,29 +173,34 @@ fn logo_lines(id: &str, height: u16, width: u16) -> Vec<String> {
         let step = (millis / 500) % 4;
 
         if height >= 14 && width >= 25 {
-            let (eyes, ant, mouth) = match step {
-                0 => ("◉ ◉", "  ⤐", "==="),
-                1 => ("◉ ◉", " ⤐ ", " - "),
-                2 => ("- -", "⤐  ", "==="),
-                3 => ("◉ ◉", " ⤐ ", " ▄ "),
-                _ => ("◉ ◉", "  ⤐", "==="),
+            let (eyes, ant, mouth, pulse) = match step {
+                0 => ("● ●", "  ⤐", "▰▰▰", "⚡"),
+                1 => ("⊙ ⊙", " ⤐ ", "▰ ▰", "  "),
+                2 => ("- -", "⤐  ", "▰▰▰", "⚡"),
+                3 => ("◈ ◈", " ⤐ ", " ▃ ", "  "),
+                _ => ("● ●", "  ⤐", "▰▰▰", "⚡"),
             };
             return vec![
-                format!("        {}    ", ant),
-                format!("        │    "),
-                format!("    ┌───┴───┐"),
-                format!("    │ ╭───╮ │"),
-                format!("  ──┤ │{}│ ├──", eyes),
-                format!("  ──┤ ╰───╯ ├──"),
-                format!("    │  {}  │", mouth),
-                format!("    └─┬───┬─┘"),
-                format!("   ╭──┴───┴──╮"),
-                format!("   │ ⚙     ⚙ │"),
-                format!("   ╰─────────╯"),
+                format!("       {}    ", ant),
+                format!("       /    "),
+                format!("    ╔══╧══╗ "),
+                format!("    ║ ╭──╮║ "),
+                format!(" ═══╣ │{}│╠═══", eyes),
+                format!("    ║ ╰──╯║ "),
+                format!("    ║ {} ║ ", mouth),
+                format!("    ╚═╤══╤╝ "),
+                format!("   ╔══╧══╧══╗ "),
+                format!("   ║ ⚙ {} ⚙ ║ ", pulse),
+                format!("   ╚════════╝ "),
             ];
         } else {
-            let eyes = if step == 2 { "- -" } else { "◉ ◉" };
-            let mouth = if step % 2 == 0 { "▄" } else { "-" };
+            let eyes = match step {
+                0 => "● ●",
+                1 => "⊙ ⊙",
+                2 => "- -",
+                _ => "◈ ◈"
+            };
+            let mouth = if step % 2 == 0 { "▃" } else { "-" };
             return vec![
                 "   ▄▄▄▄▄   ".into(),
                 "  ◢█▀▀▀█◣  ".into(),
@@ -303,19 +308,27 @@ fn block_logo(id: &str, height: u16, width: u16) -> Vec<&'static str> {
             " ◥█▄▄▄▄▄█◤ ",
             "   ▀▀▀▀▀   ",
         ],
+        "windows" => vec![
+            " ▄▄▄▄ ▄▄▄▄ ",
+            " ████ ████ ",
+            " ▀▀▀▀ ▀▀▀▀ ",
+            " ▄▄▄▄ ▄▄▄▄ ",
+            " ████ ████ ",
+            " ▀▀▀▀ ▀▀▀▀ ",
+        ],
         _ => vec![],
     }
 }
 
 /// Dashboard SYSTEM panel: distro logo left, neofetch-style facts right.
-pub fn render_neofetch(f: &mut Frame, area: Rect, theme: &Theme, sum: &Summary, term: (u16, u16)) {
+pub fn render_neofetch(f: &mut Frame, area: Rect, theme: &Theme, sum: &Summary, term: (u16, u16), force_robot: bool) {
     if area.height < 3 || area.width < 20 {
         return;
     }
     let facts = &*FACTS;
     // VANTA_LOGO forces a distro logo, for previewing art on any machine.
     let os_id = std::env::var("VANTA_LOGO").unwrap_or_else(|_| facts.os_id.clone());
-    let logo = logo_lines(&os_id, area.height, area.width);
+    let logo = logo_lines(&os_id, area.height, area.width, force_robot);
     let max_len = logo.iter().map(|l| l.chars().count()).max().unwrap_or(0);
     // +2 for the leading indent and a column of air before the facts.
     let logo_w: u16 = if area.width >= (max_len + 20) as u16 {

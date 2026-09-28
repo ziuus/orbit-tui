@@ -871,11 +871,6 @@ impl App {
                 let status = if self.panel_states.pixel_images { "Pixelated (Half-block)" } else { "Clear (High-res Protocol)" };
                 self.toast(format!("images · {}", status));
             }
-            KeyCode::Char('B') => {
-                self.panel_states.force_robot_logo = !self.panel_states.force_robot_logo;
-                let status = if self.panel_states.force_robot_logo { "Vanta Robot" } else { "OS Logo" };
-                self.toast(format!("logo · {}", status));
-            }
             KeyCode::Char('O') => {
                 let modes = ["spin", "tumble", "wobble", "swing"];
                 let pos = modes

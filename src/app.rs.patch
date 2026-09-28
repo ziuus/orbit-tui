@@ -1,0 +1,18 @@
+--- src/app.rs
++++ src/app.rs
+@@ -265,6 +265,7 @@
+     pub files_scroll: usize,
+     pub files_show_hidden: bool,
+     pub pixel_images: bool,
++    pub force_robot_logo: bool,
+     pub files_rename_input_active: bool,
+     pub files_rename_input: String,
+     pub files_search_input_active: bool,
+@@ -308,6 +309,7 @@
+             files_scroll: 0,
+             files_show_hidden: false,
+             pixel_images: true,
++            force_robot_logo: false,
+             files_rename_input_active: false,
+             files_rename_input: String::new(),
+             files_search_input_active: false,
