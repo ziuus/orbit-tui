@@ -25,7 +25,16 @@ pub fn render(
         .spacing(1)
         .split(area);
 
-    let list_area = chunks[0];
+    let has_input = app.panel_states.files_search_input_active || app.panel_states.files_rename_input_active;
+    let (list_area, input_area) = if has_input {
+        let v = ratatui::layout::Layout::default()
+            .direction(ratatui::layout::Direction::Vertical)
+            .constraints([ratatui::layout::Constraint::Min(0), ratatui::layout::Constraint::Length(3)])
+            .split(chunks[0]);
+        (v[0], Some(v[1]))
+    } else {
+        (chunks[0], None)
+    };
     let preview_area = chunks[1];
 
     let num_items = snap.items.len();
@@ -119,20 +128,29 @@ pub fn render(
                     )));
                     preview_lines.push(Line::from(""));
 
-                    if let Some(picker) = &app.image_picker {
-                        let path_key = snap.items.get(*selected_idx).map(|i| i.path.to_string_lossy().to_string()).unwrap_or_default();
-                        let protocol = app.image_protocols.entry(path_key).or_insert_with(|| {
-                            picker.new_resize_protocol(dynamic_image.clone())
-                        });
-                        let image_widget = ratatui_image::StatefulImage::new();
-                        let mut img_area = preview_area;
-                        img_area.x += 1;
-                        img_area.y += 3;
-                        img_area.width = img_area.width.saturating_sub(2);
-                        img_area.height = img_area.height.saturating_sub(4);
-                        f.render_stateful_widget(image_widget, img_area, protocol);
+                    let mut img_area = preview_area;
+                    img_area.x += 1;
+                    img_area.y += 3;
+                    img_area.width = img_area.width.saturating_sub(2);
+                    img_area.height = img_area.height.saturating_sub(4);
+
+                    if !app.panel_states.pixel_images && app.image_picker.is_some() {
+                        if let Some(picker) = &app.image_picker {
+                            let path_key = snap.items.get(*selected_idx).map(|i| i.path.to_string_lossy().to_string()).unwrap_or_default();
+                            let protocol = app.image_protocols.entry(path_key).or_insert_with(|| {
+                                picker.new_resize_protocol(dynamic_image.clone())
+                            });
+                            let image_widget = ratatui_image::StatefulImage::new();
+                            f.render_stateful_widget(image_widget, img_area, protocol);
+                        }
                     } else {
-                        preview_lines.push(Line::from("Image rendering not supported on this terminal."));
+                        // Fallback to pixelated (braille)
+                        let braille_lines = crate::widgets::braille_image::render_image(
+                            dynamic_image,
+                            img_area.width,
+                            img_area.height,
+                        );
+                        preview_lines.extend(braille_lines);
                     }
                 }
             }
@@ -143,4 +161,17 @@ pub fn render(
         Paragraph::new(preview_lines).wrap(Wrap { trim: false }),
         preview_area,
     );
+
+    if let Some(i_area) = input_area {
+        let (title, content) = if app.panel_states.files_rename_input_active {
+            ("Rename (Enter to save)", &app.panel_states.files_rename_input)
+        } else {
+            ("Search (Esc to cancel)", &app.panel_states.files_search_input)
+        };
+        let b = Block::default()
+            .borders(ratatui::widgets::Borders::ALL)
+            .border_style(ratatui::style::Style::default().fg(theme.accent))
+            .title(title);
+        f.render_widget(Paragraph::new(format!("{}█", content)).block(b), i_area);
+    }
 }

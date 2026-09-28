@@ -127,12 +127,13 @@ pub fn scenes(app: &App) -> Vec<Scene> {
     v
 }
 
-pub fn render(f: &mut Frame, area: Rect, app: &App) {
+pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
     if area.width < MIN.0 || area.height < MIN.1 {
-        too_small(f, area, &app.theme, MIN);
+        too_small(f, area, &app.theme.clone(), MIN);
         return;
     }
-    let theme = &app.theme;
+    let theme_clone = app.theme.clone();
+    let theme = &theme_clone;
     let list = scenes(app);
     let idx = app
         .ambient
@@ -262,7 +263,7 @@ fn drift(area: Rect, ax: u16, ay: u16, t: u64) -> Rect {
     )
 }
 
-fn big_clock(f: &mut Frame, area: Rect, app: &App, theme: &Theme) {
+fn big_clock(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     let note = upnext::next_note();
     clock::render_with_note(
         f,
@@ -291,7 +292,7 @@ fn weather_line(f: &mut Frame, area: Rect, theme: &Theme) {
 
 /// The audio horizon stays pinned to the bottom edge; only the clock
 /// block above it drifts vertically.
-fn horizon(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
+fn horizon(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme, t: u64) {
     let viz_h = (area.height / 4).clamp(4, 10);
     let [sky, viz] = Layout::vertical([Constraint::Min(0), Constraint::Length(viz_h)]).areas(area);
     let sky = drift(sky, 0, 1, t);
@@ -321,7 +322,7 @@ fn horizon(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
     }
 }
 
-fn flip(f: &mut Frame, area: Rect, app: &App, theme: &Theme) {
+fn flip(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     let transparent = app
         .config
         .ui
@@ -340,7 +341,7 @@ fn flip(f: &mut Frame, area: Rect, app: &App, theme: &Theme) {
 
 /// Full-bleed map with a small legend that wanders along the bottom-left
 /// corner (the map itself is always moving, so only the legend needs it).
-fn topo(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
+fn topo(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme, t: u64) {
     crate::widgets::topo::render(
         f,
         area,
@@ -370,7 +371,7 @@ fn topo(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
     );
 }
 
-fn rain(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
+fn rain(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme, t: u64) {
     matrix::render(f, area, theme);
     let w = (area.width * 3 / 5).clamp(40, 90).min(area.width);
     let h = 12.min(area.height);
@@ -393,7 +394,7 @@ fn rain(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
     big_clock(f, inner, app, theme);
 }
 
-fn orbit(f: &mut Frame, area: Rect, app: &App, theme: &Theme) {
+fn orbit(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     let [left, right] =
         Layout::horizontal([Constraint::Percentage(55), Constraint::Percentage(45)]).areas(area);
     video::render_with_motion(
@@ -417,11 +418,11 @@ fn orbit(f: &mut Frame, area: Rect, app: &App, theme: &Theme) {
     big_clock(f, clk, app, theme);
     weather_line(f, wx, theme);
     if media::current_player().is_some() {
-        media::render(f, track, theme);
+        media::render(f, track, app);
     }
 }
 
-fn studio(f: &mut Frame, area: Rect, app: &App, theme: &Theme) {
+fn studio(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     let [_, info, _, viz] = Layout::vertical([
         Constraint::Length(1),
         Constraint::Length((area.height / 3).clamp(4, 10)),
@@ -433,23 +434,24 @@ fn studio(f: &mut Frame, area: Rect, app: &App, theme: &Theme) {
     media::render(
         f,
         Rect::new(info.x + pad, info.y, info.width - 2 * pad, info.height),
-        theme,
+        app,
     );
     music_viz::render(f, viz, theme, app.frame);
 }
 
-fn gallery(f: &mut Frame, area: Rect, app: &App, theme: &Theme, _t: u64) {
+fn gallery(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme, _t: u64) {
     crate::anim::request(6);
 
     let gallery_area = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(1));
     if gallery_area.width < 50 || gallery_area.height < 12 {
         let [img_box, time_box] =
             Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(gallery_area);
+        let p = app.config.ui.pinned_media_path.clone();
         pinned_media::render(
             f,
             img_box,
-            theme,
-            &app.config.ui.pinned_media_path,
+            app,
+            &p,
             app.frame,
         );
         let time = if app.config.ui.clock_24h {
@@ -593,11 +595,12 @@ fn gallery(f: &mut Frame, area: Rect, app: &App, theme: &Theme, _t: u64) {
     let inner_art = art_block.inner(left_col);
     f.render_widget(art_block, left_col);
 
+    let p = app.config.ui.pinned_media_path.clone();
     pinned_media::render(
         f,
         inner_art,
-        theme,
-        &app.config.ui.pinned_media_path,
+        app,
+        &p,
         app.frame,
     );
 
@@ -718,7 +721,7 @@ fn gallery(f: &mut Frame, area: Rect, app: &App, theme: &Theme, _t: u64) {
 
     // 3. Audio & Harmonics Section
     if media::current_player().is_some() {
-        media::render(f, audio_section, theme);
+        media::render(f, audio_section, app);
     } else {
         let wave_chars = [' ', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
         let wave_len = (audio_section.width.saturating_sub(6)).clamp(8, 36) as usize;
@@ -795,15 +798,15 @@ fn render_footer(f: &mut Frame, area: Rect, theme: &Theme, list: &[Scene], idx: 
     );
 }
 
-fn starfield(f: &mut Frame, area: Rect, _app: &App, theme: &Theme) {
+fn starfield(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     crate::widgets::starfield::render(f, area, theme);
 }
 
-fn life(f: &mut Frame, area: Rect, _app: &App, theme: &Theme) {
+fn life(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     crate::widgets::life::render(f, area, theme);
 }
 
-fn snow(f: &mut Frame, area: Rect, _app: &App, theme: &Theme) {
+fn snow(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     crate::widgets::snow::render(f, area, theme);
 }
 

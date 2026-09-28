@@ -261,6 +261,12 @@ pub struct PanelStates {
     pub writer_selected: usize,
     pub files_selected: usize,
     pub files_scroll: usize,
+    pub files_show_hidden: bool,
+    pub pixel_images: bool,
+    pub files_rename_input_active: bool,
+    pub files_rename_input: String,
+    pub files_search_input_active: bool,
+    pub files_search_input: String,
     pub tasks_selected: usize,
     pub task_input_active: bool,
     pub task_input: String,
@@ -294,6 +300,12 @@ impl Default for PanelStates {
             writer_selected: 0,
             files_selected: 0,
             files_scroll: 0,
+            files_show_hidden: false,
+            pixel_images: false,
+            files_rename_input_active: false,
+            files_rename_input: String::new(),
+            files_search_input_active: false,
+            files_search_input: String::new(),
             tasks_selected: 0,
             task_input_active: false,
             task_input: String::new(),
@@ -604,6 +616,59 @@ impl App {
             return;
         }
 
+        if ps.files_rename_input_active {
+            match key.code {
+                KeyCode::Esc => {
+                    ps.files_rename_input_active = false;
+                    ps.files_rename_input.clear();
+                }
+                KeyCode::Enter => {
+                    if !ps.files_rename_input.trim().is_empty() {
+                        let snap = crate::monitors::files::snapshot();
+                        if let Some(item) = snap.items.get(ps.files_selected) {
+                            let mut new_path = item.path.clone();
+                            new_path.set_file_name(&ps.files_rename_input);
+                            let _ = std::fs::rename(&item.path, &new_path);
+                            let current = snap.current_dir.clone();
+                            std::thread::spawn(move || {
+                                std::thread::sleep(std::time::Duration::from_millis(100));
+                                crate::monitors::files::chdir(&current);
+                            });
+                        }
+                    }
+                    ps.files_rename_input_active = false;
+                    ps.files_rename_input.clear();
+                }
+                KeyCode::Backspace => {
+                    ps.files_rename_input.pop();
+                }
+                KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    ps.files_rename_input.push(c);
+                }
+                _ => {}
+            }
+            return;
+        }
+
+        if ps.files_search_input_active {
+            match key.code {
+                KeyCode::Esc | KeyCode::Enter => {
+                    ps.files_search_input_active = false;
+                    if key.code == KeyCode::Esc {
+                        ps.files_search_input.clear();
+                    }
+                }
+                KeyCode::Backspace => {
+                    ps.files_search_input.pop();
+                }
+                KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    ps.files_search_input.push(c);
+                }
+                _ => {}
+            }
+            return;
+        }
+
         if ps.process_search_active {
             match key.code {
                 KeyCode::Esc => {
@@ -798,6 +863,11 @@ impl App {
                     "paused"
                 };
                 self.toast(format!("motion · {}", status));
+            }
+            KeyCode::Char('I') => {
+                self.panel_states.pixel_images = !self.panel_states.pixel_images;
+                let status = if self.panel_states.pixel_images { "Pixelated (Half-block)" } else { "Clear (High-res Protocol)" };
+                self.toast(format!("images · {}", status));
             }
             KeyCode::Char('O') => {
                 let modes = ["spin", "tumble", "wobble", "swing"];

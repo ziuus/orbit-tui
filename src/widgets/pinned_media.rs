@@ -35,6 +35,7 @@ struct CachedMedia {
     area_width: u16,
     area_height: u16,
     lines: Vec<Line<'static>>,
+    img: Option<image::DynamicImage>,
 
     // Slideshow state
     is_dir: bool,
@@ -44,7 +45,8 @@ struct CachedMedia {
     info: MediaInfo,
 }
 
-pub fn render(f: &mut Frame, area: Rect, theme: &Theme, path: &str, tick: u64) {
+pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App, path: &str, tick: u64) {
+    let theme = &app.theme;
     // If path is empty, we will use the built-in default image
     let actual_path = if path.is_empty() {
         "default_fallback"
@@ -142,6 +144,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, path: &str, tick: u64) {
             image::open(&file_to_load)
         };
 
+        let mut cached_img = None;
         let mut orig_width = 0;
         let mut orig_height = 0;
         let mut palette = Vec::new();
@@ -150,6 +153,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, path: &str, tick: u64) {
             Ok(img) => {
                 orig_width = img.width();
                 orig_height = img.height();
+                cached_img = Some(img.clone());
 
                 let rgb_img = img.to_rgb8();
                 let target_w = area.width as u32;
@@ -242,6 +246,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, path: &str, tick: u64) {
                 area_width: area.width,
                 area_height: area.height,
                 lines,
+                img: cached_img,
                 is_dir,
                 images,
                 current_idx,
@@ -253,8 +258,23 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, path: &str, tick: u64) {
 
     CACHED_IMAGE.with(|c| {
         if let Some(cache) = c.borrow().as_ref() {
-            let p = Paragraph::new(cache.lines.clone()).alignment(Alignment::Center);
-            f.render_widget(p, area);
+            let mut rendered = false;
+            if !app.panel_states.pixel_images && app.image_picker.is_some() {
+                if let (Some(picker), Some(img)) = (&app.image_picker, &cache.img) {
+                    let path_key = cache.path.clone();
+                    let protocol = app.image_protocols.entry(path_key).or_insert_with(|| {
+                        picker.new_resize_protocol(img.clone())
+                    });
+                    let image_widget = ratatui_image::StatefulImage::new();
+                    let mut img_area = area;
+                    f.render_stateful_widget(image_widget, img_area, protocol);
+                    rendered = true;
+                }
+            }
+            if !rendered {
+                let p = Paragraph::new(cache.lines.clone()).alignment(Alignment::Center);
+                f.render_widget(p, area);
+            }
         }
     });
 }

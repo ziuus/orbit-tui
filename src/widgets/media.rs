@@ -53,7 +53,7 @@ struct State {
     /// When `track.position_us` was read, so the bar can advance smoothly
     /// between samples while playing.
     stamp: Instant,
-    art: Option<(String, u16, u16, Vec<Line<'static>>)>,
+    art: Option<(String, u16, u16, Vec<Line<'static>>, Option<image::DynamicImage>)>,
 }
 
 static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
@@ -293,22 +293,25 @@ fn fmt_dur(us: i64) -> String {
     }
 }
 
-fn art_lines(st: &mut State, url: &str, w: u16, h: u16) -> Option<Vec<Line<'static>>> {
-    if let Some((u, cw, ch, lines)) = &st.art {
+fn art_data(st: &mut State, url: &str, w: u16, h: u16) -> (Option<Vec<Line<'static>>>, Option<image::DynamicImage>) {
+    if let Some((u, cw, ch, lines, img)) = &st.art {
         if u == url && *cw == w && *ch == h {
-            return (!lines.is_empty()).then(|| lines.clone());
+            return ((!lines.is_empty()).then(|| lines.clone()), img.clone());
         }
     }
-    // Cache misses too (empty vec) so an undecodable file isn't retried per frame.
-    let lines = url
-        .strip_prefix("file://")
-        .and_then(|p| braille_image::render_path(&percent_decode(p), w, h))
-        .unwrap_or_default();
-    st.art = Some((url.to_string(), w, h, lines.clone()));
-    (!lines.is_empty()).then_some(lines)
+    let decoded_path = url.strip_prefix("file://").map(|p| percent_decode(p)).unwrap_or_else(|| url.to_string());
+    let img_opt = crate::widgets::braille_image::load_image(&decoded_path);
+    let lines = if let Some(img) = &img_opt {
+        crate::widgets::braille_image::render_image(img, w, h)
+    } else {
+        Vec::new()
+    };
+    st.art = Some((url.to_string(), w, h, lines.clone(), img_opt.clone()));
+    ((!lines.is_empty()).then(|| lines), img_opt)
 }
 
-pub fn render(f: &mut Frame, area: Rect, theme: &Theme) {
+pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
+    let theme = &app.theme;
     if area.height < 1 || area.width < 16 {
         return;
     }
@@ -321,46 +324,60 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme) {
             "♪ nothing playing"
         };
         f.render_widget(
-            Paragraph::new(Line::from(Span::styled(
-                msg,
-                Style::default().fg(theme.dim),
-            )))
-            .alignment(ratatui::layout::Alignment::Center),
+            Paragraph::new(msg)
+                .alignment(ratatui::layout::Alignment::Center)
+                .style(Style::default().fg(theme.dim)),
             Rect::new(area.x, y, area.width, 1),
         );
         return;
     };
 
-    // Album art on the left when there is room for it.
-    let art_w: u16 = if area.height >= 4 && area.width >= 32 {
+    let art_w = if area.width > 40 {
         (area.height * 2).min(16)
     } else {
         0
     };
-    let art = if art_w > 0 && !track.art_url.is_empty() {
-        art_lines(&mut st, &track.art_url, art_w, area.height)
+    let (art_lines_opt, art_img) = if art_w > 0 && !track.art_url.is_empty() {
+        art_data(&mut st, &track.art_url, art_w, area.height)
     } else {
-        None
+        (None, None)
     };
     drop(st);
 
-    let text_area = match &art {
-        Some(lines) => {
-            let h = (lines.len() as u16).min(area.height);
-            let top = area.height.saturating_sub(h) / 2;
-            f.render_widget(
-                Paragraph::new(lines.clone()),
-                Rect::new(area.x, area.y + top, art_w, h),
-            );
-            Rect::new(
-                area.x + art_w + 2,
-                area.y,
-                area.width.saturating_sub(art_w + 2),
-                area.height,
-            )
+    let text_area = if art_w > 0 && (art_lines_opt.is_some() || art_img.is_some()) {
+        let h = art_lines_opt.as_ref().map(|l| l.len() as u16).unwrap_or(area.height).min(area.height);
+        let top = area.height.saturating_sub(h) / 2;
+        let img_area = Rect::new(area.x, area.y + top, art_w, h);
+        
+        let mut rendered_img = false;
+        if !app.panel_states.pixel_images && app.image_picker.is_some() {
+            if let (Some(picker), Some(img)) = (&app.image_picker, &art_img) {
+                let path_key = track.art_url.clone();
+                let protocol = app.image_protocols.entry(path_key).or_insert_with(|| {
+                    picker.new_resize_protocol(img.clone())
+                });
+                let image_widget = ratatui_image::StatefulImage::new();
+                f.render_stateful_widget(image_widget, img_area, protocol);
+                rendered_img = true;
+            }
         }
-        None => area,
+        
+        if !rendered_img {
+            if let Some(lines) = art_lines_opt {
+                f.render_widget(Paragraph::new(lines).alignment(ratatui::layout::Alignment::Center), img_area);
+            }
+        }
+        
+        Rect::new(
+            area.x + art_w + 2,
+            area.y,
+            area.width.saturating_sub(art_w + 2),
+            area.height,
+        )
+    } else {
+        area
     };
+
 
     // Smooth position: advance by wall time since the last sample while playing.
     let elapsed = STATE.lock().unwrap().stamp.elapsed().as_micros() as i64;

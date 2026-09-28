@@ -90,7 +90,7 @@ pub fn too_small(f: &mut Frame, area: Rect, theme: &Theme, need: (u16, u16)) {
 }
 
 /// Render one panel filling `area` — used by zoom (Enter on a focused panel).
-pub fn render_panel(f: &mut Frame, area: Rect, app: &crate::app::App, id: crate::app::PanelId) {
+pub fn render_panel(f: &mut Frame, area: Rect, app: &mut crate::app::App, id: crate::app::PanelId) {
     use crate::app::PanelId as P;
     use crate::monitors::{cpu, disk, gpu, memory, network, system_info};
     use crate::widgets::{calendar, clock, gauge, matrix, media, music_viz, status, video};
@@ -148,7 +148,7 @@ pub fn render_panel(f: &mut Frame, area: Rect, app: &crate::app::App, id: crate:
             &app.config.ui.clock_style,
             &app.config.ui.timezones,
         ),
-        P::Media => media::render(f, inner, theme),
+        P::Media => media::render(f, inner, app),
         P::Visualizer => music_viz::render(f, inner, theme, app.frame),
         P::Status => status::render(f, inner, theme, false, 0),
         P::Calendar => calendar::render(f, inner, theme, app.panel_states.calendar_month_offset),
@@ -176,13 +176,11 @@ pub fn render_panel(f: &mut Frame, area: Rect, app: &crate::app::App, id: crate:
             &app.panel_states.task_input,
         ),
         P::News => crate::widgets::news::render(f, inner, theme),
-        P::PinnedMedia => crate::widgets::pinned_media::render(
-            f,
-            inner,
-            theme,
-            &app.config.ui.pinned_media_path,
-            app.frame,
-        ),
+        P::PinnedMedia => {
+            let path = app.config.ui.pinned_media_path.clone();
+            let frame = app.frame;
+            crate::widgets::pinned_media::render(f, inner, app, &path, frame);
+        }
         P::WriterNotes => {}
         P::Files => {}
         P::Processes => {

@@ -405,10 +405,10 @@ fn render_dashboard_panel(
                     Constraint::Min(1),
                 ])
                 .areas(inner);
-                media::render(f, info, theme);
+                media::render(f, info, app);
                 music_viz::render(f, viz, theme, app.frame);
             } else {
-                media::render(f, inner, theme);
+                media::render(f, inner, app);
             }
         }
         "upnext" | "up_next" | "up-next" | "next" => {
@@ -604,12 +604,14 @@ fn render_dashboard_panel(
                 "media preview".to_string()
             };
             let inner = panel(f, area, &hint, theme, focus(PanelId::PinnedMedia));
+            let path = app.config.ui.pinned_media_path.clone();
+            let frame = app.frame;
             crate::widgets::pinned_media::render(
                 f,
                 inner,
-                theme,
-                &app.config.ui.pinned_media_path,
-                app.frame,
+                app,
+                &path,
+                frame,
             );
         }
         "video" | "donut" => {
