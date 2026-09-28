@@ -302,7 +302,7 @@ impl Default for PanelStates {
             files_selected: 0,
             files_scroll: 0,
             files_show_hidden: false,
-            pixel_images: false,
+            pixel_images: true,
             force_robot_logo: false,
             files_rename_input_active: false,
             files_rename_input: String::new(),
