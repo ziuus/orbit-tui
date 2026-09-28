@@ -14,8 +14,8 @@ pub fn render(
 ) {
     let theme = &app.theme;
     let is_focused = app.focused_panel == Some(crate::app::PanelId::Files);
-    let selected_idx = &mut app.panel_states.files_selected;
-    let scroll = &mut app.panel_states.files_scroll;
+    let mut selected_idx = app.panel_states.files_selected;
+    let mut scroll = app.panel_states.files_scroll;
     let snap = files::snapshot();
 
     // Split 40% list, 60% preview
@@ -37,12 +37,14 @@ pub fn render(
     };
     let preview_area = chunks[1];
 
-    let num_items = snap.items.len();
+    let items = app.get_filtered_files(&snap);
+    let num_items = items.len();
 
     // Adjust selected index
     let max_idx = num_items.saturating_sub(1);
-    *selected_idx = (*selected_idx).min(max_idx);
-    let selected = *selected_idx;
+    selected_idx = (selected_idx).min(max_idx);
+    let selected = selected_idx;
+    app.panel_states.files_selected = selected;
 
     let cur_dir = snap.current_dir.to_string_lossy();
     let header = Paragraph::new(vec![
@@ -75,18 +77,17 @@ pub fn render(
     f.render_widget(header, list_chunks[0]);
 
     let visible_items = list_chunks[1].height as usize;
-    if selected < *scroll {
-        *scroll = selected;
-    } else if selected >= *scroll + visible_items && visible_items > 0 {
-        *scroll = selected.saturating_sub(visible_items - 1);
+    if selected < scroll {
+        scroll = selected;
+    } else if selected >= scroll + visible_items && visible_items > 0 {
+        scroll = selected.saturating_sub(visible_items - 1);
     }
+    app.panel_states.files_scroll = scroll;
 
     let mut list_lines = Vec::new();
-    for (i, item) in snap
-        .items
-        .iter()
+    for (i, item) in items.iter()
         .enumerate()
-        .skip(*scroll)
+        .skip(scroll)
         .take(visible_items)
     {
         let prefix = if i == selected { " > " } else { "   " };
@@ -136,7 +137,7 @@ pub fn render(
 
                     if !app.panel_states.pixel_images && app.image_picker.is_some() {
                         if let Some(picker) = &app.image_picker {
-                            let path_key = snap.items.get(*selected_idx).map(|i| i.path.to_string_lossy().to_string()).unwrap_or_default();
+                            let path_key = snap.items.get(selected_idx).map(|i| i.path.to_string_lossy().to_string()).unwrap_or_default();
                             let protocol = app.image_protocols.entry(path_key).or_insert_with(|| {
                                 picker.new_resize_protocol(dynamic_image.clone())
                             });
