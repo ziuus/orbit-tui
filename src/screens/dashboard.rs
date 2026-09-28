@@ -597,14 +597,17 @@ fn render_dashboard_panel(
             );
             crate::widgets::news::render(f, inner, theme);
         }
-        "pinned_media" | "media_preview" | "media-preview" | "image" => {
+        s if s.starts_with("pinned_media") || s.starts_with("media_preview") || s.starts_with("media-preview") || s.starts_with("image") => {
             let hint = if app.panel_states.pinned_media_input_active {
                 format!("media path: {}_", app.panel_states.pinned_media_input)
             } else {
                 "media preview".to_string()
             };
             let inner = panel(f, area, &hint, theme, focus(PanelId::PinnedMedia));
-            let path = app.config.ui.pinned_media_path.clone();
+            let mut path = app.config.ui.pinned_media_path.clone();
+            if let Some((_, custom_path)) = s.split_once(':') {
+                path = custom_path.to_string();
+            }
             let frame = app.frame;
             crate::widgets::pinned_media::render(
                 f,
