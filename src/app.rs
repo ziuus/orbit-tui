@@ -358,6 +358,12 @@ pub struct App {
     /// Image protocol picker for ratatui-image rendering.
     pub image_picker: Option<ratatui_image::picker::Picker>,
     pub image_protocols: std::collections::HashMap<String, ratatui_image::protocol::StatefulProtocol>,
+    /// Sender to the background resize-encode worker thread.
+    pub image_resize_tx: Option<std::sync::mpsc::Sender<ratatui_image::thread::ResizeRequest>>,
+    /// Receiver for completed resize responses from the worker.
+    pub image_resize_rx: Option<std::sync::mpsc::Receiver<Result<ratatui_image::thread::ResizeResponse, ratatui_image::errors::Errors>>>,
+    /// Non-blocking ThreadProtocol image states keyed by path.
+    pub thread_protocols: std::collections::HashMap<String, ratatui_image::thread::ThreadProtocol>,
 }
 
 impl App {
@@ -418,7 +424,26 @@ impl App {
             custom_widgets,
             image_picker: Some(ratatui_image::picker::Picker::from_query_stdio().unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks())),
             image_protocols: std::collections::HashMap::new(),
+            image_resize_tx: None,
+            image_resize_rx: None,
+            thread_protocols: std::collections::HashMap::new(),
         };
+
+        // Spin up the persistent background thread for non-blocking image resize+encode.
+        {
+            let (tx_worker, rx_worker) = std::sync::mpsc::channel::<ratatui_image::thread::ResizeRequest>();
+            let (tx_done, rx_done) = std::sync::mpsc::channel();
+            std::thread::Builder::new()
+                .name("vanta-image-encoder".into())
+                .spawn(move || {
+                    while let Ok(req) = rx_worker.recv() {
+                        let _ = tx_done.send(req.resize_encode());
+                    }
+                })
+                .ok();
+            app.image_resize_tx = Some(tx_worker);
+            app.image_resize_rx = Some(rx_done);
+        }
         if mode.clone() == DashboardMode::Monitor {
             app.focused_panel = Some(PanelId::Processes);
         }
@@ -1484,6 +1509,22 @@ impl App {
             .is_some_and(|(_, t)| t.elapsed() > Duration::from_secs(3))
         {
             self.toast = None;
+        }
+
+        // Drain any completed image encodes from the background thread.
+        if let Some(rx) = &self.image_resize_rx {
+            while let Ok(result) = rx.try_recv() {
+                if let Ok(response) = result {
+                    // ThreadProtocol::update_resized_protocol takes ownership.
+                    // Find the first protocol and feed it — it checks the ID internally.
+                    let mut iter = self.thread_protocols.values_mut();
+                    if let Some(proto) = iter.next() {
+                        if proto.update_resized_protocol(response) {
+                            crate::anim::request(2);
+                        }
+                    }
+                }
+            }
         }
 
         // Advance custom widget history buffers before any rendering.

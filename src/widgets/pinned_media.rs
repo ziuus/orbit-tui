@@ -267,15 +267,22 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App, path: &str, 
     CACHED_IMAGE.with(|c| {
         if let Some(cache) = c.borrow().as_ref() {
             let mut rendered = false;
-            if !app.panel_states.pixel_images && app.image_picker.is_some() {
-                if let (Some(picker), Some(img)) = (&app.image_picker, &cache.img) {
+            if !app.panel_states.pixel_images {
+                if let (Some(picker), Some(tx), Some(img)) = (
+                    &app.image_picker,
+                    &app.image_resize_tx,
+                    &cache.img,
+                ) {
                     let path_key = cache.path.clone();
-                    let protocol = app.image_protocols.entry(path_key).or_insert_with(|| {
-                        picker.new_resize_protocol(img.clone())
+                    let img_clone = img.clone();
+                    let picker_clone = picker.clone();
+                    let tx_clone = tx.clone();
+                    let proto = app.thread_protocols.entry(path_key).or_insert_with(|| {
+                        let stateful = picker_clone.new_resize_protocol(img_clone);
+                        ratatui_image::thread::ThreadProtocol::new(tx_clone, Some(stateful))
                     });
                     let image_widget = ratatui_image::StatefulImage::new();
-                    let mut img_area = area;
-                    f.render_stateful_widget(image_widget, img_area, protocol);
+                    f.render_stateful_widget(image_widget, area, proto);
                     rendered = true;
                 }
             }
