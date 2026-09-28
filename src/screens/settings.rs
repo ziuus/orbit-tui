@@ -49,6 +49,8 @@ pub enum SettingType {
     WidgetMatrix,
     WidgetVideo,
     WidgetPinnedMedia,
+    ImageQuality,
+    SystemLogo,
 }
 
 pub const SETTINGS_ITEMS: &[(SettingType, &str)] = &[
@@ -82,6 +84,8 @@ pub const SETTINGS_ITEMS: &[(SettingType, &str)] = &[
     (SettingType::WidgetMatrix, "Show Matrix"),
     (SettingType::WidgetVideo, "Show Video"),
     (SettingType::WidgetPinnedMedia, "Show Pinned Media"),
+    (SettingType::ImageQuality, "Image Engine"),
+    (SettingType::SystemLogo, "System Logo"),
 ];
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
@@ -256,6 +260,20 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
                     "on".to_string()
                 } else {
                     "off".to_string()
+                }
+            }
+            SettingType::ImageQuality => {
+                if app.panel_states.pixel_images {
+                    "Pixelated (Braille)".to_string()
+                } else {
+                    "Clear (High-Res)".to_string()
+                }
+            }
+            SettingType::SystemLogo => {
+                if app.panel_states.force_robot_logo {
+                    "Vanta Robot".to_string()
+                } else {
+                    "OS Ascii Logo".to_string()
                 }
             }
         };
@@ -481,6 +499,12 @@ fn change_setting(app: &mut App, forward: bool) {
         SettingType::WidgetVideo => app.config.widgets.video = !app.config.widgets.video,
         SettingType::WidgetPinnedMedia => {
             app.config.widgets.pinned_media = !app.config.widgets.pinned_media
+        }
+        SettingType::ImageQuality => {
+            app.panel_states.pixel_images = !app.panel_states.pixel_images;
+        }
+        SettingType::SystemLogo => {
+            app.panel_states.force_robot_logo = !app.panel_states.force_robot_logo;
         }
     }
     app.config.save();
