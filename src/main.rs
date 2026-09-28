@@ -58,10 +58,10 @@ fn main() -> io::Result<()> {
         app.show_settings = true;
     }
     if let cli::RunMode::Setup = run_mode {
-        app.show_settings = true;
+        app.show_setup_wizard = true;
     }
     if is_first_run {
-        app.show_settings = true;
+        app.show_setup_wizard = true;
     }
     app.ext_manager.register(
         Box::new(vanta::extension::template::TemplateExtension),

@@ -207,3 +207,4 @@ pub fn render_panel(f: &mut Frame, area: Rect, app: &mut crate::app::App, id: cr
         }
     }
 }
+pub mod setup_wizard;
