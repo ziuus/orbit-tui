@@ -329,19 +329,20 @@ pub fn render_storage(f: &mut Frame, area: Rect, theme: &Theme) {
             } else {
                 String::new()
             };
-            let bar_w = (area.width as usize)
-                .saturating_sub(
-                    label.chars().count() + pct_s.chars().count() + size.chars().count(),
-                )
-                .max(4);
-            let (on, off) = meter::track(pct / 100.0, bar_w);
-            Line::from(vec![
-                Span::styled(label, Style::default().fg(theme.dim)),
-                Span::styled(on, Style::default().fg(c)),
-                Span::styled(off, Style::default().fg(theme.surface)),
-                Span::styled(pct_s, Style::default().fg(c)),
-                Span::styled(size, Style::default().fg(theme.dim)),
-            ])
+            let bar_w = (area.width as usize).saturating_sub(
+                label.chars().count() + pct_s.chars().count() + size.chars().count(),
+            );
+            let mut spans = vec![Span::styled(label, Style::default().fg(theme.dim))];
+            if bar_w >= 2 {
+                let (on, off) = meter::track(pct / 100.0, bar_w);
+                spans.push(Span::styled(on, Style::default().fg(c)));
+                spans.push(Span::styled(off, Style::default().fg(theme.surface)));
+            }
+            spans.push(Span::styled(pct_s, Style::default().fg(c)));
+            if !size.is_empty() {
+                spans.push(Span::styled(size, Style::default().fg(theme.dim)));
+            }
+            Line::from(spans)
         })
         .collect();
     let top = area.height.saturating_sub(lines.len() as u16) / 2;

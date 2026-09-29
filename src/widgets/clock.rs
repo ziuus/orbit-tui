@@ -324,17 +324,39 @@ pub fn render_with_note(
         Paragraph::new(lines),
         Rect::new(left, top, area.width.saturating_sub(left - area.x), n),
     );
-    let date_y = top + n + 2;
+    let date_y = if area.height >= n + 3 {
+        top + n + 2
+    } else if area.height >= n + 2 {
+        top + n + 1
+    } else {
+        area.y + area.height // doesn't fit
+    };
+
     if date_y < area.y + area.height {
-        let weekday = now.format("%A").to_string().to_uppercase();
-        let day_month_year = now.format("%d %B %Y").to_string().to_uppercase();
-        f.render_widget(
-            Paragraph::new(Line::from(vec![
+        let line = if area.width >= 36 {
+            let weekday = now.format("%A").to_string().to_uppercase();
+            let day_month_year = now.format("%d %B %Y").to_string().to_uppercase();
+            Line::from(vec![
                 Span::styled(weekday, Style::default().fg(theme.dim)),
                 Span::styled("   ·   ", Style::default().fg(theme.accent)),
                 Span::styled(day_month_year, Style::default().fg(theme.dim)),
-            ]))
-            .alignment(Alignment::Center),
+            ])
+        } else if area.width >= 24 {
+            let weekday = now.format("%a").to_string().to_uppercase();
+            let day_month_year = now.format("%d %b %Y").to_string().to_uppercase();
+            Line::from(vec![
+                Span::styled(weekday, Style::default().fg(theme.dim)),
+                Span::styled(" · ", Style::default().fg(theme.accent)),
+                Span::styled(day_month_year, Style::default().fg(theme.dim)),
+            ])
+        } else {
+            Line::from(Span::styled(
+                now.format("%d %b %Y").to_string().to_uppercase(),
+                Style::default().fg(theme.dim),
+            ))
+        };
+        f.render_widget(
+            Paragraph::new(line).alignment(Alignment::Center),
             Rect::new(area.x, date_y, area.width, 1),
         );
     }

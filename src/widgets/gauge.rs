@@ -271,15 +271,24 @@ fn ring(pct: f64, label: &str, value: &str, col: Color, theme: &Theme) -> Vec<Li
         .collect();
 
     // Overwrite the hollow centre of the bottom two rows with text.
-    let hollow = ((W as f64 / 2.0) * INNER * 2.0) as usize - 2; // usable cells
+    let hollow = 8usize; // 8 usable cells centered in 16-wide dial
     let start = (W - hollow) / 2;
     let put = |line: &mut Line<'static>, text: &str, style: Style| {
         let n = text.chars().count().min(hollow);
         let pad_l = start + (hollow - n) / 2;
         let text: String = text.chars().take(n).collect();
-        let mut spans: Vec<Span<'static>> = line.spans.drain(..pad_l).collect();
+        let mut spans = Vec::new();
+        spans.extend(line.spans.iter().take(start).cloned());
+        let hollow_left = pad_l.saturating_sub(start);
+        if hollow_left > 0 {
+            spans.push(Span::raw(" ".repeat(hollow_left)));
+        }
         spans.push(Span::styled(text, style));
-        spans.extend(line.spans.drain(n..));
+        let hollow_right = (start + hollow).saturating_sub(pad_l + n);
+        if hollow_right > 0 {
+            spans.push(Span::raw(" ".repeat(hollow_right)));
+        }
+        spans.extend(line.spans.iter().skip(start + hollow).cloned());
         line.spans = spans;
     };
     put(&mut rows[H - 2], label, Style::default().fg(theme.dim));
@@ -288,13 +297,14 @@ fn ring(pct: f64, label: &str, value: &str, col: Color, theme: &Theme) -> Vec<Li
 }
 
 fn render_arc(f: &mut Frame, area: Rect, theme: &Theme, metrics: &[(&str, f64, String, Color)]) {
-    if area.height < H as u16 {
+    if area.height < H as u16 || area.width < W as u16 {
         return render_bars(f, area, theme, metrics);
     }
     let gap = 2usize;
-    let n = metrics
-        .len()
-        .min(((area.width as usize + gap) / (W + gap)).max(1));
+    let n = metrics.len().min((area.width as usize + gap) / (W + gap));
+    if n == 0 {
+        return render_bars(f, area, theme, metrics);
+    }
     let total = n * W + (n - 1) * gap;
     let pad = (area.width as usize).saturating_sub(total) / 2;
 
@@ -359,22 +369,24 @@ fn ring_dots(pct: f64, label: &str, value: &str, col: Color, theme: &Theme) -> V
         })
         .collect();
 
-    let hollow = ((W as f64 / 2.0) * INNER * 2.0) as usize - 2;
+    let hollow = 8usize;
     let start = (W - hollow) / 2;
     let put = |line: &mut Line<'static>, text: &str, style: Style| {
         let n = text.chars().count().min(hollow);
-        let pad = (hollow - n) / 2;
+        let pad_l = start + (hollow - n) / 2;
+        let text: String = text.chars().take(n).collect();
         let mut spans = Vec::new();
-        for (i, span) in line.spans.iter().enumerate() {
-            if i < start + pad || i >= start + pad + n {
-                spans.push(span.clone());
-            } else if i == start + pad {
-                spans.push(Span::styled(
-                    text.chars().take(n).collect::<String>(),
-                    style,
-                ));
-            }
+        spans.extend(line.spans.iter().take(start).cloned());
+        let hollow_left = pad_l.saturating_sub(start);
+        if hollow_left > 0 {
+            spans.push(Span::raw(" ".repeat(hollow_left)));
         }
+        spans.push(Span::styled(text, style));
+        let hollow_right = (start + hollow).saturating_sub(pad_l + n);
+        if hollow_right > 0 {
+            spans.push(Span::raw(" ".repeat(hollow_right)));
+        }
+        spans.extend(line.spans.iter().skip(start + hollow).cloned());
         line.spans = spans;
     };
     put(&mut rows[H - 2], label, Style::default().fg(theme.dim));
@@ -431,22 +443,24 @@ fn ring_braille(
         })
         .collect();
 
-    let hollow = ((W as f64 / 2.0) * INNER * 2.0) as usize - 2;
+    let hollow = 8usize;
     let start = (W - hollow) / 2;
     let put = |line: &mut Line<'static>, text: &str, style: Style| {
         let n = text.chars().count().min(hollow);
-        let pad = (hollow - n) / 2;
+        let pad_l = start + (hollow - n) / 2;
+        let text: String = text.chars().take(n).collect();
         let mut spans = Vec::new();
-        for (i, span) in line.spans.iter().enumerate() {
-            if i < start + pad || i >= start + pad + n {
-                spans.push(span.clone());
-            } else if i == start + pad {
-                spans.push(Span::styled(
-                    text.chars().take(n).collect::<String>(),
-                    style,
-                ));
-            }
+        spans.extend(line.spans.iter().take(start).cloned());
+        let hollow_left = pad_l.saturating_sub(start);
+        if hollow_left > 0 {
+            spans.push(Span::raw(" ".repeat(hollow_left)));
         }
+        spans.push(Span::styled(text, style));
+        let hollow_right = (start + hollow).saturating_sub(pad_l + n);
+        if hollow_right > 0 {
+            spans.push(Span::raw(" ".repeat(hollow_right)));
+        }
+        spans.extend(line.spans.iter().skip(start + hollow).cloned());
         line.spans = spans;
     };
     put(&mut rows[H - 2], label, Style::default().fg(theme.dim));
@@ -455,13 +469,14 @@ fn ring_braille(
 }
 
 fn render_dots(f: &mut Frame, area: Rect, theme: &Theme, metrics: &[(&str, f64, String, Color)]) {
-    if area.height < H as u16 {
+    if area.height < H as u16 || area.width < W as u16 {
         return render_bars(f, area, theme, metrics);
     }
     let gap = 2usize;
-    let n = metrics
-        .len()
-        .min(((area.width as usize + gap) / (W + gap)).max(1));
+    let n = metrics.len().min((area.width as usize + gap) / (W + gap));
+    if n == 0 {
+        return render_bars(f, area, theme, metrics);
+    }
     let total = n * W + (n - 1) * gap;
     let pad = (area.width as usize).saturating_sub(total) / 2;
 
@@ -492,13 +507,14 @@ fn render_braille(
     theme: &Theme,
     metrics: &[(&str, f64, String, Color)],
 ) {
-    if area.height < H as u16 {
+    if area.height < H as u16 || area.width < W as u16 {
         return render_bars(f, area, theme, metrics);
     }
     let gap = 2usize;
-    let n = metrics
-        .len()
-        .min(((area.width as usize + gap) / (W + gap)).max(1));
+    let n = metrics.len().min((area.width as usize + gap) / (W + gap));
+    if n == 0 {
+        return render_bars(f, area, theme, metrics);
+    }
     let total = n * W + (n - 1) * gap;
     let pad = (area.width as usize).saturating_sub(total) / 2;
 

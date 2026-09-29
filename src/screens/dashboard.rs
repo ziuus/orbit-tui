@@ -729,24 +729,35 @@ fn render_custom_row(
 }
 
 fn render_top_procs(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
-    if area.height < 2 || area.width < 24 {
+    if area.height < 2 || area.width < 20 {
         return;
     }
     let max_rows = (area.height as usize).saturating_sub(1);
     let procs = processes::top_by_cpu(max_rows);
 
     let w = area.width as usize;
-    let bar_w = if w >= 56 { 10 } else { 0 };
-    let name_w = w.saturating_sub(7 + 7 + 7 + bar_w + 3).max(6);
+    let bar_w = if w >= 44 {
+        8
+    } else if w >= 36 {
+        5
+    } else {
+        0
+    };
+    let fixed = 6 + 6 + 6 + if bar_w > 0 { bar_w + 1 } else { 0 };
+    let name_w = w.saturating_sub(fixed + 1).max(6);
     let hs = Style::default().fg(theme.dim);
 
-    let mut lines = vec![Line::from(vec![
-        Span::styled(format!("{:>6} ", "pid"), hs),
+    let mut header = vec![
+        Span::styled(format!("{:>5} ", "pid"), hs),
         Span::styled(format!("{:<w$} ", "name", w = name_w), hs),
-        Span::styled(format!("{:>6} ", "cpu%"), hs),
-        Span::styled(format!("{:>6}", "mem"), hs),
-        Span::styled(" ".repeat(bar_w + 1), hs),
-    ])];
+        Span::styled(format!("{:>5} ", "cpu%"), hs),
+        Span::styled(format!("{:>5}", "mem"), hs),
+    ];
+    if bar_w > 0 {
+        header.push(Span::styled(" ".repeat(bar_w + 1), hs));
+    }
+    let mut lines = vec![Line::from(header)];
+
     for p in procs {
         let cpu_col = if p.cpu_pct >= 50.0 {
             theme.red
@@ -756,17 +767,14 @@ fn render_top_procs(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
             theme.text
         };
         let mut spans = vec![
-            Span::styled(format!("{:>6} ", p.pid), Style::default().fg(theme.dim)),
+            Span::styled(format!("{:>5} ", p.pid), Style::default().fg(theme.dim)),
             Span::styled(
                 format!("{:<w$} ", meter::ellipsize(&p.name, name_w), w = name_w),
                 Style::default().fg(theme.text),
             ),
+            Span::styled(format!("{:>5.1}%", p.cpu_pct), Style::default().fg(cpu_col)),
             Span::styled(
-                format!("{:>5.1}% ", p.cpu_pct),
-                Style::default().fg(cpu_col),
-            ),
-            Span::styled(
-                format!("{:>6}", meter::fmt_bytes(p.mem_kb * 1024)),
+                format!(" {:>5}", meter::fmt_bytes(p.mem_kb * 1024)),
                 Style::default().fg(theme.secondary),
             ),
         ];

@@ -42,19 +42,41 @@ pub fn panel_full(
         )));
 
     if let Some(rt) = right_title {
-        let rt_style = Style::default().fg(theme.dim);
-        block = block.title_top(
-            Line::from(Span::styled(format!(" {} ", rt), rt_style)).alignment(Alignment::Right),
-        );
+        let left_len = title.chars().count() + 2;
+        let w = area.width as usize;
+        // Reserve 2 chars for borders (╭ ╮) + 2 chars margin between left and right title
+        let avail = w.saturating_sub(left_len + 4);
+        if avail >= 4 {
+            let rt_len = rt.chars().count();
+            let display_rt = if rt_len + 2 <= avail {
+                rt.to_string()
+            } else if avail >= 6 {
+                let keep = avail.saturating_sub(3);
+                format!("{}…", rt.chars().take(keep).collect::<String>())
+            } else {
+                String::new()
+            };
+
+            if !display_rt.is_empty() {
+                let rt_style = Style::default().fg(theme.dim);
+                block = block.title_top(
+                    Line::from(Span::styled(format!(" {} ", display_rt), rt_style))
+                        .alignment(Alignment::Right),
+                );
+            }
+        }
     }
 
     if let Some(ft) = footer {
         if focused {
-            let ft_style = Style::default().fg(theme.accent);
-            block = block.title_bottom(
-                Line::from(Span::styled(format!(" {} ", ft), ft_style))
-                    .alignment(Alignment::Center),
-            );
+            let w = area.width as usize;
+            if w >= ft.chars().count() + 4 {
+                let ft_style = Style::default().fg(theme.accent);
+                block = block.title_bottom(
+                    Line::from(Span::styled(format!(" {} ", ft), ft_style))
+                        .alignment(Alignment::Center),
+                );
+            }
         }
     }
 

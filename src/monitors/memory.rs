@@ -66,23 +66,33 @@ pub fn sample(sys: &sysinfo::System) {
 }
 
 fn row<'a>(label: &'a str, used: u64, total: u64, pct: f64, width: u16, theme: &Theme) -> Line<'a> {
-    let stats = format!(
-        "{:>5} / {:<5}",
-        meter::fmt_bytes(used),
-        meter::fmt_bytes(total)
-    );
+    let stats = if width >= 28 {
+        format!(
+            "{:>5} / {:<5}",
+            meter::fmt_bytes(used),
+            meter::fmt_bytes(total)
+        )
+    } else {
+        meter::fmt_bytes(used)
+    };
     let pct_str = format!("{:>3.0}%", pct);
     let fixed = label.chars().count() + 1 + stats.chars().count() + 2 + pct_str.chars().count() + 1;
     let bar_w = (width as usize).saturating_sub(fixed);
     let (on, off) = meter::track(pct / 100.0, bar_w);
     let c = theme.usage(pct);
-    Line::from(vec![
+    let mut spans = vec![
         Span::styled(format!("{} ", label), Style::default().fg(theme.dim)),
         Span::styled(format!("{}  ", stats), Style::default().fg(theme.text)),
-        Span::styled(on, Style::default().fg(c)),
-        Span::styled(off, Style::default().fg(theme.surface)),
-        Span::styled(format!(" {}", pct_str), Style::default().fg(c)),
-    ])
+    ];
+    if bar_w >= 2 {
+        spans.push(Span::styled(on, Style::default().fg(c)));
+        spans.push(Span::styled(off, Style::default().fg(theme.surface)));
+    }
+    spans.push(Span::styled(
+        format!(" {}", pct_str),
+        Style::default().fg(c),
+    ));
+    Line::from(spans)
 }
 
 pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_detailed: bool) {
