@@ -6,7 +6,6 @@ use ratatui::Frame;
 use crossterm::event::KeyCode;
 
 use crate::app::App;
-use crate::theme::Theme;
 
 fn centered(area: Rect, w: u16, h: u16) -> Rect {
     let w = w.min(area.width);
@@ -23,7 +22,8 @@ fn is_cava_installed() -> bool {
     std::process::Command::new("cava").arg("-v").output().is_ok()
 }
 
-pub fn render(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
+pub fn render(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
     let popup_area = centered(area, 75, 20);
     f.render_widget(Clear, popup_area);
 
@@ -111,32 +111,31 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
     f.render_widget(p, inner);
 }
 
-pub fn handle_key(app: &mut App, key: crossterm::event::KeyEvent) {
-    if key.kind != crossterm::event::KeyEventKind::Press { return; }
+pub fn handle_key(app: &mut App, code: KeyCode) {
     match app.setup_wizard_step {
         0 => {
-            if key.code == KeyCode::Enter {
+            if code == KeyCode::Enter {
                 app.setup_wizard_step = 1;
             }
         }
         1 => {
-            if key.code == KeyCode::Enter {
+            if code == KeyCode::Enter {
                 app.setup_wizard_step = 2;
             }
         }
         2 => {
-            if key.code == KeyCode::Char('1') {
+            if code == KeyCode::Char('1') {
                 app.panel_states.pixel_images = false;
                 app.panel_states.pixel_images = false;
-            } else if key.code == KeyCode::Char('2') {
+            } else if code == KeyCode::Char('2') {
                 app.panel_states.pixel_images = true;
                 app.panel_states.pixel_images = true;
-            } else if key.code == KeyCode::Enter {
+            } else if code == KeyCode::Enter {
                 app.setup_wizard_step = 3;
             }
         }
         3 => {
-            if key.code == KeyCode::Enter {
+            if code == KeyCode::Enter {
                 app.config.save();
                 app.show_setup_wizard = false;
             }

@@ -728,6 +728,11 @@ impl App {
             return;
         }
 
+        if self.show_setup_wizard {
+            crate::screens::setup_wizard::handle_key(self, key.code);
+            return;
+        }
+
         if self.show_settings {
             crate::screens::settings::handle_key(self, key.code);
             return;
@@ -1701,7 +1706,9 @@ impl App {
         if self.show_help {
             screens::help::render(f, area, &self.theme, &self.config);
         }
-        if self.show_settings {
+        if self.show_setup_wizard {
+            screens::setup_wizard::render(f, area, self);
+        } else if self.show_settings {
             screens::settings::render(f, area, self);
         }
     }
