@@ -42,6 +42,8 @@ Vanta is meant to run 24/7, so a static screen must idle at ~2 fps (~4% of a cor
 * CI gates: `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`.
 * Visual check: `tmux -L vchk new-session -d -s v -x 120 -y 34 ./target/fast/release/vanta; sleep 3; tmux -L vchk capture-pane -t v -p; tmux -L vchk kill-server` (check 200×50, 120×34, 100×30).
   * Switching pages saves `ui.startup_mode` to the user's real `~/.config/vanta/config.toml`. Prefer a throwaway copy: `mkdir -p /tmp/vxdg/vanta && cp ~/.config/vanta/config.toml /tmp/vxdg/vanta/` and pass `-e XDG_CONFIG_HOME=/tmp/vxdg` to `tmux new-session`. Use `capture-pane -e` to check colours (e.g. night dimming).
+  * `capture-pane` drops trailing blanks unless given `-N`, and colour state carries across lines, so a panel's background can look like it stops mid-row in a capture when it doesn't. tmux also counts some emoji (📐, ⚡) as 1 column where ratatui counts 2, which shifts that row's right border in captures only.
+  * Never build the image picker with `Picker::from_query_stdio()`: when the terminal doesn't answer in time (tmux, slow SSH) its helper thread stays blocked on stdin and eats the first keypress. `app::detect_image_picker` uses TIOCGWINSZ and the environment instead.
 * Idle CPU: read `utime+stime` (fields 14+15) from `/proc/$(pgrep -nx vanta)/stat` twice, N seconds apart. Those are 1/100 s ticks, so % of a core = Δticks / N. `pgrep -f` matches the tmux server too, so use `-x`. As of v0.10.30 it's ~0.6–1% per page, plus ~0.8% for the cava child.
 
 ## 7. Ecosystem Boundaries
