@@ -13,6 +13,20 @@ const GLYPH_H: usize = 5;
 
 fn glyph(c: char, font: &str) -> [&'static str; GLYPH_H] {
     match font {
+        "minimal" => match c {
+            '0' => ["###", "# #", "# #", "# #", "###"],
+            '1' => ["  #", "  #", "  #", "  #", "  #"],
+            '2' => ["###", "  #", "###", "#  ", "###"],
+            '3' => ["###", "  #", "###", "  #", "###"],
+            '4' => ["# #", "# #", "###", "  #", "  #"],
+            '5' => ["###", "#  ", "###", "  #", "###"],
+            '6' => ["###", "#  ", "###", "# #", "###"],
+            '7' => ["###", "  #", "  #", "  #", "  #"],
+            '8' => ["###", "# #", "###", "# #", "###"],
+            '9' => ["###", "# #", "###", "  #", "###"],
+            ':' => [" ", "#", " ", "#", " "],
+            _ => ["   ", "   ", "   ", "   ", "   "],
+        },
         "rounded" => match c {
             '0' => [" # ", "# #", "# #", "# #", " # "],
             '1' => ["#", "#", "#", "#", "#"],
@@ -64,7 +78,8 @@ fn glyph(c: char, font: &str) -> [&'static str; GLYPH_H] {
 fn text_width(text: &str, sx: usize, font: &str) -> usize {
     let glyphs = text.chars().count();
     let cells: usize = text.chars().map(|c| glyph(c, font)[0].len()).sum();
-    (cells + glyphs.saturating_sub(1)) * sx
+    let gap = if sx >= 4 { sx / 2 + 1 } else { sx };
+    (cells * sx) + glyphs.saturating_sub(1) * gap
 }
 
 /// Render `text` as block glyphs. `sx`/`sy` stretch each glyph pixel.
@@ -81,17 +96,46 @@ fn big_lines(
     let digit = Style::default().fg(digit);
     let colon = Style::default().fg(colon);
     let mut out = Vec::with_capacity(GLYPH_H * sy);
+    let gap = if sx >= 4 { sx / 2 + 1 } else { sx };
+
     for row in 0..GLYPH_H {
         let mut spans: Vec<Span<'static>> = Vec::new();
         for (i, c) in text.chars().enumerate() {
             if i > 0 {
-                spans.push(Span::raw(" ".repeat(sx)));
+                spans.push(Span::raw(" ".repeat(gap)));
             }
-            let style = if c == ':' { colon } else { digit };
+            if c == ':' {
+                // Sleek, minimal colon: refined centered dot instead of giant chunky blocks
+                let dot_cell = match clock_style {
+                    "minimal" | "braille" => "·",
+                    "outline" => "▫",
+                    "dotted" => "•",
+                    _ => "●",
+                };
+                let pad = sx.saturating_sub(1) / 2;
+                let rest = sx.saturating_sub(1).saturating_sub(pad);
+                if glyph(c, font)[row].contains('#') {
+                    if pad > 0 {
+                        spans.push(Span::raw(" ".repeat(pad)));
+                    }
+                    spans.push(Span::styled(dot_cell, colon));
+                    if rest > 0 {
+                        spans.push(Span::raw(" ".repeat(rest)));
+                    }
+                } else {
+                    spans.push(Span::raw(" ".repeat(sx)));
+                }
+                continue;
+            }
+
+            let style = digit;
             for px in glyph(c, font)[row].chars() {
                 let cell = if px == '#' {
                     match clock_style {
-                        "dotted" => "⣿",
+                        "braille" => "⣿",
+                        "outline" => "▢",
+                        "minimal" => "·",
+                        "dotted" => "•",
                         "hollow" => "▒",
                         _ => "█",
                     }
@@ -112,7 +156,8 @@ fn big_lines(
 /// Pick the largest scale whose glyph block fits. Cells are ~1:2, so sx = 2·sy
 /// keeps the 3×5 glyph at its intended proportions; (1,1) is the thin fallback.
 fn pick_scale(text: &str, w: usize, h: usize, font: &str) -> Option<(usize, usize)> {
-    for &(sx, sy) in &[(6usize, 3usize), (4, 2), (2, 1), (1, 1)] {
+    // Proportions: cap scale at (4, 2) to maintain elegant typography and avoid teletext-like distortion.
+    for &(sx, sy) in &[(4usize, 2usize), (3, 2), (2, 1), (1, 1)] {
         if text_width(text, sx, font) <= w && GLYPH_H * sy <= h {
             return Some((sx, sy));
         }
@@ -279,13 +324,16 @@ pub fn render_with_note(
         Paragraph::new(lines),
         Rect::new(left, top, area.width.saturating_sub(left - area.x), n),
     );
-    let date_y = top + n + 1;
+    let date_y = top + n + 2;
     if date_y < area.y + area.height {
+        let weekday = now.format("%A").to_string().to_uppercase();
+        let day_month_year = now.format("%d %B %Y").to_string().to_uppercase();
         f.render_widget(
-            Paragraph::new(Line::from(Span::styled(
-                date,
-                Style::default().fg(theme.dim),
-            )))
+            Paragraph::new(Line::from(vec![
+                Span::styled(weekday, Style::default().fg(theme.dim)),
+                Span::styled("   ·   ", Style::default().fg(theme.accent)),
+                Span::styled(day_month_year, Style::default().fg(theme.dim)),
+            ]))
             .alignment(Alignment::Center),
             Rect::new(area.x, date_y, area.width, 1),
         );

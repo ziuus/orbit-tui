@@ -266,9 +266,9 @@ impl Default for UiConfig {
             startup_mode: "dashboard".to_string(),
             obsidian_vault: "~".to_string(),
             clock_24h: true,
-            clock_font: "standard".to_string(),
+            clock_font: "minimal".to_string(),
             pinned_media_path: "".to_string(),
-            clock_style: "solid".to_string(),
+            clock_style: "braille".to_string(),
             timezones: vec![
                 "UTC".to_string(),
                 "America/New_York".to_string(),

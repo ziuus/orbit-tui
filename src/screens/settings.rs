@@ -459,7 +459,7 @@ fn change_setting(app: &mut App, forward: bool) {
             app.config.ui.fps = next.clamp(5, 120);
         }
         SettingType::ClockFont => {
-            let fonts = ["standard", "rounded", "digital"];
+            let fonts = ["minimal", "standard", "rounded", "digital"];
             let pos = fonts
                 .iter()
                 .position(|&x| x == app.config.ui.clock_font)
@@ -471,7 +471,7 @@ fn change_setting(app: &mut App, forward: bool) {
             };
         }
         SettingType::ClockStyle => {
-            let styles = ["solid", "dotted", "hollow"];
+            let styles = ["braille", "minimal", "outline", "solid", "dotted", "hollow"];
             let pos = styles
                 .iter()
                 .position(|&x| x == app.config.ui.clock_style)
