@@ -268,6 +268,9 @@ pub struct PanelStates {
     pub files_rename_input: String,
     pub files_search_input_active: bool,
     pub files_search_input: String,
+    pub files_mkdir_input_active: bool,
+    pub files_mkdir_input: String,
+
     pub tasks_selected: usize,
     pub task_input_active: bool,
     pub task_input: String,
@@ -308,6 +311,9 @@ impl Default for PanelStates {
             files_rename_input: String::new(),
             files_search_input_active: false,
             files_search_input: String::new(),
+            files_mkdir_input_active: false,
+            files_mkdir_input: String::new(),
+
             tasks_selected: 0,
             task_input_active: false,
             task_input: String::new(),
@@ -1172,6 +1178,33 @@ impl App {
                     }
                     return;
                 }
+                if self.panel_states.files_mkdir_input_active {
+                    match key {
+                        KeyCode::Enter => {
+                            let name = self.panel_states.files_mkdir_input.trim().to_string();
+                            self.panel_states.files_mkdir_input_active = false;
+                            if !name.is_empty() {
+                                let snap = crate::monitors::files::snapshot();
+                                let new_dir = snap.current_dir.join(&name);
+                                if std::fs::create_dir_all(&new_dir).is_ok() {
+                                    crate::monitors::files::chdir(&snap.current_dir);
+                                    self.toast(format!("created: {}", name));
+                                }
+                            }
+                            self.panel_states.files_mkdir_input.clear();
+                        }
+                        KeyCode::Esc => {
+                            self.panel_states.files_mkdir_input_active = false;
+                            self.panel_states.files_mkdir_input.clear();
+                        }
+                        KeyCode::Backspace => {
+                            self.panel_states.files_mkdir_input.pop();
+                        }
+                        KeyCode::Char(c) => self.panel_states.files_mkdir_input.push(c),
+                        _ => {}
+                    }
+                    return;
+                }
                 match key {
                     KeyCode::Char('.') => {
                         self.panel_states.files_show_hidden = !self.panel_states.files_show_hidden;
@@ -1180,6 +1213,11 @@ impl App {
                     KeyCode::Char('/') => {
                         self.panel_states.files_search_input_active = true;
                     }
+                    KeyCode::Char('m') | KeyCode::F(7) => {
+                        self.panel_states.files_mkdir_input_active = true;
+                        self.panel_states.files_mkdir_input.clear();
+                    }
+
                     KeyCode::Char('N') | KeyCode::F(2) => {
                         self.panel_states.files_rename_input_active = true;
                         self.panel_states.files_rename_input.clear();

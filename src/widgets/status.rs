@@ -349,8 +349,10 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
     if let Some((ssid, sig)) = &fx.wifi {
         let w_name = if area.width >= 36 { 14 } else { 10 };
         let ellip = crate::widgets::meter::ellipsize(ssid, w_name);
+        // Pad SSID to fixed width so signal bars always start at the same column
+        let padded = format!("{:<w$}", ellip, w = w_name);
         let mut v = vec![
-            Span::styled(ellip, Style::default().fg(theme.text)),
+            Span::styled(padded, Style::default().fg(theme.text)),
             Span::styled(" · ", Style::default().fg(theme.dim)),
             Span::styled(
                 signal_bars(*sig),
@@ -360,7 +362,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
                     theme.accent
                 }),
             ),
-            Span::styled(format!(" {}%", sig), Style::default().fg(theme.dim)),
+            Span::styled(format!(" {:>3}%", sig), Style::default().fg(theme.dim)),
         ];
         if area.width < 28 {
             v.truncate(1);
@@ -373,8 +375,9 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         let mut parts = ip.split_whitespace();
         let iface = parts.next().unwrap_or("net");
         let addr = parts.next().unwrap_or(ip.as_str());
+        // Pad iface to fixed 5 chars so IP address always starts at the same column
         let v = vec![
-            Span::styled(iface.to_string(), Style::default().fg(theme.dim)),
+            Span::styled(format!("{:<5}", iface), Style::default().fg(theme.dim)),
             Span::styled(" · ", Style::default().fg(theme.dim)),
             Span::styled(addr.to_string(), Style::default().fg(theme.text)),
         ];

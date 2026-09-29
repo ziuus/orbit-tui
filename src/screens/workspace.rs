@@ -5,6 +5,7 @@ use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use ratatui::Frame;
 
 use crate::app::{App, PanelId};
+use crate::monitors::files;
 use crate::monitors::obsidian;
 use crate::screens::{panel, panel_full};
 
@@ -142,8 +143,28 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
     // Top Right: Notes
     render_notes(f, notes_area, app);
 
-    // Bottom Right: Files (Yazi)
-    let files_inner = panel(f, files_area, "file manager", theme, focus(PanelId::Files));
+    // Bottom Right: Files
+    let files_hint = if app.panel_states.files_show_hidden {
+        "h hide · / search · m dir · N rename · x del · y copy · o open"
+    } else {
+        ". hidden · / search · m dir · N rename · x del · y copy · o open"
+    };
+
+    let files_rt = {
+        let snap = files::snapshot();
+        let total = snap.items.len();
+        format!(" {} items ", total)
+    };
+    let files_focused = focus(PanelId::Files);
+    let files_inner = panel_full(
+        f,
+        files_area,
+        "files",
+        Some(&files_rt),
+        Some(files_hint),
+        theme,
+        files_focused,
+    );
 
     crate::widgets::files::render(f, files_inner, app);
 }
