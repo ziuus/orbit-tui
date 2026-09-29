@@ -1,6 +1,9 @@
+use std::fs;
+use std::path::Path;
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -25,8 +28,6 @@ struct Facts {
 struct Cached {
     facts: Facts,
     stamp: Option<Instant>,
-    /// `checkupdates` syncs package databases over the network; poll it far
-    /// less often than the local facts.
     updates_stamp: Option<Instant>,
 }
 
@@ -38,8 +39,17 @@ static CACHE: LazyLock<Mutex<Cached>> = LazyLock::new(|| {
     })
 });
 
-/// How long collected facts stay fresh. These change on the order of minutes,
-/// not frames.
+static UPDATES_RUNNING: AtomicBool = AtomicBool::new(false);
+
+struct PkgCache {
+    count: usize,
+    db_mtime: Option<SystemTime>,
+    db_path: &'static str,
+}
+
+static PKG_CACHE: Mutex<Option<PkgCache>> = Mutex::new(None);
+
+/// How long collected facts stay fresh.
 const TTL: Duration = Duration::from_secs(30);
 const UPDATES_TTL: Duration = Duration::from_secs(15 * 60);
 
@@ -51,15 +61,58 @@ fn run(cmd: &str, args: &[&str]) -> Option<String> {
     Some(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
+/// Query package count using database mtime caching so we avoid
+/// spawning subprocesses every 30 seconds unless a package changed.
 fn count_packages() -> Option<usize> {
-    // Try the common package managers; first one that answers wins.
+    let mut cache = PKG_CACHE.lock().unwrap();
+    if let Some(c) = cache.as_mut() {
+        if let Ok(meta) = fs::metadata(c.db_path) {
+            if let Ok(mtime) = meta.modified() {
+                if c.db_mtime == Some(mtime) {
+                    return Some(c.count);
+                }
+                if let Some(n) = query_packages() {
+                    c.count = n;
+                    c.db_mtime = Some(mtime);
+                    return Some(n);
+                }
+            }
+        }
+    }
+
+    let candidates: [(&'static str, &'static str); 4] = [
+        ("/var/lib/pacman/local", "pacman"),
+        ("/var/lib/dpkg/status", "dpkg"),
+        ("/var/lib/rpm", "rpm"),
+        ("/lib/apk/db/installed", "apk"),
+    ];
+
+    for (db_path, _) in candidates {
+        if let Ok(meta) = fs::metadata(db_path) {
+            let mtime = meta.modified().ok();
+            if let Some(n) = query_packages() {
+                *cache = Some(PkgCache {
+                    count: n,
+                    db_mtime: mtime,
+                    db_path,
+                });
+                return Some(n);
+            }
+        }
+    }
+
+    query_packages()
+}
+
+fn query_packages() -> Option<usize> {
     for (cmd, args) in [
         ("pacman", &["-Qq"][..]),
         ("dpkg-query", &["-f", ".\n", "-W"][..]),
         ("rpm", &["-qa"][..]),
+        ("apk", &["info"][..]),
     ] {
         if let Some(out) = run(cmd, args) {
-            return Some(out.lines().count());
+            return Some(out.lines().filter(|l| !l.trim().is_empty()).count());
         }
     }
     None
@@ -71,7 +124,61 @@ fn count_updates() -> Option<usize> {
     run("checkupdates", &[]).map(|o| o.lines().filter(|l| !l.trim().is_empty()).count())
 }
 
+/// Reads current wireless network and signal without triggering a NetworkManager
+/// radio rescan (which causes frame drops and ping spikes).
 fn read_wifi() -> Option<(String, u8)> {
+    // Fast path 1: parse /proc/net/wireless for signal quality
+    let signal_from_proc = if let Ok(proc_wireless) = fs::read_to_string("/proc/net/wireless") {
+        proc_wireless.lines().skip(2).find_map(|l| {
+            let mut parts = l.split_whitespace();
+            let iface = parts.next()?.trim_end_matches(':');
+            let _status = parts.next()?;
+            let link_str = parts.next()?.trim_end_matches('.');
+            let link: f64 = link_str.parse().ok()?;
+            let pct = ((link / 70.0) * 100.0).round().clamp(0.0, 100.0) as u8;
+            Some((iface.to_string(), pct))
+        })
+    } else {
+        None
+    };
+
+    // Fast path 2: read SSID of current connection without wifi scanning
+    if let Some(ssid) = run("iwgetid", &["-r"])
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+    {
+        let sig = signal_from_proc.map(|(_, s)| s).unwrap_or(75);
+        return Some((ssid, sig));
+    }
+
+    if let Some((iface, sig)) = &signal_from_proc {
+        if let Some(out) = run("iw", &["dev", iface, "link"]) {
+            for line in out.lines() {
+                if let Some(ssid) = line.trim().strip_prefix("SSID: ") {
+                    let s = ssid.trim();
+                    if !s.is_empty() {
+                        return Some((s.to_string(), *sig));
+                    }
+                }
+            }
+        }
+        if let Some(out) = run(
+            "nmcli",
+            &["-t", "-f", "GENERAL.CONNECTION", "dev", "show", iface],
+        ) {
+            if let Some(conn) = out
+                .lines()
+                .find_map(|l| l.strip_prefix("GENERAL.CONNECTION:"))
+            {
+                let conn = conn.trim();
+                if !conn.is_empty() && conn != "--" {
+                    return Some((conn.to_string(), *sig));
+                }
+            }
+        }
+    }
+
+    // Fallback: standard nmcli device wifi list
     let out = run("nmcli", &["-t", "-f", "active,ssid,signal", "dev", "wifi"])?;
     for line in out.lines() {
         let mut parts = line.split(':');
@@ -85,9 +192,30 @@ fn read_wifi() -> Option<(String, u8)> {
     None
 }
 
-/// Primary IPv4 address, skipping loopback and container/virtual bridges.
+/// Primary IPv4 address, prioritizing the default gateway route.
 fn read_ip() -> Option<String> {
-    let out = run("ip", &["-o", "-4", "addr", "show"])?;
+    let default_iface = if let Ok(route) = fs::read_to_string("/proc/net/route") {
+        route.lines().skip(1).find_map(|l| {
+            let mut parts = l.split_whitespace();
+            let iface = parts.next()?;
+            let dest = parts.next()?;
+            if dest == "00000000" {
+                Some(iface.to_string())
+            } else {
+                None
+            }
+        })
+    } else {
+        None
+    };
+
+    let args = if let Some(iface) = &default_iface {
+        vec!["-o", "-4", "addr", "show", iface.as_str()]
+    } else {
+        vec!["-o", "-4", "addr", "show"]
+    };
+
+    let out = run("ip", &args)?;
     for line in out.lines() {
         let mut f = line.split_whitespace();
         let _idx = f.next()?;
@@ -102,46 +230,72 @@ fn read_ip() -> Option<String> {
 }
 
 fn read_docker() -> Option<(usize, usize)> {
-    let all = run("docker", &["ps", "-aq"])?;
-    let running = run("docker", &["ps", "-q"]).unwrap_or_default();
-    Some((
-        running.lines().filter(|l| !l.trim().is_empty()).count(),
-        all.lines().filter(|l| !l.trim().is_empty()).count(),
-    ))
+    let socket_exists = Path::new("/var/run/docker.sock").exists()
+        || std::env::var("XDG_RUNTIME_DIR")
+            .map(|r| Path::new(&r).join("docker.sock").exists())
+            .unwrap_or(false);
+    if !socket_exists {
+        return None;
+    }
+
+    let out = run("docker", &["ps", "-a", "--format", "{{.State}}"])?;
+    let mut running = 0usize;
+    let mut total = 0usize;
+    for line in out.lines() {
+        let s = line.trim();
+        if !s.is_empty() {
+            total += 1;
+            if s.eq_ignore_ascii_case("running") {
+                running += 1;
+            }
+        }
+    }
+    Some((running, total))
 }
 
-/// Refresh the slow facts if stale. Runs on the sampler thread; the shell-outs
-/// (`checkupdates` alone can take seconds) never touch the render loop.
+/// Refresh slow facts if stale. Runs on the dedicated vanta-facts background thread.
 pub fn sample() {
-    let (stale, updates_stale, prev_updates) = {
+    let (stale, updates_stale) = {
         let c = CACHE.lock().unwrap();
         (
             c.stamp.is_none_or(|t| t.elapsed() > TTL),
             c.updates_stamp.is_none_or(|t| t.elapsed() > UPDATES_TTL),
-            c.facts.updates,
         )
     };
+
+    if updates_stale
+        && UPDATES_RUNNING
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+    {
+        std::thread::Builder::new()
+            .name("vanta-checkupdates".into())
+            .spawn(move || {
+                let n = count_updates();
+                if let Ok(mut c) = CACHE.lock() {
+                    c.facts.updates = n;
+                    c.updates_stamp = Some(Instant::now());
+                }
+                UPDATES_RUNNING.store(false, Ordering::SeqCst);
+            })
+            .ok();
+    }
+
     if !stale {
         return;
     }
-    let updates = if updates_stale {
-        count_updates()
-    } else {
-        prev_updates
-    };
-    let fresh = Facts {
-        packages: count_packages(),
-        updates,
-        wifi: read_wifi(),
-        ip: read_ip(),
-        docker: read_docker(),
-    };
+
+    let packages = count_packages();
+    let wifi = read_wifi();
+    let ip = read_ip();
+    let docker = read_docker();
+
     let mut c = CACHE.lock().unwrap();
-    c.facts = fresh;
+    c.facts.packages = packages;
+    c.facts.wifi = wifi;
+    c.facts.ip = ip;
+    c.facts.docker = docker;
     c.stamp = Some(Instant::now());
-    if updates_stale {
-        c.updates_stamp = Some(Instant::now());
-    }
 }
 
 fn facts() -> Facts {
@@ -158,17 +312,21 @@ fn signal_bars(pct: u8) -> &'static str {
 }
 
 /// System/user status: network, packages, containers, load, session.
-/// Everything expensive is TTL-cached; the rest is a /proc read.
+/// Clean cyber badges, aligned columns, and non-blocking background collection.
 pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, selected: usize) {
-    // Rows are top-aligned and clipped, so even a squeezed panel shows the
-    // first few facts rather than going blank.
-    if area.height == 0 || area.width < 20 {
+    if area.height == 0 || area.width < 16 {
         return;
     }
     let fx = facts();
 
     let build_line = |idx: usize, k: &str, v_spans: Vec<Span<'static>>| {
-        let key_style = if is_focused && idx == selected {
+        let is_sel = is_focused && idx == selected;
+        let badge_style = if is_sel {
+            Style::default().fg(theme.bg).bg(theme.accent)
+        } else {
+            Style::default().fg(theme.accent)
+        };
+        let label_style = if is_sel {
             Style::default().fg(theme.bg).bg(theme.accent)
         } else if is_focused {
             Style::default().fg(theme.text)
@@ -176,12 +334,11 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
             Style::default().fg(theme.dim)
         };
 
-        let mut spans = vec![Span::styled(format!(" {} ", k), key_style), Span::raw(" ")];
-        // Ensure standard width for key column
-        let pad = 6_usize.saturating_sub(k.len() + 2);
-        if pad > 0 {
-            spans.push(Span::raw(" ".repeat(pad)));
-        }
+        let mut spans = vec![
+            Span::styled("◈ ", badge_style),
+            Span::styled(format!("{:<6}", k), label_style),
+            Span::raw(" "),
+        ];
         spans.extend(v_spans);
         Line::from(spans)
     };
@@ -190,61 +347,73 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
     let mut i = 0;
 
     if let Some((ssid, sig)) = &fx.wifi {
-        lines.push(build_line(
-            i,
-            "wifi",
-            vec![
-                Span::styled(
-                    format!("{:<14}", crate::widgets::meter::ellipsize(ssid, 14)),
-                    Style::default().fg(theme.accent),
-                ),
-                Span::styled(
-                    format!("{} {}%", signal_bars(*sig), sig),
-                    Style::default().fg(if *sig < 40 { theme.yellow } else { theme.dim }),
-                ),
-            ],
-        ));
+        let w_name = if area.width >= 36 { 14 } else { 10 };
+        let ellip = crate::widgets::meter::ellipsize(ssid, w_name);
+        let mut v = vec![
+            Span::styled(ellip, Style::default().fg(theme.text)),
+            Span::styled(" · ", Style::default().fg(theme.dim)),
+            Span::styled(
+                signal_bars(*sig),
+                Style::default().fg(if *sig < 40 {
+                    theme.yellow
+                } else {
+                    theme.accent
+                }),
+            ),
+            Span::styled(format!(" {}%", sig), Style::default().fg(theme.dim)),
+        ];
+        if area.width < 28 {
+            v.truncate(1);
+        }
+        lines.push(build_line(i, "WIFI", v));
         i += 1;
     }
+
     if let Some(ip) = &fx.ip {
-        lines.push(build_line(
-            i,
-            "ip",
-            vec![Span::styled(ip.clone(), Style::default().fg(theme.text))],
-        ));
+        let mut parts = ip.split_whitespace();
+        let iface = parts.next().unwrap_or("net");
+        let addr = parts.next().unwrap_or(ip.as_str());
+        let v = vec![
+            Span::styled(iface.to_string(), Style::default().fg(theme.dim)),
+            Span::styled(" · ", Style::default().fg(theme.dim)),
+            Span::styled(addr.to_string(), Style::default().fg(theme.text)),
+        ];
+        lines.push(build_line(i, "IP", v));
         i += 1;
     }
+
     if let Some(n) = fx.packages {
         let upd = fx.updates.unwrap_or(0);
-        let mut spans = vec![Span::styled(
-            format!("{:<14}", n),
+        let mut v = vec![Span::styled(
+            format!("{} pkgs", n),
             Style::default().fg(theme.text),
         )];
         if upd > 0 {
-            spans.push(Span::styled(
+            v.push(Span::styled(" · ", Style::default().fg(theme.dim)));
+            v.push(Span::styled(
                 format!("{} updates", upd),
                 Style::default().fg(theme.yellow),
             ));
-        } else if fx.updates.is_some() {
-            spans.push(Span::styled("up to date", Style::default().fg(theme.dim)));
+        } else if fx.updates.is_some() && area.width >= 28 {
+            v.push(Span::styled(" · ", Style::default().fg(theme.dim)));
+            v.push(Span::styled("up to date", Style::default().fg(theme.dim)));
         }
-        lines.push(build_line(i, "pkgs", spans));
+        lines.push(build_line(i, "PKGS", v));
         i += 1;
     }
+
     if let Some((run_n, all_n)) = fx.docker {
-        lines.push(build_line(
-            i,
-            "docker",
-            vec![
-                Span::styled(
-                    format!("{:<14}", format!("{}/{}", run_n, all_n)),
-                    Style::default().fg(theme.text),
-                ),
-                Span::styled("running", Style::default().fg(theme.dim)),
-            ],
-        ));
+        let v = vec![
+            Span::styled(
+                format!("{}/{}", run_n, all_n),
+                Style::default().fg(theme.text),
+            ),
+            Span::styled(" running", Style::default().fg(theme.dim)),
+        ];
+        lines.push(build_line(i, "DOCKER", v));
         i += 1;
     }
+
     let cpu = cpu::snapshot();
     {
         let cores = cpu.cores.len().max(1) as f64;
@@ -256,28 +425,29 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         } else {
             theme.accent
         };
+        let mut v = vec![Span::styled(
+            format!("{:.2} {:.2} {:.2}", one, five, fifteen),
+            Style::default().fg(col),
+        )];
+        if area.width >= 32 {
+            v.push(Span::styled(
+                format!(" · {}t", cores as usize),
+                Style::default().fg(theme.dim),
+            ));
+        }
+        lines.push(build_line(i, "LOAD", v));
+        i += 1;
+
         lines.push(build_line(
             i,
-            "load",
+            "PROCS",
             vec![
                 Span::styled(
-                    format!("{:<14}", format!("{:.2} {:.2} {:.2}", one, five, fifteen)),
-                    Style::default().fg(col),
+                    crate::monitors::processes::count().to_string(),
+                    Style::default().fg(theme.text),
                 ),
-                Span::styled(
-                    format!("/{}", cores as usize),
-                    Style::default().fg(theme.dim),
-                ),
+                Span::styled(" active", Style::default().fg(theme.dim)),
             ],
-        ));
-        i += 1;
-        lines.push(build_line(
-            i,
-            "procs",
-            vec![Span::styled(
-                crate::monitors::processes::count().to_string(),
-                Style::default().fg(theme.text),
-            )],
         ));
         i += 1;
     }
@@ -290,33 +460,28 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         } else {
             theme.red
         };
-        let mut spans = vec![Span::styled(
+        let mut v = vec![Span::styled(
             format!("{}%{}", b.pct, if b.charging { " ⚡" } else { "" }),
             Style::default().fg(col),
         )];
         if let Some(w) = b.watts {
-            spans.push(Span::styled(
-                format!("  {:.1}W", w),
-                Style::default().fg(theme.dim),
-            ));
+            if area.width >= 34 {
+                v.push(Span::styled(
+                    format!(" · {:.1}W", w),
+                    Style::default().fg(theme.dim),
+                ));
+            }
         }
         if let Some(s) = b.eta_secs.filter(|s| *s > 0 && *s < 48 * 3600) {
-            spans.push(Span::styled(
-                format!(
-                    "  {}h{:02}m {}",
-                    s / 3600,
-                    (s % 3600) / 60,
-                    if b.charging { "to full" } else { "left" }
-                ),
-                Style::default().fg(theme.dim),
-            ));
+            let eta = format!(" · {}h{:02}m", s / 3600, (s % 3600) / 60);
+            v.push(Span::styled(eta, Style::default().fg(theme.dim)));
         }
-        lines.push(build_line(i, "bat", spans));
+        lines.push(build_line(i, "BAT", v));
         i += 1;
     }
 
     if let Some(max) = cpu.max_temp() {
-        let limit = if area.width > 35 { 8 } else { 4 };
+        let limit = if area.width > 35 { 6 } else { 3 };
         let mut t_str = cpu
             .temps
             .iter()
@@ -329,7 +494,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         }
         lines.push(build_line(
             i,
-            "temps",
+            "TEMPS",
             vec![Span::styled(t_str, Style::default().fg(theme.temp(max)))],
         ));
     }
@@ -338,7 +503,6 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         return;
     }
 
-    // Top-align: no vertical centering — fills from the top of the box
     f.render_widget(Paragraph::new(lines), area);
 }
 
