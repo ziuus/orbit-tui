@@ -393,38 +393,99 @@ pub fn render_neofetch(
         Some((p, false)) => format!("{}%", p),
         None => "AC".to_string(),
     };
+
+    let user = std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .unwrap_or_else(|_| "user".into());
+
     let mut kv: Vec<(&str, String)> = vec![
-        ("os", facts.os.clone()),
-        ("host", facts.host.clone()),
-        ("kernel", facts.kernel.clone()),
-        ("uptime", sum.uptime.clone()),
-        ("shell", facts.shell.clone()),
-        ("term", format!("{} {}×{}", facts.term, term.0, term.1)),
-        ("cpu", format!("{} ({}t)", facts.cpu, facts.threads)),
+        ("OS", facts.os.clone()),
+        ("HOST", facts.host.clone()),
+        ("KERNEL", facts.kernel.clone()),
+        ("UPTIME", sum.uptime.clone()),
+        ("CPU", format!("{} ({}t)", facts.cpu, facts.threads)),
     ];
     if !gpu_name.is_empty() {
-        kv.push(("gpu", gpu_name));
+        kv.push(("GPU", gpu_name));
     }
+    let ram_pct = if mem.total > 0 {
+        (mem.used as f64 / mem.total as f64) * 100.0
+    } else {
+        0.0
+    };
     kv.push((
-        "memory",
+        "RAM",
         format!(
-            "{} / {}",
+            "{} / {} · {:.0}%",
             meter::fmt_bytes(mem.used),
-            meter::fmt_bytes(mem.total)
+            meter::fmt_bytes(mem.total),
+            ram_pct
         ),
     ));
-    kv.push(("battery", bat));
+    kv.push(("SHELL", facts.shell.clone()));
+    kv.push(("TERM", format!("{} {}×{}", facts.term, term.0, term.1)));
+    kv.push(("POWER", bat));
 
-    let max_rows = kv_area.height.saturating_sub(pad) as usize;
-    let kv: Vec<_> = kv.into_iter().take(max_rows).collect();
-    let max_v = (kv_area.width as usize).saturating_sub(10);
+    let show_header = kv_area.height >= 8 && kv_area.width >= 20;
+    let header_rows = if show_header { 2 } else { 0 };
+    let max_rows = kv_area.height.saturating_sub(pad + header_rows) as usize;
+    let kv_count = kv.len().min(max_rows);
+    let kv: Vec<_> = kv.into_iter().take(kv_count).collect();
+    let max_v = (kv_area.width as usize).saturating_sub(12);
+
     let mut rows: Vec<Line> = (0..pad).map(|_| Line::from("")).collect();
+
+    if show_header {
+        rows.push(Line::from(vec![
+            Span::styled(
+                user,
+                Style::default()
+                    .fg(theme.accent)
+                    .add_modifier(ratatui::style::Modifier::BOLD),
+            ),
+            Span::styled("@", Style::default().fg(theme.dim)),
+            Span::styled(
+                &facts.host,
+                Style::default()
+                    .fg(theme.accent)
+                    .add_modifier(ratatui::style::Modifier::BOLD),
+            ),
+        ]));
+        let div_len = (facts.host.len() + 10).min(kv_area.width as usize).min(28);
+        rows.push(Line::from(Span::styled(
+            "─".repeat(div_len),
+            Style::default().fg(theme.surface),
+        )));
+    }
+
     for (k, v) in kv {
         rows.push(Line::from(vec![
-            Span::styled(format!("{:<9} ", k), Style::default().fg(theme.dim)),
+            Span::styled("◈ ", Style::default().fg(theme.accent)),
+            Span::styled(
+                format!("{:<6} ", k),
+                Style::default()
+                    .fg(theme.secondary)
+                    .add_modifier(ratatui::style::Modifier::BOLD),
+            ),
+            Span::styled("· ", Style::default().fg(theme.dim)),
             Span::styled(meter::ellipsize(&v, max_v), Style::default().fg(theme.text)),
         ]));
     }
+
+    if (kv_area.height as usize) >= rows.len() + 2 && kv_area.width >= 22 {
+        rows.push(Line::from(""));
+        rows.push(Line::from(vec![
+            Span::styled("● ", Style::default().fg(theme.red)),
+            Span::styled("● ", Style::default().fg(theme.green)),
+            Span::styled("● ", Style::default().fg(theme.yellow)),
+            Span::styled("● ", Style::default().fg(theme.accent)),
+            Span::styled("● ", Style::default().fg(theme.secondary)),
+            Span::styled("● ", Style::default().fg(theme.text)),
+            Span::styled("● ", Style::default().fg(theme.dim)),
+            Span::styled("● ", Style::default().fg(theme.surface)),
+        ]));
+    }
+
     f.render_widget(Paragraph::new(rows), kv_area);
 }
 
