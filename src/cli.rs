@@ -486,7 +486,11 @@ fn update(id: Option<String>, self_update: bool) {
     let registry = match fetch_registry() {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("Failed to fetch registry: {}", e);
+            eprintln!("Warning: Failed to fetch registry: {}", e);
+            if update_everything {
+                println!();
+                update_self();
+            }
             return;
         }
     };
