@@ -304,9 +304,9 @@ fn facts() -> Facts {
 
 fn signal_bars(pct: u8) -> &'static str {
     match pct {
-        0..=20 => "▂___",
-        21..=40 => "▂▄__",
-        41..=60 => "▂▄▆_",
+        0..=20 => "▂   ",
+        21..=40 => "▂▄  ",
+        41..=60 => "▂▄▆ ",
         _ => "▂▄▆█",
     }
 }
@@ -336,8 +336,8 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
 
         let mut spans = vec![
             Span::styled("◈ ", badge_style),
-            Span::styled(format!("{:<6}", k), label_style),
-            Span::raw(" "),
+            Span::styled(format!("{:<6} ", k), label_style),
+            Span::styled("· ", Style::default().fg(theme.dim)),
         ];
         spans.extend(v_spans);
         Line::from(spans)

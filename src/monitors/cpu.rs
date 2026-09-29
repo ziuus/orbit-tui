@@ -215,7 +215,7 @@ fn read_core_temps() -> (Vec<f64>, std::collections::HashMap<u32, f64>) {
 /// One row of per-core load: each core gets an equal slice filled with a
 /// block whose height and colour track its usage, e.g. `▂▂ ▇▇ ▁▁ ▅▅`.
 fn render_core_strip(f: &mut Frame, area: Rect, theme: &Theme, cores: &[f32]) {
-    const BARS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    const BARS: [char; 8] = [' ', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
     let n = cores.len();
     let w = area.width as usize;
     if n == 0 || w < n {
@@ -224,19 +224,22 @@ fn render_core_strip(f: &mut Frame, area: Rect, theme: &Theme, cores: &[f32]) {
     // Leave a one-cell gap between cores when there's room for it.
     let slot = w / n;
     let (cell, gap) = if slot >= 3 { (slot - 1, 1) } else { (slot, 0) };
-    let spans: Vec<Span> = cores
-        .iter()
-        .flat_map(|&u| {
-            let idx = ((u / 100.0) * 7.0).round().clamp(0.0, 7.0) as usize;
-            [
-                Span::styled(
-                    BARS[idx].to_string().repeat(cell),
-                    Style::default().fg(theme.usage(u as f64)),
-                ),
-                Span::raw(" ".repeat(gap)),
-            ]
-        })
-        .collect();
+    let total_w = n * cell + n.saturating_sub(1) * gap;
+    let pad = w.saturating_sub(total_w) / 2;
+    let mut spans = Vec::with_capacity(n * 2 + 1);
+    if pad > 0 {
+        spans.push(Span::raw(" ".repeat(pad)));
+    }
+    for (i, &u) in cores.iter().enumerate() {
+        if i > 0 && gap > 0 {
+            spans.push(Span::raw(" ".repeat(gap)));
+        }
+        let idx = ((u / 100.0) * 7.0).round().clamp(0.0, 7.0) as usize;
+        spans.push(Span::styled(
+            BARS[idx].to_string().repeat(cell),
+            Style::default().fg(theme.usage(u as f64)),
+        ));
+    }
     f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 

@@ -743,20 +743,22 @@ fn render_top_procs(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
     } else {
         0
     };
-    let fixed = 6 + 6 + 6 + if bar_w > 0 { bar_w + 1 } else { 0 };
+    let fixed = 7 + 7 + 5 + if bar_w > 0 { bar_w + 1 } else { 0 };
     let name_w = w.saturating_sub(fixed + 1).max(6);
     let hs = Style::default().fg(theme.dim);
 
     let mut header = vec![
-        Span::styled(format!("{:>5} ", "pid"), hs),
+        Span::styled(format!("{:>6} ", "pid"), hs),
         Span::styled(format!("{:<w$} ", "name", w = name_w), hs),
-        Span::styled(format!("{:>5} ", "cpu%"), hs),
+        Span::styled(format!("{:>6} ", "cpu%"), hs),
         Span::styled(format!("{:>5}", "mem"), hs),
     ];
     if bar_w > 0 {
         header.push(Span::styled(" ".repeat(bar_w + 1), hs));
     }
     let mut lines = vec![Line::from(header)];
+
+    const BLOCKS: [&str; 9] = [" ", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"];
 
     for p in procs {
         let cpu_col = if p.cpu_pct >= 50.0 {
@@ -767,20 +769,29 @@ fn render_top_procs(f: &mut Frame, area: Rect, theme: &crate::theme::Theme) {
             theme.text
         };
         let mut spans = vec![
-            Span::styled(format!("{:>5} ", p.pid), Style::default().fg(theme.dim)),
+            Span::styled(format!("{:>6} ", p.pid), Style::default().fg(theme.dim)),
             Span::styled(
                 format!("{:<w$} ", meter::ellipsize(&p.name, name_w), w = name_w),
                 Style::default().fg(theme.text),
             ),
-            Span::styled(format!("{:>5.1}%", p.cpu_pct), Style::default().fg(cpu_col)),
             Span::styled(
-                format!(" {:>5}", meter::fmt_bytes(p.mem_kb * 1024)),
+                format!("{:>5.1}% ", p.cpu_pct),
+                Style::default().fg(cpu_col),
+            ),
+            Span::styled(
+                format!("{:>5}", meter::fmt_bytes(p.mem_kb * 1024)),
                 Style::default().fg(theme.secondary),
             ),
         ];
         if bar_w > 0 {
+            let levels = bar_w * 8;
+            let frac = (p.cpu_pct / 100.0).clamp(0.0, 1.0);
+            let filled = (frac * levels as f64).round() as usize;
+            let bar_str: String = (0..bar_w)
+                .map(|i| BLOCKS[filled.saturating_sub(i * 8).min(8)])
+                .collect();
             spans.push(Span::styled(
-                format!(" {}", meter::bar((p.cpu_pct / 100.0).min(1.0), bar_w)),
+                format!(" {}", bar_str),
                 Style::default().fg(cpu_col),
             ));
         }

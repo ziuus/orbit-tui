@@ -140,17 +140,17 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, _is_detailed: bool) {
         let mut head = Line::from(vec![
             Span::styled(format!("{} ", arrow), Style::default().fg(color)),
             Span::styled(
-                format!("{:>10}", meter::fmt_kbps(rate)),
+                format!("{:<9}", meter::fmt_kbps(rate)),
                 Style::default().fg(color),
             ),
             Span::styled(
-                format!("  peak {}", meter::fmt_kbps(peak)),
+                format!("  peak {:<9}", meter::fmt_kbps(peak)),
                 Style::default().fg(theme.dim),
             ),
         ]);
         if area.width >= 44 {
             head.spans.push(Span::styled(
-                format!("  total {}", meter::fmt_bytes(total)),
+                format!("  total {:>5}", meter::fmt_bytes(total)),
                 Style::default().fg(theme.dim),
             ));
         }

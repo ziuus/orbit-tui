@@ -322,7 +322,7 @@ pub fn render_storage(f: &mut Frame, area: Rect, theme: &Theme) {
             let pct_s = format!(" {:>3.0}%", pct);
             let size = if wide {
                 format!(
-                    "  {:>6} / {:<6}",
+                    "  {:>6} / {:>6}",
                     meter::fmt_bytes(m.used),
                     meter::fmt_bytes(m.total)
                 )

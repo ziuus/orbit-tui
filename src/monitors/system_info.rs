@@ -398,8 +398,18 @@ pub fn render_neofetch(
         .or_else(|_| std::env::var("USERNAME"))
         .unwrap_or_else(|_| "user".into());
 
+    let clean_os = if let Some(stripped) = facts
+        .os
+        .strip_prefix("Linux (")
+        .and_then(|s| s.strip_suffix(')'))
+    {
+        stripped.to_string()
+    } else {
+        facts.os.clone()
+    };
+
     let mut kv: Vec<(&str, String)> = vec![
-        ("OS", facts.os.clone()),
+        ("OS", clean_os),
         ("HOST", facts.host.clone()),
         ("KERNEL", facts.kernel.clone()),
         ("UPTIME", sum.uptime.clone()),
@@ -437,6 +447,7 @@ pub fn render_neofetch(
 
     if show_header {
         rows.push(Line::from(vec![
+            Span::styled("◈ ", Style::default().fg(theme.dim)),
             Span::styled(
                 user,
                 Style::default()
@@ -452,10 +463,10 @@ pub fn render_neofetch(
             ),
         ]));
         let div_len = (facts.host.len() + 10).min(kv_area.width as usize).min(28);
-        rows.push(Line::from(Span::styled(
-            "─".repeat(div_len),
-            Style::default().fg(theme.surface),
-        )));
+        rows.push(Line::from(vec![
+            Span::raw("  "),
+            Span::styled("─".repeat(div_len), Style::default().fg(theme.surface)),
+        ]));
     }
 
     for (k, v) in kv {

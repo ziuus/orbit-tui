@@ -66,9 +66,10 @@ pub fn sample(sys: &sysinfo::System) {
 }
 
 fn row<'a>(label: &'a str, used: u64, total: u64, pct: f64, width: u16, theme: &Theme) -> Line<'a> {
+    let clean_label = format!("{:<4}", label.trim());
     let stats = if width >= 28 {
         format!(
-            "{:>5} / {:<5}",
+            "{:>5} / {:>5}",
             meter::fmt_bytes(used),
             meter::fmt_bytes(total)
         )
@@ -76,12 +77,12 @@ fn row<'a>(label: &'a str, used: u64, total: u64, pct: f64, width: u16, theme: &
         meter::fmt_bytes(used)
     };
     let pct_str = format!("{:>3.0}%", pct);
-    let fixed = label.chars().count() + 1 + stats.chars().count() + 2 + pct_str.chars().count() + 1;
+    let fixed = 4 + 1 + stats.chars().count() + 2 + pct_str.chars().count() + 1;
     let bar_w = (width as usize).saturating_sub(fixed);
     let (on, off) = meter::track(pct / 100.0, bar_w);
     let c = theme.usage(pct);
     let mut spans = vec![
-        Span::styled(format!("{} ", label), Style::default().fg(theme.dim)),
+        Span::styled(format!("{} ", clean_label), Style::default().fg(theme.dim)),
         Span::styled(format!("{}  ", stats), Style::default().fg(theme.text)),
     ];
     if bar_w >= 2 {
@@ -116,7 +117,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_detailed: bool) {
     .split(area);
 
     f.render_widget(
-        Paragraph::new(row("RAM ", m.used, m.total, m.pct(), area.width, theme)),
+        Paragraph::new(row("RAM", m.used, m.total, m.pct(), area.width, theme)),
         chunks[0],
     );
 

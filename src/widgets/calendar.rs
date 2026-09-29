@@ -170,20 +170,22 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, month_offset: i32) {
                     let is_today = d == today && month_offset == 0;
                     if is_today {
                         if is_wide {
+                            week_spans.push(Span::raw(" "));
                             week_spans.push(Span::styled(
-                                format!("[{:>2}]", d),
+                                format!("{:>2}", d),
                                 Style::default()
                                     .fg(theme.bg)
                                     .bg(theme.accent)
-                                    .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                                    .add_modifier(Modifier::BOLD),
                             ));
+                            week_spans.push(Span::raw(" "));
                         } else {
                             week_spans.push(Span::styled(
                                 format!("{:>2}", d),
                                 Style::default()
                                     .fg(theme.bg)
                                     .bg(theme.accent)
-                                    .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                                    .add_modifier(Modifier::BOLD),
                             ));
                             week_spans.push(Span::raw(" "));
                         }

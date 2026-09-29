@@ -318,7 +318,13 @@ pub fn render_with_note(
     let block_h = lines.len() as u16 + 2; // blank + date
     let top = area.y + area.height.saturating_sub(block_h) / 2;
     let glyph_w = text_width(&text, sx, font) as u16;
-    let left = area.x + area.width.saturating_sub(glyph_w) / 2;
+    let tag_w = if tag.is_empty() {
+        0
+    } else {
+        tag.chars().count() as u16 + 1
+    };
+    let total_clock_w = glyph_w + tag_w;
+    let left = area.x + area.width.saturating_sub(total_clock_w) / 2;
     let n = lines.len() as u16;
     f.render_widget(
         Paragraph::new(lines),
