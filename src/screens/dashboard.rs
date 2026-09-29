@@ -300,7 +300,14 @@ fn render_dashboard_panel(
     match name.to_lowercase().as_str() {
         "system" => {
             let inner = panel(f, area, "system", theme, focus(PanelId::System));
-            system_info::render_neofetch(f, inner, theme, sum, term, app.panel_states.force_robot_logo);
+            system_info::render_neofetch(
+                f,
+                inner,
+                theme,
+                sum,
+                term,
+                app.panel_states.force_robot_logo,
+            );
         }
         "gauges" | "gauge" => {
             let inner = panel(f, area, "gauges", theme, focus(PanelId::Gauges));
@@ -597,7 +604,11 @@ fn render_dashboard_panel(
             );
             crate::widgets::news::render(f, inner, theme);
         }
-        s if s.starts_with("pinned_media") || s.starts_with("media_preview") || s.starts_with("media-preview") || s.starts_with("image") => {
+        s if s.starts_with("pinned_media")
+            || s.starts_with("media_preview")
+            || s.starts_with("media-preview")
+            || s.starts_with("image") =>
+        {
             let hint = if app.panel_states.pinned_media_input_active {
                 format!("media path: {}_", app.panel_states.pinned_media_input)
             } else {
@@ -609,13 +620,7 @@ fn render_dashboard_panel(
                 path = custom_path.to_string();
             }
             let frame = app.frame;
-            crate::widgets::pinned_media::render(
-                f,
-                inner,
-                app,
-                &path,
-                frame,
-            );
+            crate::widgets::pinned_media::render(f, inner, app, &path, frame);
         }
         "video" | "donut" => {
             let inner = panel(f, area, "video", theme, focus(PanelId::Video));
@@ -635,11 +640,7 @@ fn render_dashboard_panel(
         "files" => {
             let inner = panel(f, area, "file manager", theme, focus(PanelId::Files));
 
-            crate::widgets::files::render(
-                f,
-                inner,
-                app,
-            );
+            crate::widgets::files::render(f, inner, app);
         }
         custom_id => {
             let mut matched = false;

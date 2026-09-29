@@ -8,11 +8,10 @@ use std::cell::RefCell;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
 
-use crate::theme::Theme;
-
-
-static ASYNC_RESULT: LazyLock<Arc<Mutex<Option<CachedMedia>>>> = LazyLock::new(|| Arc::new(Mutex::new(None)));
-static ASYNC_LOADING_PATH: LazyLock<Arc<Mutex<String>>> = LazyLock::new(|| Arc::new(Mutex::new(String::new())));
+static ASYNC_RESULT: LazyLock<Arc<Mutex<Option<CachedMedia>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(None)));
+static ASYNC_LOADING_PATH: LazyLock<Arc<Mutex<String>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(String::new())));
 
 thread_local! {
     static CACHED_IMAGE: RefCell<Option<CachedMedia>> = const { RefCell::new(None) };
@@ -144,7 +143,12 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App, path: &str, 
                             if p.is_file() {
                                 if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
                                     let ext = ext.to_lowercase();
-                                    if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "gif" || ext == "webp" {
+                                    if ext == "png"
+                                        || ext == "jpg"
+                                        || ext == "jpeg"
+                                        || ext == "gif"
+                                        || ext == "webp"
+                                    {
                                         images.push(p.to_string_lossy().to_string());
                                     }
                                 }
@@ -158,13 +162,13 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App, path: &str, 
                     file_to_load = images[current_idx].clone();
                 }
             }
-            
+
             let actual_path_clone = actual_path.to_string();
             let path_clone = path.to_string();
             let target_w = area.width as u32;
             let target_h = (area.height * 2) as u32;
             let theme_red = theme.red;
-            
+
             thread::spawn(move || {
                 let mut lines = Vec::new();
                 let load_result = if actual_path_clone == "default_fallback" {
@@ -190,8 +194,12 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App, path: &str, 
 
                         if w > 0 && h > 0 {
                             let sample_coords = [
-                                (w / 4, h / 4), (w / 2, h / 3), (3 * w / 4, h / 4),
-                                (w / 3, h / 2), (w / 2, h / 2), (2 * w / 3, 2 * h / 3),
+                                (w / 4, h / 4),
+                                (w / 2, h / 3),
+                                (3 * w / 4, h / 4),
+                                (w / 3, h / 2),
+                                (w / 2, h / 2),
+                                (2 * w / 3, 2 * h / 3),
                             ];
                             for (sx, sy) in sample_coords {
                                 let p = thumb.get_pixel(sx.min(w - 1), sy.min(h - 1));
@@ -203,7 +211,11 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App, path: &str, 
                             let mut spans = Vec::new();
                             for x in 0..w {
                                 let top = thumb.get_pixel(x, y);
-                                let bottom = if y + 1 < h { Some(thumb.get_pixel(x, y + 1)) } else { None };
+                                let bottom = if y + 1 < h {
+                                    Some(thumb.get_pixel(x, y + 1))
+                                } else {
+                                    None
+                                };
                                 let top_color = Color::Rgb(top[0], top[1], top[2]);
                                 let style = ratatui::style::Style::default().fg(top_color);
                                 let style = if let Some(b) = bottom {
@@ -236,14 +248,22 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App, path: &str, 
                 let file_size_kb = if actual_path_clone == "default_fallback" {
                     166
                 } else {
-                    std::fs::metadata(&file_to_load).map(|m| m.len().div_ceil(1024)).unwrap_or(0)
+                    std::fs::metadata(&file_to_load)
+                        .map(|m| m.len().div_ceil(1024))
+                        .unwrap_or(0)
                 };
 
                 let info = MediaInfo {
                     is_fallback: actual_path_clone == "default_fallback",
-                    is_dir, current_idx, total_images: if is_dir { images.len() } else { 1 },
-                    file_name, file_path: file_to_load,
-                    orig_width, orig_height, file_size_kb, palette,
+                    is_dir,
+                    current_idx,
+                    total_images: if is_dir { images.len() } else { 1 },
+                    file_name,
+                    file_path: file_to_load,
+                    orig_width,
+                    orig_height,
+                    file_size_kb,
+                    palette,
                 };
 
                 let result = CachedMedia {
@@ -268,11 +288,9 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App, path: &str, 
         if let Some(cache) = c.borrow().as_ref() {
             let mut rendered = false;
             if !app.panel_states.pixel_images {
-                if let (Some(picker), Some(tx), Some(img)) = (
-                    &app.image_picker,
-                    &app.image_resize_tx,
-                    &cache.img,
-                ) {
+                if let (Some(picker), Some(tx), Some(img)) =
+                    (&app.image_picker, &app.image_resize_tx, &cache.img)
+                {
                     let path_key = cache.path.clone();
                     let img_clone = img.clone();
                     let picker_clone = picker.clone();

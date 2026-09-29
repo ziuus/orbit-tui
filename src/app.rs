@@ -360,11 +360,16 @@ pub struct App {
     pub custom_widgets: CustomWidgetManager,
     /// Image protocol picker for ratatui-image rendering.
     pub image_picker: Option<ratatui_image::picker::Picker>,
-    pub image_protocols: std::collections::HashMap<String, ratatui_image::protocol::StatefulProtocol>,
+    pub image_protocols:
+        std::collections::HashMap<String, ratatui_image::protocol::StatefulProtocol>,
     /// Sender to the background resize-encode worker thread.
     pub image_resize_tx: Option<std::sync::mpsc::Sender<ratatui_image::thread::ResizeRequest>>,
     /// Receiver for completed resize responses from the worker.
-    pub image_resize_rx: Option<std::sync::mpsc::Receiver<Result<ratatui_image::thread::ResizeResponse, ratatui_image::errors::Errors>>>,
+    pub image_resize_rx: Option<
+        std::sync::mpsc::Receiver<
+            Result<ratatui_image::thread::ResizeResponse, ratatui_image::errors::Errors>,
+        >,
+    >,
     /// Non-blocking ThreadProtocol image states keyed by path.
     pub thread_protocols: std::collections::HashMap<String, ratatui_image::thread::ThreadProtocol>,
 }
@@ -428,7 +433,10 @@ impl App {
             pending_signal: None,
             sampler_interval,
             custom_widgets,
-            image_picker: Some(ratatui_image::picker::Picker::from_query_stdio().unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks())),
+            image_picker: Some(
+                ratatui_image::picker::Picker::from_query_stdio()
+                    .unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks()),
+            ),
             image_protocols: std::collections::HashMap::new(),
             image_resize_tx: None,
             image_resize_rx: None,
@@ -437,7 +445,8 @@ impl App {
 
         // Spin up the persistent background thread for non-blocking image resize+encode.
         {
-            let (tx_worker, rx_worker) = std::sync::mpsc::channel::<ratatui_image::thread::ResizeRequest>();
+            let (tx_worker, rx_worker) =
+                std::sync::mpsc::channel::<ratatui_image::thread::ResizeRequest>();
             let (tx_done, rx_done) = std::sync::mpsc::channel();
             std::thread::Builder::new()
                 .name("vanta-image-encoder".into())
@@ -904,12 +913,20 @@ impl App {
             }
             KeyCode::Char('I') => {
                 self.panel_states.pixel_images = !self.panel_states.pixel_images;
-                let status = if self.panel_states.pixel_images { "Pixelated (Half-block)" } else { "Clear (High-res Protocol)" };
+                let status = if self.panel_states.pixel_images {
+                    "Pixelated (Half-block)"
+                } else {
+                    "Clear (High-res Protocol)"
+                };
                 self.toast(format!("images · {}", status));
             }
             KeyCode::Char('B') => {
                 self.panel_states.force_robot_logo = !self.panel_states.force_robot_logo;
-                let status = if self.panel_states.force_robot_logo { "Vanta Robot" } else { "OS Logo" };
+                let status = if self.panel_states.force_robot_logo {
+                    "Vanta Robot"
+                } else {
+                    "OS Logo"
+                };
                 self.toast(format!("logo · {}", status));
             }
             KeyCode::Char('O') => {
@@ -1120,13 +1137,19 @@ impl App {
                             let snap = crate::monitors::files::snapshot();
                             let items = self.get_filtered_files(&snap);
                             if let Some(item) = items.get(self.panel_states.files_selected) {
-                                let new_path = item.path.parent().unwrap().join(&self.panel_states.files_rename_input);
+                                let new_path = item
+                                    .path
+                                    .parent()
+                                    .unwrap()
+                                    .join(&self.panel_states.files_rename_input);
                                 std::fs::rename(&item.path, &new_path).ok();
                                 crate::monitors::files::chdir(&snap.current_dir);
                             }
                         }
                         KeyCode::Esc => self.panel_states.files_rename_input_active = false,
-                        KeyCode::Backspace => { self.panel_states.files_rename_input.pop(); }
+                        KeyCode::Backspace => {
+                            self.panel_states.files_rename_input.pop();
+                        }
                         KeyCode::Char(c) => self.panel_states.files_rename_input.push(c),
                         _ => {}
                     }
@@ -1134,8 +1157,10 @@ impl App {
                 }
                 if self.panel_states.files_search_input_active {
                     match key {
-                        KeyCode::Enter | KeyCode::Esc => self.panel_states.files_search_input_active = false,
-                        KeyCode::Backspace => { 
+                        KeyCode::Enter | KeyCode::Esc => {
+                            self.panel_states.files_search_input_active = false
+                        }
+                        KeyCode::Backspace => {
                             self.panel_states.files_search_input.pop();
                             self.panel_states.files_selected = 0;
                         }
@@ -1148,108 +1173,124 @@ impl App {
                     return;
                 }
                 match key {
-                KeyCode::Char('.') => {
-                    self.panel_states.files_show_hidden = !self.panel_states.files_show_hidden;
-                    self.panel_states.files_selected = 0;
-                }
-                KeyCode::Char('/') => {
-                    self.panel_states.files_search_input_active = true;
-                }
-                KeyCode::Char('N') | KeyCode::F(2) => {
-                    self.panel_states.files_rename_input_active = true;
-                    self.panel_states.files_rename_input.clear();
-                    let snap = crate::monitors::files::snapshot();
-                    let items = self.get_filtered_files(&snap);
-                    if let Some(item) = items.get(self.panel_states.files_selected) {
-                        self.panel_states.files_rename_input = item.path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    KeyCode::Char('.') => {
+                        self.panel_states.files_show_hidden = !self.panel_states.files_show_hidden;
+                        self.panel_states.files_selected = 0;
                     }
-                }
-                KeyCode::Char('y') | KeyCode::Char('c') => {
-                    let snap = crate::monitors::files::snapshot();
-                    let items = self.get_filtered_files(&snap);
-                    if let Some(item) = items.get(self.panel_states.files_selected) {
-                        let path = item.path.to_string_lossy().to_string();
-                        std::thread::spawn(move || {
-                            let _ = std::process::Command::new("sh")
+                    KeyCode::Char('/') => {
+                        self.panel_states.files_search_input_active = true;
+                    }
+                    KeyCode::Char('N') | KeyCode::F(2) => {
+                        self.panel_states.files_rename_input_active = true;
+                        self.panel_states.files_rename_input.clear();
+                        let snap = crate::monitors::files::snapshot();
+                        let items = self.get_filtered_files(&snap);
+                        if let Some(item) = items.get(self.panel_states.files_selected) {
+                            self.panel_states.files_rename_input = item
+                                .path
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string();
+                        }
+                    }
+                    KeyCode::Char('y') | KeyCode::Char('c') => {
+                        let snap = crate::monitors::files::snapshot();
+                        let items = self.get_filtered_files(&snap);
+                        if let Some(item) = items.get(self.panel_states.files_selected) {
+                            let path = item.path.to_string_lossy().to_string();
+                            std::thread::spawn(move || {
+                                let _ = std::process::Command::new("sh")
                                 .arg("-c")
                                 .arg(format!("echo -n '{}' | xclip -sel clip || echo -n '{}' | wl-copy || echo -n '{}' | pbcopy || echo -n '{}' | clip.exe", path, path, path, path))
                                 .output();
-                        });
-                        self.toast(format!("copied path: {}", item.path.file_name().unwrap_or_default().to_string_lossy()));
+                            });
+                            self.toast(format!(
+                                "copied path: {}",
+                                item.path.file_name().unwrap_or_default().to_string_lossy()
+                            ));
+                        }
                     }
-                }
-                KeyCode::Char('o') => {
-                    let snap = crate::monitors::files::snapshot();
-                    let items = self.get_filtered_files(&snap);
-                    if let Some(item) = items.get(self.panel_states.files_selected) {
-                        let path = item.path.clone();
-                        std::thread::spawn(move || {
-                            #[cfg(target_os = "macos")]
-                            let _ = std::process::Command::new("open").arg(&path).spawn();
-                            #[cfg(target_os = "windows")]
-                            let _ = std::process::Command::new("cmd").args(["/c", "start", "", path.to_str().unwrap()]).spawn();
-                            #[cfg(target_os = "linux")]
-                            let _ = std::process::Command::new("xdg-open").arg(&path).spawn();
-                        });
+                    KeyCode::Char('o') => {
+                        let snap = crate::monitors::files::snapshot();
+                        let items = self.get_filtered_files(&snap);
+                        if let Some(item) = items.get(self.panel_states.files_selected) {
+                            let path = item.path.clone();
+                            std::thread::spawn(move || {
+                                #[cfg(target_os = "macos")]
+                                let _ = std::process::Command::new("open").arg(&path).spawn();
+                                #[cfg(target_os = "windows")]
+                                let _ = std::process::Command::new("cmd")
+                                    .args(["/c", "start", "", path.to_str().unwrap()])
+                                    .spawn();
+                                #[cfg(target_os = "linux")]
+                                let _ = std::process::Command::new("xdg-open").arg(&path).spawn();
+                            });
+                        }
                     }
-                }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    self.panel_states.files_selected =
-                        self.panel_states.files_selected.saturating_sub(1);
-                    let snap = crate::monitors::files::snapshot();
-                    let items = self.get_filtered_files(&snap);
-                    if let Some(item) = items.get(self.panel_states.files_selected) {
-                        crate::monitors::files::update_preview(&item.path);
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        self.panel_states.files_selected =
+                            self.panel_states.files_selected.saturating_sub(1);
+                        let snap = crate::monitors::files::snapshot();
+                        let items = self.get_filtered_files(&snap);
+                        if let Some(item) = items.get(self.panel_states.files_selected) {
+                            crate::monitors::files::update_preview(&item.path);
+                        }
                     }
-                }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    self.panel_states.files_selected =
-                        self.panel_states.files_selected.saturating_add(1);
-                    let snap = crate::monitors::files::snapshot();
-                    let items = self.get_filtered_files(&snap);
-                    if let Some(item) = items.get(self.panel_states.files_selected) {
-                        crate::monitors::files::update_preview(&item.path);
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        self.panel_states.files_selected =
+                            self.panel_states.files_selected.saturating_add(1);
+                        let snap = crate::monitors::files::snapshot();
+                        let items = self.get_filtered_files(&snap);
+                        if let Some(item) = items.get(self.panel_states.files_selected) {
+                            crate::monitors::files::update_preview(&item.path);
+                        }
                     }
-                }
-                KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => {
-                    let snap = crate::monitors::files::snapshot();
-                    let items = self.get_filtered_files(&snap);
-                    if let Some(item) = items.get(self.panel_states.files_selected) {
-                        if item.is_dir {
-                            crate::monitors::files::chdir(&item.path);
+                    KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => {
+                        let snap = crate::monitors::files::snapshot();
+                        let items = self.get_filtered_files(&snap);
+                        if let Some(item) = items.get(self.panel_states.files_selected) {
+                            if item.is_dir {
+                                crate::monitors::files::chdir(&item.path);
+                                self.panel_states.files_selected = 0;
+                            }
+                        }
+                    }
+                    KeyCode::Delete | KeyCode::Char('x') => {
+                        let snap = crate::monitors::files::snapshot();
+                        let items = self.get_filtered_files(&snap);
+                        if let Some(item) = items.get(self.panel_states.files_selected) {
+                            crate::monitors::fs_tasks::start_trash(
+                                format!(
+                                    "trash-{}",
+                                    std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_nanos()
+                                ),
+                                item.path.to_string_lossy().to_string(),
+                            );
+                            let current = snap.current_dir.clone();
+                            std::thread::spawn(move || {
+                                std::thread::sleep(std::time::Duration::from_millis(500));
+                                crate::monitors::files::chdir(&current);
+                            });
+                        }
+                    }
+                    KeyCode::Char('r') => {
+                        let snap = crate::monitors::files::snapshot();
+                        crate::monitors::files::chdir(&snap.current_dir);
+                    }
+                    KeyCode::Backspace | KeyCode::Left | KeyCode::Char('h') => {
+                        let snap = crate::monitors::files::snapshot();
+                        if let Some(parent) = snap.current_dir.parent() {
+                            crate::monitors::files::chdir(parent);
                             self.panel_states.files_selected = 0;
                         }
                     }
+                    _ => {}
                 }
-                KeyCode::Delete | KeyCode::Char('x') => {
-                    let snap = crate::monitors::files::snapshot();
-                    let items = self.get_filtered_files(&snap);
-                    if let Some(item) = items.get(self.panel_states.files_selected) {
-                        crate::monitors::fs_tasks::start_trash(
-                            format!("trash-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()),
-                            item.path.to_string_lossy().to_string()
-                        );
-                        let current = snap.current_dir.clone();
-                        std::thread::spawn(move || {
-                            std::thread::sleep(std::time::Duration::from_millis(500));
-                            crate::monitors::files::chdir(&current);
-                        });
-                    }
-                }
-                KeyCode::Char('r') => {
-                    let snap = crate::monitors::files::snapshot();
-                    crate::monitors::files::chdir(&snap.current_dir);
-                }
-                KeyCode::Backspace | KeyCode::Left | KeyCode::Char('h') => {
-                    let snap = crate::monitors::files::snapshot();
-                    if let Some(parent) = snap.current_dir.parent() {
-                        crate::monitors::files::chdir(parent);
-                        self.panel_states.files_selected = 0;
-                    }
-                }
-                _ => {}
-                }
-            },
+            }
             _ => {}
         }
 
@@ -1274,18 +1315,28 @@ impl App {
         }
     }
 
-    pub fn get_filtered_files(&self, snap: &crate::monitors::files::FilesSnapshot) -> Vec<crate::monitors::files::FileItem> {
-        snap.items.iter().filter(|item| {
-            if !self.panel_states.files_show_hidden && item.name.starts_with('.') {
-                return false;
-            }
-            if !self.panel_states.files_search_input.is_empty() {
-                if !item.name.to_lowercase().contains(&self.panel_states.files_search_input.to_lowercase()) {
+    pub fn get_filtered_files(
+        &self,
+        snap: &crate::monitors::files::FilesSnapshot,
+    ) -> Vec<crate::monitors::files::FileItem> {
+        snap.items
+            .iter()
+            .filter(|item| {
+                if !self.panel_states.files_show_hidden && item.name.starts_with('.') {
                     return false;
                 }
-            }
-            true
-        }).cloned().collect()
+                if !self.panel_states.files_search_input.is_empty()
+                    && !item
+                        .name
+                        .to_lowercase()
+                        .contains(&self.panel_states.files_search_input.to_lowercase())
+                {
+                    return false;
+                }
+                true
+            })
+            .cloned()
+            .collect()
     }
 
     fn trigger_focused_action(&mut self) {

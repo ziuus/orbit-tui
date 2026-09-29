@@ -1,9 +1,9 @@
-use ratatui::layout::{Rect, Alignment};
+use crossterm::event::KeyCode;
+use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 use ratatui::Frame;
-use crossterm::event::KeyCode;
 
 use crate::app::App;
 
@@ -19,7 +19,10 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
 }
 
 fn is_cava_installed() -> bool {
-    std::process::Command::new("cava").arg("-v").output().is_ok()
+    std::process::Command::new("cava")
+        .arg("-v")
+        .output()
+        .is_ok()
 }
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
@@ -32,9 +35,13 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(theme.accent).add_modifier(Modifier::BOLD))
+        .border_style(
+            Style::default()
+                .fg(theme.accent)
+                .add_modifier(Modifier::BOLD),
+        )
         .style(Style::default().bg(theme.bg));
-    
+
     let inner = block.inner(popup_area);
     f.render_widget(block, popup_area);
 
@@ -43,65 +50,151 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     match app.setup_wizard_step {
         0 => {
             text.push(Line::from(""));
-            text.push(Line::from(Span::styled("Welcome to Vanta!", Style::default().fg(theme.green).add_modifier(Modifier::BOLD))));
+            text.push(Line::from(Span::styled(
+                "Welcome to Vanta!",
+                Style::default()
+                    .fg(theme.green)
+                    .add_modifier(Modifier::BOLD),
+            )));
             text.push(Line::from(""));
-            text.push(Line::from("Vanta is a high-performance, aesthetic dashboard."));
+            text.push(Line::from(
+                "Vanta is a high-performance, aesthetic dashboard.",
+            ));
             text.push(Line::from("Let's quickly get your system configured."));
             text.push(Line::from(""));
-            text.push(Line::from(Span::styled("Press [Enter] to continue", Style::default().fg(theme.dim))));
+            text.push(Line::from(Span::styled(
+                "Press [Enter] to continue",
+                Style::default().fg(theme.dim),
+            )));
         }
         1 => {
             text.push(Line::from(""));
-            text.push(Line::from(Span::styled("Step 1: Dependencies (Audio Visualizer)", Style::default().fg(theme.accent).add_modifier(Modifier::BOLD))));
+            text.push(Line::from(Span::styled(
+                "Step 1: Dependencies (Audio Visualizer)",
+                Style::default()
+                    .fg(theme.accent)
+                    .add_modifier(Modifier::BOLD),
+            )));
             text.push(Line::from(""));
-            text.push(Line::from("Vanta uses 'cava' for its live audio visualizer."));
-            
+            text.push(Line::from(
+                "Vanta uses 'cava' for its live audio visualizer.",
+            ));
+
             if is_cava_installed() {
                 text.push(Line::from(""));
-                text.push(Line::from(Span::styled("✓ Cava is already installed! You're good to go.", Style::default().fg(theme.green))));
+                text.push(Line::from(Span::styled(
+                    "✓ Cava is already installed! You're good to go.",
+                    Style::default().fg(theme.green),
+                )));
             } else {
                 text.push(Line::from(""));
                 #[cfg(target_os = "macos")]
                 {
-                    text.push(Line::from(Span::styled("! Cava is missing.", Style::default().fg(theme.yellow))));
-                    text.push(Line::from("To enable live audio, exit and run:  brew install cava"));
+                    text.push(Line::from(Span::styled(
+                        "! Cava is missing.",
+                        Style::default().fg(theme.yellow),
+                    )));
+                    text.push(Line::from(
+                        "To enable live audio, exit and run:  brew install cava",
+                    ));
                 }
                 #[cfg(target_os = "linux")]
                 {
-                    text.push(Line::from(Span::styled("! Cava is missing.", Style::default().fg(theme.yellow))));
-                    text.push(Line::from("To enable live audio, exit and run:  sudo apt install cava"));
+                    text.push(Line::from(Span::styled(
+                        "! Cava is missing.",
+                        Style::default().fg(theme.yellow),
+                    )));
+                    text.push(Line::from(
+                        "To enable live audio, exit and run:  sudo apt install cava",
+                    ));
                     text.push(Line::from("(Or pacman -S cava / dnf install cava)"));
                 }
                 #[cfg(target_os = "windows")]
                 {
-                    text.push(Line::from(Span::styled("! Cava is not natively supported on Windows.", Style::default().fg(theme.dim))));
-                    text.push(Line::from("Vanta will automatically use a simulated fallback animation."));
+                    text.push(Line::from(Span::styled(
+                        "! Cava is not natively supported on Windows.",
+                        Style::default().fg(theme.dim),
+                    )));
+                    text.push(Line::from(
+                        "Vanta will automatically use a simulated fallback animation.",
+                    ));
                 }
             }
             text.push(Line::from(""));
             text.push(Line::from(""));
-            text.push(Line::from(Span::styled("Press [Enter] to continue", Style::default().fg(theme.dim))));
+            text.push(Line::from(Span::styled(
+                "Press [Enter] to continue",
+                Style::default().fg(theme.dim),
+            )));
         }
         2 => {
             text.push(Line::from(""));
-            text.push(Line::from(Span::styled("Step 2: Graphics Engine", Style::default().fg(theme.accent).add_modifier(Modifier::BOLD))));
+            text.push(Line::from(Span::styled(
+                "Step 2: Graphics Engine",
+                Style::default()
+                    .fg(theme.accent)
+                    .add_modifier(Modifier::BOLD),
+            )));
             text.push(Line::from(""));
-            text.push(Line::from("Vanta renders meters, graphs, and images in Braille by default."));
+            text.push(Line::from(
+                "Vanta renders meters, graphs, and images in Braille by default.",
+            ));
             text.push(Line::from("Choose your image rendering mode:"));
             text.push(Line::from(""));
-            text.push(Line::from(Span::styled(format!("  [1] Braille (Default - compatible with all terminals) {}", if app.panel_states.pixel_images { "(Selected)" } else { "" }), if app.panel_states.pixel_images { Style::default().fg(theme.green) } else { Style::default() })));
-            text.push(Line::from(Span::styled(format!("  [2] High-Res Engine (Requires Kitty/Sixel support) {}", if !app.panel_states.pixel_images { "(Selected)" } else { "" }), if !app.panel_states.pixel_images { Style::default().fg(theme.green) } else { Style::default() })));
+            text.push(Line::from(Span::styled(
+                format!(
+                    "  [1] Braille (Default - compatible with all terminals) {}",
+                    if app.panel_states.pixel_images {
+                        "(Selected)"
+                    } else {
+                        ""
+                    }
+                ),
+                if app.panel_states.pixel_images {
+                    Style::default().fg(theme.green)
+                } else {
+                    Style::default()
+                },
+            )));
+            text.push(Line::from(Span::styled(
+                format!(
+                    "  [2] High-Res Engine (Requires Kitty/Sixel support) {}",
+                    if !app.panel_states.pixel_images {
+                        "(Selected)"
+                    } else {
+                        ""
+                    }
+                ),
+                if !app.panel_states.pixel_images {
+                    Style::default().fg(theme.green)
+                } else {
+                    Style::default()
+                },
+            )));
             text.push(Line::from(""));
-            text.push(Line::from(Span::styled("Press [Enter] to continue", Style::default().fg(theme.dim))));
+            text.push(Line::from(Span::styled(
+                "Press [Enter] to continue",
+                Style::default().fg(theme.dim),
+            )));
         }
         3 => {
             text.push(Line::from(""));
-            text.push(Line::from(Span::styled("Setup Complete!", Style::default().fg(theme.green).add_modifier(Modifier::BOLD))));
+            text.push(Line::from(Span::styled(
+                "Setup Complete!",
+                Style::default()
+                    .fg(theme.green)
+                    .add_modifier(Modifier::BOLD),
+            )));
             text.push(Line::from(""));
             text.push(Line::from("Your configuration has been saved."));
-            text.push(Line::from("You can change these later by pressing 'S' or running 'vanta config'."));
+            text.push(Line::from(
+                "You can change these later by pressing 'S' or running 'vanta config'.",
+            ));
             text.push(Line::from(""));
-            text.push(Line::from(Span::styled("Press [Enter] to launch Vanta", Style::default().fg(theme.dim))));
+            text.push(Line::from(Span::styled(
+                "Press [Enter] to launch Vanta",
+                Style::default().fg(theme.dim),
+            )));
         }
         _ => {}
     }

@@ -143,19 +143,9 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
     render_notes(f, notes_area, app);
 
     // Bottom Right: Files (Yazi)
-    let files_inner = panel(
-        f,
-        files_area,
-        "file manager",
-        theme,
-        focus(PanelId::Files),
-    );
+    let files_inner = panel(f, files_area, "file manager", theme, focus(PanelId::Files));
 
-    crate::widgets::files::render(
-        f,
-        files_inner,
-        app,
-    );
+    crate::widgets::files::render(f, files_inner, app);
 }
 
 pub fn render_notes(f: &mut Frame, area: Rect, app: &mut App) {

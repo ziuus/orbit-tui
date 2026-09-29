@@ -119,6 +119,7 @@ mod tests {
 
     #[test]
     fn bar_fills_with_eighth_resolution() {
+        set_style("block");
         assert_eq!(bar(0.0, 4), "    ");
         assert_eq!(bar(1.0, 4), "████");
         assert_eq!(bar(0.5, 4), "██  ");
@@ -130,6 +131,7 @@ mod tests {
 
     #[test]
     fn track_splits_filled_and_empty() {
+        set_style("block");
         assert_eq!(track(0.25, 8), ("━━".into(), "──────".into()));
         assert_eq!(track(1.5, 3), ("━━━".into(), "".into()));
     }

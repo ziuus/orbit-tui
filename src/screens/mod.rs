@@ -107,9 +107,14 @@ pub fn render_panel(f: &mut Frame, area: Rect, app: &mut crate::app::App, id: cr
     let inner = panel(f, area, &title, theme, true);
     let sum = &app.summary;
     match id {
-        P::System => {
-            system_info::render_neofetch(f, inner, theme, sum, (f.area().width, f.area().height), app.panel_states.force_robot_logo)
-        }
+        P::System => system_info::render_neofetch(
+            f,
+            inner,
+            theme,
+            sum,
+            (f.area().width, f.area().height),
+            app.panel_states.force_robot_logo,
+        ),
         P::Gauges => {
             let m = [
                 (

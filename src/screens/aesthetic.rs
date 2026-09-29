@@ -447,13 +447,7 @@ fn gallery(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme, _t: u64) {
         let [img_box, time_box] =
             Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(gallery_area);
         let p = app.config.ui.pinned_media_path.clone();
-        pinned_media::render(
-            f,
-            img_box,
-            app,
-            &p,
-            app.frame,
-        );
+        pinned_media::render(f, img_box, app, &p, app.frame);
         let time = if app.config.ui.clock_24h {
             chrono::Local::now().format(" %H:%M ").to_string()
         } else {
@@ -596,13 +590,7 @@ fn gallery(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme, _t: u64) {
     f.render_widget(art_block, left_col);
 
     let p = app.config.ui.pinned_media_path.clone();
-    pinned_media::render(
-        f,
-        inner_art,
-        app,
-        &p,
-        app.frame,
-    );
+    pinned_media::render(f, inner_art, app, &p, app.frame);
 
     // Right Column: Single Unified Atelier Companion Card
     let deck_block = Block::default()
@@ -798,15 +786,15 @@ fn render_footer(f: &mut Frame, area: Rect, theme: &Theme, list: &[Scene], idx: 
     );
 }
 
-fn starfield(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
+fn starfield(f: &mut Frame, area: Rect, _app: &mut App, theme: &Theme) {
     crate::widgets::starfield::render(f, area, theme);
 }
 
-fn life(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
+fn life(f: &mut Frame, area: Rect, _app: &mut App, theme: &Theme) {
     crate::widgets::life::render(f, area, theme);
 }
 
-fn snow(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
+fn snow(f: &mut Frame, area: Rect, _app: &mut App, theme: &Theme) {
     crate::widgets::snow::render(f, area, theme);
 }
 

@@ -5,13 +5,8 @@ use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use ratatui::Frame;
 
 use crate::monitors::files::{self, PreviewContent};
-use ratatui::style::Color;
 
-pub fn render(
-    f: &mut Frame,
-    area: Rect,
-    app: &mut crate::app::App,
-) {
+pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
     let theme = &app.theme;
     let is_focused = app.focused_panel == Some(crate::app::PanelId::Files);
     let mut selected_idx = app.panel_states.files_selected;
@@ -25,11 +20,15 @@ pub fn render(
         .spacing(1)
         .split(area);
 
-    let has_input = app.panel_states.files_search_input_active || app.panel_states.files_rename_input_active;
+    let has_input =
+        app.panel_states.files_search_input_active || app.panel_states.files_rename_input_active;
     let (list_area, input_area) = if has_input {
         let v = ratatui::layout::Layout::default()
             .direction(ratatui::layout::Direction::Vertical)
-            .constraints([ratatui::layout::Constraint::Min(0), ratatui::layout::Constraint::Length(3)])
+            .constraints([
+                ratatui::layout::Constraint::Min(0),
+                ratatui::layout::Constraint::Length(3),
+            ])
             .split(chunks[0]);
         (v[0], Some(v[1]))
     } else {
@@ -85,11 +84,7 @@ pub fn render(
     app.panel_states.files_scroll = scroll;
 
     let mut list_lines = Vec::new();
-    for (i, item) in items.iter()
-        .enumerate()
-        .skip(scroll)
-        .take(visible_items)
-    {
+    for (i, item) in items.iter().enumerate().skip(scroll).take(visible_items) {
         let prefix = if i == selected { " > " } else { "   " };
         let icon = if item.is_dir { "📁" } else { "📄" };
         let style = if i == selected {
@@ -137,10 +132,15 @@ pub fn render(
 
                     if !app.panel_states.pixel_images && app.image_picker.is_some() {
                         if let Some(picker) = &app.image_picker {
-                            let path_key = snap.items.get(selected_idx).map(|i| i.path.to_string_lossy().to_string()).unwrap_or_default();
-                            let protocol = app.image_protocols.entry(path_key).or_insert_with(|| {
-                                picker.new_resize_protocol(dynamic_image.clone())
-                            });
+                            let path_key = snap
+                                .items
+                                .get(selected_idx)
+                                .map(|i| i.path.to_string_lossy().to_string())
+                                .unwrap_or_default();
+                            let protocol =
+                                app.image_protocols.entry(path_key).or_insert_with(|| {
+                                    picker.new_resize_protocol(dynamic_image.clone())
+                                });
                             let image_widget = ratatui_image::StatefulImage::new();
                             f.render_stateful_widget(image_widget, img_area, protocol);
                         }
@@ -165,9 +165,15 @@ pub fn render(
 
     if let Some(i_area) = input_area {
         let (title, content) = if app.panel_states.files_rename_input_active {
-            ("Rename (Enter to save)", &app.panel_states.files_rename_input)
+            (
+                "Rename (Enter to save)",
+                &app.panel_states.files_rename_input,
+            )
         } else {
-            ("Search (Esc to cancel)", &app.panel_states.files_search_input)
+            (
+                "Search (Esc to cancel)",
+                &app.panel_states.files_search_input,
+            )
         };
         let b = Block::default()
             .borders(ratatui::widgets::Borders::ALL)

@@ -160,9 +160,24 @@ pub fn fmt_uptime(secs: u64) -> String {
 /// a row is a lit dot; short rows are padded, so the input can be ragged.
 fn logo_lines(id: &str, height: u16, width: u16, force_robot: bool) -> Vec<String> {
     let known = [
-        "arch", "archarm", "endeavouros", "manjaro", "cachyos", "ubuntu", "pop",
-        "linuxmint", "fedora", "nobara", "debian", "raspbian", "nixos", "gentoo",
-        "opensuse", "opensuse-tumbleweed", "opensuse-leap", "windows"
+        "arch",
+        "archarm",
+        "endeavouros",
+        "manjaro",
+        "cachyos",
+        "ubuntu",
+        "pop",
+        "linuxmint",
+        "fedora",
+        "nobara",
+        "debian",
+        "raspbian",
+        "nixos",
+        "gentoo",
+        "opensuse",
+        "opensuse-tumbleweed",
+        "opensuse-leap",
+        "windows",
     ];
     if force_robot || !known.contains(&id) {
         crate::anim::request(2);
@@ -182,25 +197,25 @@ fn logo_lines(id: &str, height: u16, width: u16, force_robot: bool) -> Vec<Strin
             };
             return vec![
                 format!("       {}    ", ant),
-                format!("       /    "),
-                format!("    ╔══╧══╗ "),
-                format!("    ║ ╭──╮║ "),
+                "       /    ".to_string(),
+                "    ╔══╧══╗ ".to_string(),
+                "    ║ ╭──╮║ ".to_string(),
                 format!(" ═══╣ │{}│╠═══", eyes),
-                format!("    ║ ╰──╯║ "),
+                "    ║ ╰──╯║ ".to_string(),
                 format!("    ║ {} ║ ", mouth),
-                format!("    ╚═╤══╤╝ "),
-                format!("   ╔══╧══╧══╗ "),
+                "    ╚═╤══╤╝ ".to_string(),
+                "   ╔══╧══╧══╗ ".to_string(),
                 format!("   ║ ⚙ {} ⚙ ║ ", pulse),
-                format!("   ╚════════╝ "),
+                "   ╚════════╝ ".to_string(),
             ];
         } else {
             let eyes = match step {
                 0 => "● ●",
                 1 => "⊙ ⊙",
                 2 => "- -",
-                _ => "◈ ◈"
+                _ => "◈ ◈",
             };
-            let mouth = if step % 2 == 0 { "▃" } else { "-" };
+            let mouth = if step.is_multiple_of(2) { "▃" } else { "-" };
             return vec![
                 "   ▄▄▄▄▄   ".into(),
                 "  ◢█▀▀▀█◣  ".into(),
@@ -321,7 +336,14 @@ fn block_logo(id: &str, height: u16, width: u16) -> Vec<&'static str> {
 }
 
 /// Dashboard SYSTEM panel: distro logo left, neofetch-style facts right.
-pub fn render_neofetch(f: &mut Frame, area: Rect, theme: &Theme, sum: &Summary, term: (u16, u16), force_robot: bool) {
+pub fn render_neofetch(
+    f: &mut Frame,
+    area: Rect,
+    theme: &Theme,
+    sum: &Summary,
+    term: (u16, u16),
+    force_robot: bool,
+) {
     if area.height < 3 || area.width < 20 {
         return;
     }
@@ -458,13 +480,13 @@ mod tests {
 
     #[test]
     fn test_arch_logos_uniform_lengths() {
-        let compact = logo_lines("arch", 10, 60);
+        let compact = logo_lines("arch", 10, 60, false);
         assert_eq!(compact.len(), 10);
         for line in &compact {
             assert_eq!(line.chars().count(), 23);
         }
 
-        let full = logo_lines("arch", 25, 80);
+        let full = logo_lines("arch", 25, 80, false);
         assert_eq!(full.len(), 19);
         for line in &full {
             assert_eq!(line.chars().count(), 37);

@@ -13,8 +13,6 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
-use crate::theme::Theme;
-use crate::widgets::braille_image;
 use crate::widgets::meter;
 
 const TIMEOUT: Duration = Duration::from_millis(40);
@@ -45,6 +43,7 @@ pub struct Track {
     pub art_url: String,
 }
 
+#[allow(clippy::type_complexity)]
 struct State {
     #[cfg(target_os = "linux")]
     conn: Option<Connection>,
@@ -53,7 +52,13 @@ struct State {
     /// When `track.position_us` was read, so the bar can advance smoothly
     /// between samples while playing.
     stamp: Instant,
-    art: Option<(String, u16, u16, Vec<Line<'static>>, Option<image::DynamicImage>)>,
+    art: Option<(
+        String,
+        u16,
+        u16,
+        Vec<Line<'static>>,
+        Option<image::DynamicImage>,
+    )>,
 }
 
 static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
@@ -158,8 +163,6 @@ fn read_track(conn: &Connection, player: &str) -> Option<Track> {
 }
 
 /// Poll MPRIS once. Prefers a playing player, then a paused one.
-
-
 #[cfg(target_os = "linux")]
 pub fn sample() {
     // Take the connection out so the D-Bus round trips happen unlocked.
@@ -233,8 +236,6 @@ pub fn current_track() -> Option<Track> {
 }
 
 /// Playback control on the currently displayed player. Fire-and-forget.
-
-
 #[cfg(target_os = "linux")]
 pub fn control(action: Action) {
     let st = STATE.lock().unwrap();
@@ -291,13 +292,21 @@ fn fmt_dur(us: i64) -> String {
     }
 }
 
-fn art_data(st: &mut State, url: &str, w: u16, h: u16) -> (Option<Vec<Line<'static>>>, Option<image::DynamicImage>) {
+fn art_data(
+    st: &mut State,
+    url: &str,
+    w: u16,
+    h: u16,
+) -> (Option<Vec<Line<'static>>>, Option<image::DynamicImage>) {
     if let Some((u, cw, ch, lines, img)) = &st.art {
         if u == url && *cw == w && *ch == h {
             return ((!lines.is_empty()).then(|| lines.clone()), img.clone());
         }
     }
-    let decoded_path = url.strip_prefix("file://").map(|p| percent_decode(p)).unwrap_or_else(|| url.to_string());
+    let decoded_path = url
+        .strip_prefix("file://")
+        .map(percent_decode)
+        .unwrap_or_else(|| url.to_string());
     let img_opt = crate::widgets::braille_image::load_image(&decoded_path);
     let lines = if let Some(img) = &img_opt {
         crate::widgets::braille_image::render_image(img, w, h)
@@ -305,7 +314,7 @@ fn art_data(st: &mut State, url: &str, w: u16, h: u16) -> (Option<Vec<Line<'stat
         Vec::new()
     };
     st.art = Some((url.to_string(), w, h, lines.clone(), img_opt.clone()));
-    ((!lines.is_empty()).then(|| lines), img_opt)
+    ((!lines.is_empty()).then_some(lines), img_opt)
 }
 
 pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
@@ -343,29 +352,37 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
     drop(st);
 
     let text_area = if art_w > 0 && (art_lines_opt.is_some() || art_img.is_some()) {
-        let h = art_lines_opt.as_ref().map(|l| l.len() as u16).unwrap_or(area.height).min(area.height);
+        let h = art_lines_opt
+            .as_ref()
+            .map(|l| l.len() as u16)
+            .unwrap_or(area.height)
+            .min(area.height);
         let top = area.height.saturating_sub(h) / 2;
         let img_area = Rect::new(area.x, area.y + top, art_w, h);
-        
+
         let mut rendered_img = false;
         if !app.panel_states.pixel_images && app.image_picker.is_some() {
             if let (Some(picker), Some(img)) = (&app.image_picker, &art_img) {
                 let path_key = track.art_url.clone();
-                let protocol = app.image_protocols.entry(path_key).or_insert_with(|| {
-                    picker.new_resize_protocol(img.clone())
-                });
+                let protocol = app
+                    .image_protocols
+                    .entry(path_key)
+                    .or_insert_with(|| picker.new_resize_protocol(img.clone()));
                 let image_widget = ratatui_image::StatefulImage::new();
                 f.render_stateful_widget(image_widget, img_area, protocol);
                 rendered_img = true;
             }
         }
-        
+
         if !rendered_img {
             if let Some(lines) = art_lines_opt {
-                f.render_widget(Paragraph::new(lines).alignment(ratatui::layout::Alignment::Center), img_area);
+                f.render_widget(
+                    Paragraph::new(lines).alignment(ratatui::layout::Alignment::Center),
+                    img_area,
+                );
             }
         }
-        
+
         Rect::new(
             area.x + art_w + 2,
             area.y,
@@ -375,7 +392,6 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
     } else {
         area
     };
-
 
     // Smooth position: advance by wall time since the last sample while playing.
     let elapsed = STATE.lock().unwrap().stamp.elapsed().as_micros() as i64;
@@ -493,25 +509,50 @@ pub fn sample() {
                 .enable_all()
                 .build()
                 .unwrap();
-            
+
             rt.block_on(async {
-                let Ok(controller) = nowplaying::MediaController::new().await else { return };
-                let Ok(mut events) = controller.subscribe().await else { return };
-                
+                let Ok(controller) = nowplaying::MediaController::new().await else {
+                    return;
+                };
+                let Ok(mut events) = controller.subscribe().await else {
+                    return;
+                };
+
                 let update_track = |current: &nowplaying::MediaSession| {
                     let mut st = STATE.lock().unwrap();
                     let t = Track {
-                        player: current.source.name.clone().unwrap_or_else(|| current.source.id.clone()),
+                        player: current
+                            .source
+                            .name
+                            .clone()
+                            .unwrap_or_else(|| current.source.id.clone()),
                         bus_name: current.id.clone(),
                         status: match current.playback.status {
                             nowplaying::PlaybackStatus::Playing => Status::Playing,
                             nowplaying::PlaybackStatus::Paused => Status::Paused,
                             _ => Status::Stopped,
                         },
-                        title: current.track.as_ref().map(|tr| tr.title.clone()).unwrap_or_default(),
-                        artist: current.track.as_ref().and_then(|tr| tr.artist.clone()).unwrap_or_default(),
-                        album: current.track.as_ref().and_then(|tr| tr.album.clone()).unwrap_or_default(),
-                        length_us: current.track.as_ref().and_then(|tr| tr.duration_ms).unwrap_or(0) as i64 * 1000,
+                        title: current
+                            .track
+                            .as_ref()
+                            .map(|tr| tr.title.clone())
+                            .unwrap_or_default(),
+                        artist: current
+                            .track
+                            .as_ref()
+                            .and_then(|tr| tr.artist.clone())
+                            .unwrap_or_default(),
+                        album: current
+                            .track
+                            .as_ref()
+                            .and_then(|tr| tr.album.clone())
+                            .unwrap_or_default(),
+                        length_us: current
+                            .track
+                            .as_ref()
+                            .and_then(|tr| tr.duration_ms)
+                            .unwrap_or(0) as i64
+                            * 1000,
                         position_us: current.playback.position_ms as i64 * 1000,
                         volume: None,
                         art_url: String::new(),
@@ -544,7 +585,10 @@ pub fn control(action: Action) {
     };
     if let Some(id) = id {
         std::thread::spawn(move || {
-            let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
             rt.block_on(async {
                 if let Ok(controller) = nowplaying::MediaController::new().await {
                     let _ = match action {
