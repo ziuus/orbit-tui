@@ -124,11 +124,11 @@ fn read_stat(pid: u32) -> Option<Stat> {
 
 /// Owner of the process: a stat() on the /proc dir is one syscall, far cheaper
 /// than parsing the Uid: line out of /proc/[pid]/status.
-fn read_uid(pid: u32) -> u32 {
+fn read_uid(_pid: u32) -> u32 {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
-        fs::metadata(format!("/proc/{}", pid))
+        fs::metadata(format!("/proc/{}", _pid))
             .map(|m| m.uid())
             .unwrap_or(0)
     }
