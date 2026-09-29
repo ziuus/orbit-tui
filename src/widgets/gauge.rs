@@ -270,29 +270,7 @@ fn ring(pct: f64, label: &str, value: &str, col: Color, theme: &Theme) -> Vec<Li
         })
         .collect();
 
-    // Overwrite the hollow centre of the bottom two rows with text.
-    let hollow = 8usize; // 8 usable cells centered in 16-wide dial
-    let start = (W - hollow) / 2;
-    let put = |line: &mut Line<'static>, text: &str, style: Style| {
-        let n = text.chars().count().min(hollow);
-        let pad_l = start + (hollow - n) / 2;
-        let text: String = text.chars().take(n).collect();
-        let mut spans = Vec::new();
-        spans.extend(line.spans.iter().take(start).cloned());
-        let hollow_left = pad_l.saturating_sub(start);
-        if hollow_left > 0 {
-            spans.push(Span::raw(" ".repeat(hollow_left)));
-        }
-        spans.push(Span::styled(text, style));
-        let hollow_right = (start + hollow).saturating_sub(pad_l + n);
-        if hollow_right > 0 {
-            spans.push(Span::raw(" ".repeat(hollow_right)));
-        }
-        spans.extend(line.spans.iter().skip(start + hollow).cloned());
-        line.spans = spans;
-    };
-    put(&mut rows[H - 2], label, Style::default().fg(theme.dim));
-    put(&mut rows[H - 1], value, Style::default().fg(col));
+    label_hollow(&mut rows, label, value, col, theme);
     rows
 }
 
@@ -369,31 +347,17 @@ fn ring_dots(pct: f64, label: &str, value: &str, col: Color, theme: &Theme) -> V
         })
         .collect();
 
-    let hollow = 8usize;
-    let start = (W - hollow) / 2;
-    let put = |line: &mut Line<'static>, text: &str, style: Style| {
-        let n = text.chars().count().min(hollow);
-        let pad_l = start + (hollow - n) / 2;
-        let text: String = text.chars().take(n).collect();
-        let mut spans = Vec::new();
-        spans.extend(line.spans.iter().take(start).cloned());
-        let hollow_left = pad_l.saturating_sub(start);
-        if hollow_left > 0 {
-            spans.push(Span::raw(" ".repeat(hollow_left)));
-        }
-        spans.push(Span::styled(text, style));
-        let hollow_right = (start + hollow).saturating_sub(pad_l + n);
-        if hollow_right > 0 {
-            spans.push(Span::raw(" ".repeat(hollow_right)));
-        }
-        spans.extend(line.spans.iter().skip(start + hollow).cloned());
-        line.spans = spans;
-    };
-    put(&mut rows[H - 2], label, Style::default().fg(theme.dim));
-    put(&mut rows[H - 1], value, Style::default().fg(col));
+    label_hollow(&mut rows, label, value, col, theme);
     rows
 }
 
+/// Braille dot bits for a 2×4 cell, indexed [row][col].
+const BRAILLE: [[u8; 2]; 4] = [[0x01, 0x08], [0x02, 0x10], [0x04, 0x20], [0x40, 0x80]];
+
+/// Same dial at full braille resolution (2×4 dots per cell), with a thinner
+/// ring since the extra dots keep it smooth. A cell straddling the end of
+/// the fill shows only its lit dots, so the tip reads crisply instead of
+/// as a half-filled block.
 fn ring_braille(
     pct: f64,
     label: &str,
@@ -401,49 +365,57 @@ fn ring_braille(
     col: Color,
     theme: &Theme,
 ) -> Vec<Line<'static>> {
+    const INNER_BRAILLE: f64 = 0.70;
     let sweep = pct.clamp(0.0, 100.0) / 100.0 * 180.0;
-    let h_px = H * 2;
-    let mut px = vec![vec![Px::Empty; W]; h_px];
-
-    for (y, row) in px.iter_mut().enumerate() {
-        for (x, cell) in row.iter_mut().enumerate() {
-            let dx = (x as f64 + 0.5 - W as f64 / 2.0) / (W as f64 / 2.0);
-            let dy = (h_px as f64 - (y as f64 + 0.5)) / h_px as f64;
-            let r = (dx * dx + dy * dy).sqrt();
-            if !(INNER..=1.0).contains(&r) {
-                continue;
-            }
-            let ang = (-dy).atan2(dx).to_degrees() + 180.0;
-            *cell = if ang <= sweep {
-                Px::Fill(theme.usage_ramp(ang / 180.0))
-            } else {
-                Px::Track
-            };
-        }
-    }
-
+    let (w_px, h_px) = (W * 2, H * 4);
     let track = Style::default().fg(theme.surface);
-    let fg = |c: Color| Style::default().fg(c);
     let mut rows: Vec<Line<'static>> = (0..H)
-        .map(|y| {
+        .map(|cy| {
             let spans = (0..W)
-                .map(|x| match (px[y * 2][x], px[y * 2 + 1][x]) {
-                    (Px::Empty, Px::Empty) => Span::raw(" "),
-                    (Px::Fill(c), Px::Fill(_)) => Span::styled("⣿", fg(c)),
-                    (Px::Track, Px::Track) => Span::styled("⣿", track),
-                    (Px::Fill(c), Px::Empty) => Span::styled("⠉", fg(c)),
-                    (Px::Empty, Px::Fill(c)) => Span::styled("⣀", fg(c)),
-                    (Px::Track, Px::Empty) => Span::styled("⠉", track),
-                    (Px::Empty, Px::Track) => Span::styled("⣀", track),
-                    (Px::Fill(c), Px::Track) => Span::styled("⠉", fg(c).bg(theme.surface)),
-                    (Px::Track, Px::Fill(c)) => Span::styled("⣀", fg(c).bg(theme.surface)),
+                .map(|cx| {
+                    let (mut fill, mut rest, mut ang_sum, mut n) = (0u8, 0u8, 0.0, 0.0);
+                    for (dy, bits) in BRAILLE.iter().enumerate() {
+                        for (dx, bit) in bits.iter().enumerate() {
+                            let (x, y) = (cx * 2 + dx, cy * 4 + dy);
+                            let fx = (x as f64 + 0.5 - w_px as f64 / 2.0) / (w_px as f64 / 2.0);
+                            let fy = (h_px as f64 - (y as f64 + 0.5)) / h_px as f64;
+                            let r = (fx * fx + fy * fy).sqrt();
+                            if !(INNER_BRAILLE..=1.0).contains(&r) {
+                                continue;
+                            }
+                            let ang = (-fy).atan2(fx).to_degrees() + 180.0;
+                            if ang <= sweep {
+                                fill |= bit;
+                                ang_sum += ang;
+                                n += 1.0;
+                            } else {
+                                rest |= bit;
+                            }
+                        }
+                    }
+                    let glyph =
+                        |b: u8| char::from_u32(0x2800 + b as u32).unwrap_or(' ').to_string();
+                    if fill != 0 {
+                        let c = theme.usage_ramp(ang_sum / n / 180.0);
+                        Span::styled(glyph(fill), Style::default().fg(c))
+                    } else if rest != 0 {
+                        Span::styled(glyph(rest), track)
+                    } else {
+                        Span::raw(" ")
+                    }
                 })
                 .collect::<Vec<_>>();
             Line::from(spans)
         })
         .collect();
+    label_hollow(&mut rows, label, value, col, theme);
+    rows
+}
 
-    let hollow = 8usize;
+/// Write the label and value into the hollow centre of a dial's bottom two
+/// rows.
+fn label_hollow(rows: &mut [Line<'static>], label: &str, value: &str, col: Color, theme: &Theme) {
+    let hollow = 8usize; // 8 usable cells centred in the 16-wide dial
     let start = (W - hollow) / 2;
     let put = |line: &mut Line<'static>, text: &str, style: Style| {
         let n = text.chars().count().min(hollow);
@@ -465,7 +437,6 @@ fn ring_braille(
     };
     put(&mut rows[H - 2], label, Style::default().fg(theme.dim));
     put(&mut rows[H - 1], value, Style::default().fg(col));
-    rows
 }
 
 fn render_dots(f: &mut Frame, area: Rect, theme: &Theme, metrics: &[(&str, f64, String, Color)]) {
@@ -542,6 +513,27 @@ fn render_braille(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn braille_ring_fills_with_pct_and_never_paints_backgrounds() {
+        let t = Theme::dark();
+        let lit = |pct: f64| -> u32 {
+            ring_braille(pct, "cpu", "1%", t.accent, &t)
+                .iter()
+                .flat_map(|l| l.spans.iter())
+                .filter(|s| s.style.fg != Some(t.surface) && s.style.fg.is_some())
+                .flat_map(|s| s.content.chars())
+                .filter(|c| ('\u{2801}'..='\u{28ff}').contains(c))
+                .map(|c| (c as u32 - 0x2800).count_ones())
+                .sum()
+        };
+        assert_eq!(lit(0.0), 0);
+        assert!(lit(25.0) < lit(50.0) && lit(50.0) < lit(100.0));
+        for line in ring_braille(37.0, "cpu", "37%", t.accent, &t) {
+            assert!(line.spans.iter().all(|s| s.style.bg.is_none()));
+            assert_eq!(line.width(), W);
+        }
+    }
 
     #[test]
     fn style_name_roundtrips() {

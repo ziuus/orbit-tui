@@ -258,6 +258,8 @@ pub struct PanelStates {
     pub log_target_input_active: bool,
     pub process_compact_cmd: bool,
     pub writer_scroll: usize,
+    /// First line of the selected note shown in the preview.
+    pub note_scroll: u16,
     pub writer_selected: usize,
     pub files_selected: usize,
     pub files_scroll: usize,
@@ -301,6 +303,7 @@ impl Default for PanelStates {
             log_target_input_active: false,
             process_compact_cmd: true,
             writer_scroll: 0,
+            note_scroll: 0,
             writer_selected: 0,
             files_selected: 0,
             files_scroll: 0,
@@ -1119,6 +1122,7 @@ impl App {
                 KeyCode::Up | KeyCode::Char('k') => {
                     self.panel_states.writer_selected =
                         self.panel_states.writer_selected.saturating_sub(1);
+                    self.panel_states.note_scroll = 0;
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     let count = crate::monitors::obsidian::snapshot().notes.len();
@@ -1126,7 +1130,16 @@ impl App {
                         self.panel_states.writer_selected =
                             (self.panel_states.writer_selected + 1).min(count - 1);
                     }
+                    self.panel_states.note_scroll = 0;
                 }
+                // The preview is clamped to the note's length when drawn.
+                KeyCode::PageDown => {
+                    self.panel_states.note_scroll = self.panel_states.note_scroll.saturating_add(10)
+                }
+                KeyCode::PageUp => {
+                    self.panel_states.note_scroll = self.panel_states.note_scroll.saturating_sub(10)
+                }
+                KeyCode::Home => self.panel_states.note_scroll = 0,
                 KeyCode::Enter | KeyCode::Char('e') | KeyCode::Char('E') => {
                     self.trigger_focused_action();
                 }

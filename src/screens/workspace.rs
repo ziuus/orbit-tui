@@ -183,7 +183,7 @@ pub fn render_notes(f: &mut Frame, area: Rect, app: &mut App) {
         area,
         &notes_title,
         None,
-        Some("Enter/e edit · ↑↓ select"),
+        Some("Enter/e edit · ↑↓ select · PgUp/PgDn scroll"),
         theme,
         is_notes_focused,
     );
@@ -284,9 +284,22 @@ pub fn render_notes(f: &mut Frame, area: Rect, app: &mut App) {
         content_lines.extend(crate::widgets::markdown::render(&note.content, theme));
     }
 
+    // Keep the title/meta header pinned; scroll only the body. Clamped so
+    // the last line of the note can reach the top but never past it.
+    let header = content_lines.len().min(3);
+    let body = content_lines.split_off(header);
+    let max_scroll = body.len().saturating_sub(1) as u16;
+    let scroll = app.panel_states.note_scroll.min(max_scroll);
+    app.panel_states.note_scroll = scroll;
+    let [head_area, body_area] =
+        Layout::vertical([Constraint::Length(header as u16), Constraint::Min(0)])
+            .areas(content_area);
+    f.render_widget(Paragraph::new(content_lines), head_area);
     f.render_widget(
-        Paragraph::new(content_lines).wrap(Wrap { trim: false }),
-        content_area,
+        Paragraph::new(body)
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0)),
+        body_area,
     );
 }
 
