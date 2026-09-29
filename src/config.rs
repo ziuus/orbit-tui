@@ -155,9 +155,10 @@ pub struct UiConfig {
     /// Gauge style: arc | bars | vertical | dots | braille.
     pub gauge_style: String,
     /// History graph style: block | braille.
+    #[serde(default = "default_graph_style")]
     pub graph_style: String,
     /// Meter style: block | braille | dots | ascii.
-    #[serde(default)]
+    #[serde(default = "default_meter_style")]
     pub meter_style: String,
     /// Motion enabled for 3D/animations (true | false)
     #[serde(default = "default_motion_enabled")]
@@ -247,6 +248,14 @@ fn default_motion_mode() -> String {
     "spin".to_string()
 }
 
+fn default_graph_style() -> String {
+    "braille".to_string()
+}
+
+fn default_meter_style() -> String {
+    "braille".to_string()
+}
+
 impl Default for UiConfig {
     fn default() -> Self {
         Self {
@@ -267,8 +276,8 @@ impl Default for UiConfig {
             ],
             visualizer: "bars".to_string(),
             gauge_style: "arc".to_string(),
-            graph_style: "block".to_string(),
-            meter_style: "block".to_string(),
+            graph_style: "braille".to_string(),
+            meter_style: "braille".to_string(),
             motion_enabled: true,
             motion_speed: 1.0,
             motion_mode: "spin".to_string(),

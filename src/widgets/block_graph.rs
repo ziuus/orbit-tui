@@ -15,7 +15,7 @@ const BRAILLE_RIGHT: [u8; 4] = [0x08, 0x10, 0x20, 0x80];
 // ── Style selection ──
 // 0 = block (solid mass, any font), 1 = braille (2×4 subpixels, btop-like).
 const STYLE_COUNT: usize = 2;
-static GRAPH_STYLE: AtomicUsize = AtomicUsize::new(0);
+static GRAPH_STYLE: AtomicUsize = AtomicUsize::new(1);
 
 /// Cycle to the next graph style. Bound to `G` globally.
 pub fn cycle_style() {

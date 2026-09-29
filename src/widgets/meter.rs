@@ -9,7 +9,7 @@ const DOTS: [&str; 9] = [" ", "·", "·", "•", "•", "●", "●", "⬤", "�
 const ASCII: [&str; 9] = [" ", "-", "-", "=", "=", "*", "#", "#", "@"];
 
 const STYLE_COUNT: usize = 4;
-static METER_STYLE: AtomicUsize = AtomicUsize::new(0); // 0 = block, 1 = braille, 2 = dot, 3 = ascii
+static METER_STYLE: AtomicUsize = AtomicUsize::new(1); // 0 = block, 1 = braille, 2 = dot, 3 = ascii
 
 pub fn set_style(name: &str) {
     let idx = match name {

@@ -86,12 +86,11 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
             text.push(Line::from(""));
             text.push(Line::from(Span::styled("Step 2: Graphics Engine", Style::default().fg(theme.accent).add_modifier(Modifier::BOLD))));
             text.push(Line::from(""));
-            text.push(Line::from("Vanta can render high-resolution images in the terminal."));
-            text.push(Line::from("This requires a modern terminal (WezTerm, Ghostty, Kitty)."));
-            text.push(Line::from("If your terminal doesn't support it, use Braille mode."));
+            text.push(Line::from("Vanta renders meters, graphs, and images in Braille by default."));
+            text.push(Line::from("Choose your image rendering mode:"));
             text.push(Line::from(""));
-            text.push(Line::from(Span::styled(format!("  [1] High-Res Engine {}", if !app.panel_states.pixel_images { "(Selected)" } else { "" }), if !app.panel_states.pixel_images { Style::default().fg(theme.green) } else { Style::default() })));
-            text.push(Line::from(Span::styled(format!("  [2] Braille / Pixelated {}", if app.panel_states.pixel_images { "(Selected)" } else { "" }), if app.panel_states.pixel_images { Style::default().fg(theme.green) } else { Style::default() })));
+            text.push(Line::from(Span::styled(format!("  [1] Braille (Default - compatible with all terminals) {}", if app.panel_states.pixel_images { "(Selected)" } else { "" }), if app.panel_states.pixel_images { Style::default().fg(theme.green) } else { Style::default() })));
+            text.push(Line::from(Span::styled(format!("  [2] High-Res Engine (Requires Kitty/Sixel support) {}", if !app.panel_states.pixel_images { "(Selected)" } else { "" }), if !app.panel_states.pixel_images { Style::default().fg(theme.green) } else { Style::default() })));
             text.push(Line::from(""));
             text.push(Line::from(Span::styled("Press [Enter] to continue", Style::default().fg(theme.dim))));
         }
@@ -125,11 +124,9 @@ pub fn handle_key(app: &mut App, code: KeyCode) {
         }
         2 => {
             if code == KeyCode::Char('1') {
-                app.panel_states.pixel_images = false;
-                app.panel_states.pixel_images = false;
+                app.panel_states.pixel_images = true;
             } else if code == KeyCode::Char('2') {
-                app.panel_states.pixel_images = true;
-                app.panel_states.pixel_images = true;
+                app.panel_states.pixel_images = false;
             } else if code == KeyCode::Enter {
                 app.setup_wizard_step = 3;
             }
