@@ -439,10 +439,7 @@ impl App {
             pending_signal: None,
             sampler_interval,
             custom_widgets,
-            image_picker: Some(
-                ratatui_image::picker::Picker::from_query_stdio()
-                    .unwrap_or_else(|_| ratatui_image::picker::Picker::halfblocks()),
-            ),
+            image_picker: Some(detect_image_picker()),
             image_protocols: std::collections::HashMap::new(),
             image_resize_tx: None,
             image_resize_rx: None,
@@ -2126,6 +2123,57 @@ impl App {
     }
 }
 
+/// Graphics protocol a terminal is known to support, from its environment.
+fn image_protocol_for(env: impl Fn(&str) -> String) -> ratatui_image::picker::ProtocolType {
+    use ratatui_image::picker::ProtocolType::*;
+    let (term, prog) = (env("TERM"), env("TERM_PROGRAM").to_lowercase());
+    if !env("TMUX").is_empty() || term.starts_with("screen") {
+        // Multiplexers need passthrough for pixels; blocks always work.
+        Halfblocks
+    } else if !env("KITTY_WINDOW_ID").is_empty()
+        || term.contains("kitty")
+        || term.contains("ghostty")
+        || prog == "ghostty"
+        || prog == "wezterm"
+    {
+        Kitty
+    } else if prog == "iterm.app" {
+        Iterm2
+    } else if term.starts_with("foot")
+        || term.contains("mlterm")
+        || !env("KONSOLE_VERSION").is_empty()
+        || !env("WT_SESSION").is_empty()
+    {
+        Sixel
+    } else {
+        Halfblocks
+    }
+}
+
+/// Image picker built without querying the terminal. ratatui-image's
+/// `from_query_stdio` leaves a thread blocked on stdin whenever the terminal
+/// doesn't answer within its timeout (tmux, slow SSH, terminals that ignore
+/// the query), and that thread swallows the user's first keypress. The cell
+/// size comes from TIOCGWINSZ instead, and the protocol from the environment.
+fn detect_image_picker() -> ratatui_image::picker::Picker {
+    use ratatui_image::picker::{Picker, ProtocolType};
+    let proto = image_protocol_for(|k| std::env::var(k).unwrap_or_default());
+    let font = crossterm::terminal::window_size()
+        .ok()
+        .filter(|w| w.width > 0 && w.height > 0 && w.columns > 0 && w.rows > 0)
+        .map(|w| (w.width / w.columns, w.height / w.rows));
+    match font {
+        Some(font) if proto != ProtocolType::Halfblocks => {
+            // Deprecated only in favour of the stdin query we're avoiding.
+            #[allow(deprecated)]
+            let mut p = Picker::from_fontsize(font);
+            p.set_protocol_type(proto);
+            p
+        }
+        _ => Picker::halfblocks(),
+    }
+}
+
 fn get_preferred_editor() -> String {
     if let Ok(ed) = std::env::var("EDITOR") {
         if !ed.trim().is_empty() {
@@ -2145,4 +2193,39 @@ fn get_preferred_editor() -> String {
         }
     }
     "nano".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui_image::picker::ProtocolType;
+
+    fn proto(vars: &[(&str, &str)]) -> ProtocolType {
+        image_protocol_for(|k| {
+            vars.iter()
+                .find(|(n, _)| *n == k)
+                .map(|(_, v)| v.to_string())
+                .unwrap_or_default()
+        })
+    }
+
+    #[test]
+    fn image_protocol_comes_from_the_environment() {
+        assert_eq!(proto(&[("TERM", "foot")]), ProtocolType::Sixel);
+        assert_eq!(proto(&[("TERM", "xterm-kitty")]), ProtocolType::Kitty);
+        assert_eq!(proto(&[("TERM_PROGRAM", "WezTerm")]), ProtocolType::Kitty);
+        assert_eq!(
+            proto(&[("TERM_PROGRAM", "iTerm.app")]),
+            ProtocolType::Iterm2
+        );
+        assert_eq!(
+            proto(&[("TERM", "xterm-256color")]),
+            ProtocolType::Halfblocks
+        );
+        // Inside tmux, blocks win even if the outer terminal could do pixels.
+        assert_eq!(
+            proto(&[("TERM", "foot"), ("TMUX", "/tmp/tmux-1000/default,1,0")]),
+            ProtocolType::Halfblocks
+        );
+    }
 }
