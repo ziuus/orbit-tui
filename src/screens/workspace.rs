@@ -264,36 +264,51 @@ pub fn render_notes(f: &mut Frame, area: Rect, app: &mut App) {
     if num_notes > 0 {
         let selected = app.panel_states.writer_selected;
         let note = &snap.notes[selected];
+        let words = note.content.split_whitespace().count();
+        let age = note
+            .modified
+            .elapsed()
+            .map(|d| ago(d.as_secs()))
+            .unwrap_or_default();
         content_lines.push(Line::from(vec![Span::styled(
-            &note.title,
-            Style::default().fg(theme.accent),
+            note.title.clone(),
+            Style::default()
+                .fg(theme.accent)
+                .add_modifier(ratatui::style::Modifier::BOLD),
         )]));
+        content_lines.push(Line::from(Span::styled(
+            format!("{} words · edited {}", words, age),
+            Style::default().fg(theme.dim),
+        )));
         content_lines.push(Line::from(""));
-        for line in note.content.lines() {
-            let mut style = Style::default().fg(theme.text);
-            if line.starts_with("# ")
-                || line.starts_with("## ")
-                || line.starts_with("### ")
-                || line.starts_with("#### ")
-            {
-                style = style
-                    .fg(theme.accent)
-                    .add_modifier(ratatui::style::Modifier::BOLD);
-            } else if line.starts_with("- ") || line.starts_with("* ") {
-                style = style.fg(theme.yellow);
-            } else if line.starts_with("> ") {
-                style = style
-                    .fg(theme.dim)
-                    .add_modifier(ratatui::style::Modifier::ITALIC);
-            } else if line.starts_with("```") {
-                style = style.fg(theme.red);
-            }
-            content_lines.push(Line::from(Span::styled(line, style)));
-        }
+        content_lines.extend(crate::widgets::markdown::render(&note.content, theme));
     }
 
     f.render_widget(
         Paragraph::new(content_lines).wrap(Wrap { trim: false }),
         content_area,
     );
+}
+
+/// "just now", "5m ago", "3h ago", "2d ago", "6w ago".
+fn ago(secs: u64) -> String {
+    match secs {
+        0..60 => "just now".to_string(),
+        60..3600 => format!("{}m ago", secs / 60),
+        3600..86_400 => format!("{}h ago", secs / 3600),
+        86_400..1_209_600 => format!("{}d ago", secs / 86_400),
+        _ => format!("{}w ago", secs / 604_800),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn ago_picks_a_readable_unit() {
+        assert_eq!(super::ago(5), "just now");
+        assert_eq!(super::ago(300), "5m ago");
+        assert_eq!(super::ago(7200), "2h ago");
+        assert_eq!(super::ago(3 * 86_400), "3d ago");
+        assert_eq!(super::ago(30 * 86_400), "4w ago");
+    }
 }

@@ -2104,9 +2104,9 @@ impl App {
         }
         right.push(Span::styled(
             format!(
-                "{} · {}fps · {:.1}s · v{} ",
+                "{} · {} · {:.1}s · v{} ",
                 self.config.ui.theme,
-                self.config.ui.fps,
+                self.config.ui.performance_mode.label().to_lowercase(),
                 self.config.ui.refresh_rate,
                 env!("CARGO_PKG_VERSION")
             ),

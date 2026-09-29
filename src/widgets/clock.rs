@@ -315,8 +315,13 @@ pub fn render_with_note(
             ));
         }
     }
-    let block_h = lines.len() as u16 + 2; // blank + date
-    let top = area.y + area.height.saturating_sub(block_h) / 2;
+    // Digits, a gap, then the date. A two-row gap only when there's also
+    // room for a row of padding above, so the digits never touch the border.
+    let n = lines.len() as u16;
+    let gap = if area.height >= n + 5 { 2 } else { 1 };
+    let block_h = n + gap + 1;
+    let top = area.y + area.height.saturating_sub(block_h).div_ceil(2);
+    let top = top.min(area.y + area.height.saturating_sub(n));
     let glyph_w = text_width(&text, sx, font) as u16;
     let tag_w = if tag.is_empty() {
         0
@@ -325,15 +330,12 @@ pub fn render_with_note(
     };
     let total_clock_w = glyph_w + tag_w;
     let left = area.x + area.width.saturating_sub(total_clock_w) / 2;
-    let n = lines.len() as u16;
     f.render_widget(
         Paragraph::new(lines),
         Rect::new(left, top, area.width.saturating_sub(left - area.x), n),
     );
-    let date_y = if area.height >= n + 3 {
-        top + n + 2
-    } else if area.height >= n + 2 {
-        top + n + 1
+    let date_y = if area.height >= block_h {
+        top + n + gap
     } else {
         area.y + area.height // doesn't fit
     };

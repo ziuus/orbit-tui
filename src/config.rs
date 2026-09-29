@@ -131,6 +131,19 @@ pub enum PerformanceMode {
     VeryHigh,
 }
 
+impl PerformanceMode {
+    /// Human name for menus and the status bar.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::VeryLight => "Very Light",
+            Self::Light => "Light",
+            Self::Normal => "Normal",
+            Self::High => "High",
+            Self::VeryHigh => "Very High",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UiConfig {

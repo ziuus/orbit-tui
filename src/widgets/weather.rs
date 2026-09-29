@@ -239,7 +239,8 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme) {
                 Style::default().fg(theme.dim),
             ),
         ]);
-        f.render_widget(Paragraph::new(line), area);
+        // Centred: the one-line form is used under big clocks.
+        f.render_widget(Paragraph::new(line).alignment(Alignment::Center), area);
         return;
     }
 

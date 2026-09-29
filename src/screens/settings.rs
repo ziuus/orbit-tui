@@ -155,13 +155,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
             SettingType::Visualizer => app.config.ui.visualizer.clone(),
             SettingType::ClockFont => app.config.ui.clock_font.clone(),
             SettingType::ClockStyle => app.config.ui.clock_style.clone(),
-            SettingType::PerformanceMode => match app.config.ui.performance_mode {
-                crate::config::PerformanceMode::VeryLight => "Very Light".to_string(),
-                crate::config::PerformanceMode::Light => "Light".to_string(),
-                crate::config::PerformanceMode::Normal => "Normal".to_string(),
-                crate::config::PerformanceMode::High => "High".to_string(),
-                crate::config::PerformanceMode::VeryHigh => "Very High".to_string(),
-            },
+            SettingType::PerformanceMode => app.config.ui.performance_mode.label().to_string(),
             SettingType::RefreshRate => format!("{:.1}", app.config.ui.refresh_rate),
             SettingType::Fps => app.config.ui.fps.to_string(),
             SettingType::Clock24h => {

@@ -298,35 +298,38 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_detailed: bool) {
         ));
     }
 
-    if is_detailed || area.width > 50 {
-        header.push(Span::styled(
-            format!(
-                "  load {:.2} {:.2} {:.2}",
-                snap.load.0, snap.load.1, snap.load.2
-            ),
-            Style::default().fg(theme.dim),
-        ));
-    }
-
-    if snap.freq_mhz > 0 && is_detailed {
-        header.push(Span::styled(
-            format!("  {:.1}GHz", snap.freq_mhz as f64 / 1000.0),
-            Style::default().fg(theme.text),
-        ));
-    }
+    // Most to least important, so trimming from the end drops the least
+    // useful facts first instead of clipping a number at the border.
     if let Some(t) = snap.max_temp().filter(|_| is_detailed) {
         header.push(Span::styled(
             format!("  {:.0}°C", t),
             Style::default().fg(theme.temp(t)),
         ));
     }
-    if area.width >= 70 && is_detailed {
+    if snap.freq_mhz > 0 && is_detailed {
+        header.push(Span::styled(
+            format!("  {:.1}GHz", snap.freq_mhz as f64 / 1000.0),
+            Style::default().fg(theme.text),
+        ));
+    }
+    header.push(Span::styled(
+        format!(
+            "  load {:.2} {:.2} {:.2}",
+            snap.load.0, snap.load.1, snap.load.2
+        ),
+        Style::default().fg(theme.dim),
+    ));
+    if is_detailed {
         header.push(Span::styled(
             format!("  {} threads", core_count),
             Style::default().fg(theme.dim),
         ));
     }
-    f.render_widget(Paragraph::new(Line::from(header)), chunks[0]);
+    let mut header = Line::from(header);
+    while header.width() > area.width as usize && header.spans.len() > 1 {
+        header.spans.pop();
+    }
+    f.render_widget(Paragraph::new(header), chunks[0]);
 
     use crate::widgets::block_graph::BlockGraph;
 

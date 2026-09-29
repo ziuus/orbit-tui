@@ -36,6 +36,7 @@ base64 = "0.23.1"
 ratatui-image = { version = "9.0.0", default-features = false, features = ["crossterm", "image-defaults"] }
 open = "5.4.4"
 arboard = "3.6.1"
+unicode-width = "0.2"
 
 [profile.release]
 opt-level = 3

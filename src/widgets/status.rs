@@ -346,8 +346,11 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
     let mut lines: Vec<Line> = Vec::new();
     let mut i = 0;
 
+    // Columns left for a value after the "◈ LABEL  · " prefix.
+    let avail = (area.width as usize).saturating_sub(11);
     if let Some((ssid, sig)) = &fx.wifi {
-        let w_name = if area.width >= 36 { 14 } else { 10 };
+        // " · ▂▄▆█ 100%" takes 12; the SSID gets what's left, up to 14.
+        let w_name = avail.saturating_sub(12).clamp(6, 14);
         let ellip = crate::widgets::meter::ellipsize(ssid, w_name);
         // Pad SSID to fixed width so signal bars always start at the same column
         let padded = format!("{:<w$}", ellip, w = w_name);
@@ -364,7 +367,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
             ),
             Span::styled(format!(" {:>3}%", sig), Style::default().fg(theme.dim)),
         ];
-        if area.width < 28 {
+        if avail < w_name + 12 {
             v.truncate(1);
         }
         lines.push(build_line(i, "WIFI", v));
@@ -506,7 +509,46 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         return;
     }
 
+    let lines: Vec<Line> = lines
+        .into_iter()
+        .map(|l| fit_line(l, area.width as usize, theme))
+        .collect();
     f.render_widget(Paragraph::new(lines), area);
+}
+
+/// Clip a line to `max` columns, ending in a dim ellipsis instead of
+/// cutting a value off mid-number at the panel edge.
+fn fit_line(line: Line<'static>, max: usize, theme: &Theme) -> Line<'static> {
+    use unicode_width::UnicodeWidthStr;
+    if line.width() <= max {
+        return line;
+    }
+    let mut out: Vec<Span<'static>> = Vec::new();
+    let mut used = 0;
+    for span in line.spans {
+        let w = span.content.width();
+        if used + w < max {
+            used += w;
+            out.push(span);
+            continue;
+        }
+        let room = max.saturating_sub(used + 1);
+        let mut cut = String::new();
+        for ch in span.content.chars() {
+            let cw = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
+            if UnicodeWidthStr::width(cut.as_str()) + cw > room {
+                break;
+            }
+            cut.push(ch);
+        }
+        let cut = cut.trim_end().to_string();
+        if !cut.is_empty() {
+            out.push(Span::styled(cut, span.style));
+        }
+        out.push(Span::styled("…", Style::default().fg(theme.dim)));
+        break;
+    }
+    Line::from(out)
 }
 
 pub fn active_row_ids() -> Vec<&'static str> {

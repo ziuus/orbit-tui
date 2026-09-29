@@ -7,6 +7,7 @@ pub mod files;
 pub mod flip_clock;
 pub mod gauge;
 pub mod life;
+pub mod markdown;
 pub mod matrix;
 pub mod media;
 pub mod meter;
