@@ -12,4 +12,5 @@ pub mod ui_renderer;
 pub mod custom;
 pub mod mode;
 pub mod monitors;
+pub mod mouse;
 pub mod widgets;

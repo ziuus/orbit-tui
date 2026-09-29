@@ -41,6 +41,13 @@ pub fn render(
         } else {
             0
         };
+        crate::screens::hit(
+            Rect::new(area.x, area.y, area.width, display_count as u16),
+            crate::screens::Hit::Rows {
+                panel: crate::app::PanelId::Tasks,
+                first: start_idx,
+            },
+        );
 
         for (i, task) in snap
             .tasks

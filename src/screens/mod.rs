@@ -14,6 +14,55 @@ use ratatui::Frame;
 
 use crate::theme::Theme;
 
+/// Something the mouse can land on, recorded while a frame is drawn.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Hit {
+    /// The n-th page tab in the title bar.
+    Tab(usize),
+    /// A panel's outer area.
+    Panel(crate::app::PanelId),
+    /// A list inside `panel` showing one item per row, the top row being
+    /// item `first`.
+    Rows {
+        panel: crate::app::PanelId,
+        first: usize,
+    },
+    /// A process-table column header.
+    SortBy(crate::app::SortField),
+    /// The note preview pane (wheel scrolls the note, not the list).
+    NotePreview,
+    /// The full-screen Ambient stage.
+    Scene,
+}
+
+static HITS: std::sync::Mutex<Vec<(Rect, Hit)>> = std::sync::Mutex::new(Vec::new());
+
+/// Forget last frame's targets. Called at the start of every render.
+pub fn clear_hits() {
+    HITS.lock().unwrap_or_else(|e| e.into_inner()).clear();
+}
+
+/// Record that `area` is `hit` for this frame. Later calls sit on top.
+pub fn hit(area: Rect, hit: Hit) {
+    if area.width > 0 && area.height > 0 {
+        HITS.lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push((area, hit));
+    }
+}
+
+/// Everything under (x, y), topmost first, with each target's area.
+pub fn hits_at(x: u16, y: u16) -> Vec<(Hit, Rect)> {
+    let pos = ratatui::layout::Position { x, y };
+    HITS.lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .iter()
+        .rev()
+        .filter(|(r, _)| r.contains(pos))
+        .map(|(r, h)| (*h, *r))
+        .collect()
+}
+
 /// Panel chrome shared by every page: rounded border, small-caps title,
 /// accent highlight when focused. Returns the inner area.
 pub fn panel_full(
@@ -126,6 +175,7 @@ pub fn render_panel(f: &mut Frame, area: Rect, app: &mut crate::app::App, id: cr
     } else {
         format!("{} · zoomed · esc to return", id.label())
     };
+    hit(area, Hit::Panel(id));
     let inner = panel(f, area, &title, theme, true);
     let sum = &app.summary;
     match id {

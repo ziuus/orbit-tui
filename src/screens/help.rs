@@ -32,6 +32,15 @@ const SECTIONS: &[Section] = &[
         ],
     ),
     (
+        "mouse",
+        &[
+            ("click", "page tab · focus panel · select row"),
+            ("2× click", "zoom panel · open file/note"),
+            ("wheel", "scroll the list under the pointer"),
+            ("header", "click pid/name/cpu%/MEM% to sort"),
+        ],
+    ),
+    (
         "look",
         &[
             ("T", "next theme"),

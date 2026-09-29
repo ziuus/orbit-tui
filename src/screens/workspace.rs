@@ -56,6 +56,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
     let rows = [agenda_area, tasks_area, news_area];
 
     let timer_focused = focus(PanelId::Timer);
+    crate::screens::hit(timer_area, crate::screens::Hit::Panel(PanelId::Timer));
     let inner = panel(f, timer_area, "focus timer", theme, timer_focused);
     crate::widgets::pomodoro::render(f, inner, theme, &app.config.ui, timer_focused);
 
@@ -72,6 +73,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
         } else {
             "a add · d del · e edit · ↑↓ select"
         };
+        crate::screens::hit(rows[0], crate::screens::Hit::Panel(PanelId::Agenda));
         let inner = panel_full(
             f,
             rows[0],
@@ -101,6 +103,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
         } else {
             "a add · Space toggle · d del · e edit"
         };
+        crate::screens::hit(rows[1], crate::screens::Hit::Panel(PanelId::Tasks));
         let inner = panel_full(
             f,
             rows[1],
@@ -128,6 +131,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
         } else {
             format!(" {} ", snap.channel_title)
         };
+        crate::screens::hit(rows[2], crate::screens::Hit::Panel(PanelId::News));
         let inner = panel_full(
             f,
             rows[2],
@@ -156,6 +160,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
         format!(" {} items ", total)
     };
     let files_focused = focus(PanelId::Files);
+    crate::screens::hit(files_area, crate::screens::Hit::Panel(PanelId::Files));
     let files_inner = panel_full(
         f,
         files_area,
@@ -178,6 +183,7 @@ pub fn render_notes(f: &mut Frame, area: Rect, app: &mut App) {
     } else {
         format!("notes ({})", snap.vault_name)
     };
+    crate::screens::hit(area, crate::screens::Hit::Panel(PanelId::WriterNotes));
     let notes_inner = panel_full(
         f,
         area,
@@ -234,6 +240,13 @@ pub fn render_notes(f: &mut Frame, area: Rect, app: &mut App) {
             scroll = selected.saturating_sub(visible_items - 1);
         }
         app.panel_states.writer_scroll = scroll;
+        crate::screens::hit(
+            list_inner_area,
+            crate::screens::Hit::Rows {
+                panel: PanelId::WriterNotes,
+                first: scroll,
+            },
+        );
 
         let title_w = (list_inner_area.width as usize).saturating_sub(3);
         for (i, note) in snap
@@ -291,6 +304,7 @@ pub fn render_notes(f: &mut Frame, area: Rect, app: &mut App) {
     let max_scroll = body.len().saturating_sub(1) as u16;
     let scroll = app.panel_states.note_scroll.min(max_scroll);
     app.panel_states.note_scroll = scroll;
+    crate::screens::hit(content_area, crate::screens::Hit::NotePreview);
     let [head_area, body_area] =
         Layout::vertical([Constraint::Length(header as u16), Constraint::Min(0)])
             .areas(content_area);

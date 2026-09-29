@@ -143,6 +143,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
     // Hints overlay the bottom row only while visible, so the stage keeps
     // the full height and nothing jumps when they come and go.
     let stage = area;
+    crate::screens::hit(stage, crate::screens::Hit::Scene);
     let footer = Rect::new(area.x, area.bottom() - 1, area.width, 1);
     let t = drift_step();
     match scene {

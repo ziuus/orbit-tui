@@ -50,6 +50,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     ])
     .split(band);
 
+    crate::screens::hit(cols[0], crate::screens::Hit::Panel(PanelId::Cpu));
+
     let inner = panel(f, cols[0], "cpu", theme, focus(PanelId::Cpu));
     cpu::render(f, inner, theme, true);
 
@@ -58,8 +60,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         panel_constraint(Constraint::Percentage(50), "disk"),
     ])
     .split(cols[1]);
+    crate::screens::hit(col1[0], crate::screens::Hit::Panel(PanelId::Memory));
     let inner = panel(f, col1[0], "memory", theme, focus(PanelId::Memory));
     memory::render(f, inner, theme, true);
+    crate::screens::hit(col1[1], crate::screens::Hit::Panel(PanelId::Disk));
     let inner = panel(f, col1[1], "disk", theme, focus(PanelId::Disk));
     disk::render(f, inner, theme, true);
 
@@ -78,12 +82,15 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         ])
         .split(cols[2])
     };
+    crate::screens::hit(col2[0], crate::screens::Hit::Panel(PanelId::Network));
     let inner = panel(f, col2[0], "network", theme, focus(PanelId::Network));
     network::render(f, inner, theme, true);
     if show_gpu {
+        crate::screens::hit(col2[1], crate::screens::Hit::Panel(PanelId::Gpu));
         let inner = panel(f, col2[1], "gpu", theme, focus(PanelId::Gpu));
         gpu::render(f, inner, theme, true);
     }
+    crate::screens::hit(col2[2], crate::screens::Hit::Panel(PanelId::System));
     let inner = panel(f, col2[2], "system", theme, focus(PanelId::System));
     system_info::render(f, inner, theme, &app.summary);
 
@@ -93,6 +100,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         processes::count(),
         if ps.process_tree_mode { " · tree" } else { "" }
     );
+    crate::screens::hit(table, crate::screens::Hit::Panel(PanelId::Processes));
     let inner = panel(f, table, &title, theme, focus(PanelId::Processes));
     processes::render(
         f,

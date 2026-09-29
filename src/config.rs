@@ -194,6 +194,10 @@ pub struct UiConfig {
     pub break_minutes: u64,
     #[serde(default = "default_long_break_minutes")]
     pub long_break_minutes: u64,
+    /// Click, scroll and select with the mouse. Off leaves the terminal's
+    /// own text selection alone.
+    #[serde(default = "default_true")]
+    pub mouse: bool,
     /// Dim every colour during these hours: "22:00-07:00", "always", or ""
     /// (off). Wraps past midnight.
     pub night_hours: String,
@@ -236,6 +240,9 @@ impl UiConfig {
     }
 }
 
+fn default_true() -> bool {
+    true
+}
 fn default_ambient_rotate_secs() -> u64 {
     300
 }
@@ -300,6 +307,7 @@ impl Default for UiConfig {
             break_minutes: default_break_minutes(),
             long_break_minutes: default_long_break_minutes(),
             night_hours: String::new(),
+            mouse: true,
         }
     }
 }

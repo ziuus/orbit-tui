@@ -358,6 +358,8 @@ pub struct App {
     pub summary: Summary,
     /// When the last key was pressed; ambient hides its hints once idle.
     pub last_input: Instant,
+    /// Last left click (time, column, row), for double-click detection.
+    last_click: Option<(Instant, u16, u16)>,
     /// Whether `theme` is currently the night-dimmed variant; `None` forces
     /// it to be rebuilt on the next frame (after a theme or setting change).
     pub night: Option<bool>,
@@ -439,6 +441,7 @@ impl App {
             zoomed: None,
             summary: Summary::default(),
             last_input: Instant::now(),
+            last_click: None,
             night: None,
             toast: None,
             pending_signal: None,
@@ -562,6 +565,196 @@ impl App {
     }
 
     // ── Input ─────────────────────────────────────────────────
+
+    /// Any inline text field is taking keystrokes.
+    fn typing(&self) -> bool {
+        let ps = &self.panel_states;
+        ps.agenda_input_active
+            || ps.task_input_active
+            || ps.pinned_media_input_active
+            || ps.log_target_input_active
+            || ps.files_rename_input_active
+            || ps.files_search_input_active
+            || ps.files_mkdir_input_active
+            || ps.process_search_active
+    }
+
+    fn press(&mut self, code: KeyCode) {
+        self.handle_key(KeyEvent::new(code, KeyModifiers::NONE));
+    }
+
+    /// Mouse: click a tab to switch page, a panel to focus it (double-click
+    /// zooms), a row to select it (double-click opens), a column header to
+    /// sort; the wheel scrolls whatever list is under the pointer. Returns
+    /// whether anything changed, so pointer noise doesn't force redraws.
+    pub fn handle_mouse(&mut self, ev: crossterm::event::MouseEvent) -> bool {
+        use crate::screens::Hit;
+        use crossterm::event::{MouseButton, MouseEventKind as K};
+        if self.show_setup_wizard || self.typing() {
+            return false;
+        }
+        let wheel = match ev.kind {
+            K::ScrollDown => Some(true),
+            K::ScrollUp => Some(false),
+            _ => None,
+        };
+        let click = matches!(ev.kind, K::Down(MouseButton::Left));
+        if wheel.is_none() && !click {
+            return false;
+        }
+        self.last_input = Instant::now();
+
+        // Overlays swallow the mouse: the wheel scrolls, a click closes.
+        if self.show_help {
+            match wheel {
+                Some(true) => self.help_scroll += 3,
+                Some(false) => self.help_scroll = self.help_scroll.saturating_sub(3),
+                None => {
+                    self.show_help = false;
+                    self.help_scroll = 0;
+                }
+            }
+            return true;
+        }
+        if self.show_settings {
+            match wheel {
+                Some(down) => self.press(if down { KeyCode::Down } else { KeyCode::Up }),
+                None => self.show_settings = false,
+            }
+            return true;
+        }
+
+        let double = click
+            && self.last_click.is_some_and(|(t, x, y)| {
+                t.elapsed() < Duration::from_millis(400) && x == ev.column && y == ev.row
+            });
+        if click {
+            self.last_click = (!double).then(|| (Instant::now(), ev.column, ev.row));
+        }
+
+        let hits = crate::screens::hits_at(ev.column, ev.row);
+        if let Some(down) = wheel {
+            for (h, _) in hits {
+                match h {
+                    Hit::NotePreview => {
+                        let ns = &mut self.panel_states.note_scroll;
+                        *ns = if down {
+                            ns.saturating_add(3)
+                        } else {
+                            ns.saturating_sub(3)
+                        };
+                        return true;
+                    }
+                    Hit::Scene => {
+                        self.press(if down { KeyCode::Right } else { KeyCode::Left });
+                        return true;
+                    }
+                    Hit::Rows { panel, .. } | Hit::Panel(panel) => {
+                        let key = match (panel, down) {
+                            (PanelId::Calendar, true) => KeyCode::Right,
+                            (PanelId::Calendar, false) => KeyCode::Left,
+                            (
+                                PanelId::Processes
+                                | PanelId::Files
+                                | PanelId::WriterNotes
+                                | PanelId::Tasks
+                                | PanelId::Agenda,
+                                true,
+                            ) => KeyCode::Down,
+                            (
+                                PanelId::Processes
+                                | PanelId::Files
+                                | PanelId::WriterNotes
+                                | PanelId::Tasks
+                                | PanelId::Agenda,
+                                false,
+                            ) => KeyCode::Up,
+                            _ => return false,
+                        };
+                        self.focused_panel = Some(panel);
+                        self.press(key);
+                        return true;
+                    }
+                    Hit::Tab(_) | Hit::SortBy(_) => {}
+                }
+            }
+            return false;
+        }
+
+        for (h, rect) in hits {
+            match h {
+                Hit::Tab(i) => {
+                    if let Some(m) = self.available_modes().get(i).cloned() {
+                        self.set_mode(m);
+                    }
+                    return true;
+                }
+                Hit::SortBy(field) => {
+                    let ps = &mut self.panel_states;
+                    if ps.process_sort_field == field {
+                        ps.process_sort_asc = !ps.process_sort_asc;
+                    } else {
+                        ps.process_sort_field = field;
+                        // Numbers read best biggest-first, names A→Z.
+                        ps.process_sort_asc = matches!(field, SortField::Name | SortField::Pid);
+                    }
+                    self.focused_panel = Some(PanelId::Processes);
+                    self.sync_selected_pid();
+                    return true;
+                }
+                Hit::Rows { panel, first } => {
+                    let idx = first + (ev.row - rect.y) as usize;
+                    self.focused_panel = Some(panel);
+                    let ps = &mut self.panel_states;
+                    match panel {
+                        PanelId::Processes => {
+                            ps.process_scroll_offset = idx;
+                            self.sync_selected_pid();
+                        }
+                        PanelId::Files => {
+                            ps.files_selected = idx;
+                            if double {
+                                self.press(KeyCode::Enter);
+                            }
+                        }
+                        PanelId::WriterNotes => {
+                            if ps.writer_selected != idx {
+                                ps.note_scroll = 0;
+                            }
+                            ps.writer_selected = idx;
+                            if double {
+                                self.trigger_focused_action();
+                            }
+                        }
+                        PanelId::Tasks => ps.tasks_selected = idx,
+                        _ => {}
+                    }
+                    return true;
+                }
+                Hit::Scene => {
+                    // Left third steps back, anywhere else forward.
+                    let back = ev.column < rect.x + rect.width / 3;
+                    self.press(if back { KeyCode::Left } else { KeyCode::Right });
+                    return true;
+                }
+                Hit::NotePreview => {}
+                Hit::Panel(panel) => {
+                    if double {
+                        self.focused_panel = Some(panel);
+                        self.zoomed = if self.zoomed.is_some() {
+                            None
+                        } else {
+                            Some(panel)
+                        };
+                    } else if self.focused_panel != Some(panel) {
+                        self.focused_panel = Some(panel);
+                    }
+                    return true;
+                }
+            }
+        }
+        false
+    }
 
     pub fn handle_key(&mut self, key: KeyEvent) {
         self.last_input = Instant::now();
@@ -1411,9 +1604,7 @@ impl App {
                     _ => return, // No action
                 };
 
-                let _ = crossterm::terminal::disable_raw_mode();
-                let _ = std::process::Command::new(cmd).status();
-                let _ = crossterm::terminal::enable_raw_mode();
+                let _ = crate::mouse::suspended(|| std::process::Command::new(cmd).status());
                 let _ = std::process::Command::new("clear").status();
                 return;
             }
@@ -1461,9 +1652,7 @@ impl App {
 
         if let Some(p) = path {
             let editor = get_preferred_editor();
-            let _ = crossterm::terminal::disable_raw_mode();
-            let _ = std::process::Command::new(editor).arg(p).status();
-            let _ = crossterm::terminal::enable_raw_mode();
+            let _ = crate::mouse::suspended(|| std::process::Command::new(editor).arg(p).status());
             let _ = std::process::Command::new("clear").status();
 
             // Immediate rescan of all workspace monitors
@@ -1721,6 +1910,7 @@ impl App {
 
     pub fn render(&mut self, f: &mut Frame) {
         self.frame = self.frame.wrapping_add(1);
+        screens::clear_hits();
         self.summary = monitors::summary();
         if self
             .toast
@@ -1967,6 +2157,8 @@ impl App {
         }
 
         let mut right: Vec<Span> = Vec::new();
+        // (offset into `right`, width) of each page tab, for mouse hits.
+        let mut tabs: Vec<(usize, usize)> = Vec::new();
 
         let modes = self.available_modes();
 
@@ -1978,7 +2170,10 @@ impl App {
             };
             // Hotkey is simply (i+1) instead of hardcoded!
             let hotkey = format!("{}", i + 1);
-            right.push(Span::styled(format!(" {} {} ", hotkey, m.label()), style));
+            let label = format!(" {} {} ", hotkey, m.label());
+            let at: usize = right.iter().map(|s| s.content.chars().count()).sum();
+            tabs.push((at, label.chars().count()));
+            right.push(Span::styled(label, style));
             right.push(Span::styled(" ", base));
         }
         right.push(Span::styled("? help ", dim));
@@ -1995,6 +2190,13 @@ impl App {
         if lw + rw < avail {
             spans.push(Span::styled(" ".repeat(avail - lw - rw), base));
             spans.extend(right);
+            let x0 = area.x + (avail - rw) as u16;
+            for (i, (at, w)) in tabs.into_iter().enumerate() {
+                screens::hit(
+                    Rect::new(x0 + at as u16, area.y, w as u16, 1),
+                    screens::Hit::Tab(i),
+                );
+            }
         } else if lw < avail {
             spans.push(Span::styled(" ".repeat(avail - lw), base));
         }

@@ -16,6 +16,7 @@ use vanta::app::App;
 use vanta::config::Config;
 
 fn restore_terminal() {
+    vanta::mouse::disable();
     let _ = disable_raw_mode();
     let _ = execute!(io::stdout(), LeaveAlternateScreen, crossterm::cursor::Show);
     let _ = io::stdout().flush();
@@ -53,7 +54,11 @@ fn main() -> io::Result<()> {
     terminal.clear()?;
     terminal.hide_cursor()?;
 
+    let mouse = config.ui.mouse;
     let mut app = App::new(config);
+    if mouse {
+        vanta::mouse::enable();
+    }
     if let cli::RunMode::Config = run_mode {
         app.show_settings = true;
     }
@@ -158,6 +163,7 @@ fn run<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>, app: &mut App) 
                         app.handle_key(key);
                         dirty = true;
                     }
+                    Event::Mouse(m) => dirty |= app.handle_mouse(m),
                     Event::Resize(_, _) => dirty = true,
                     _ => {}
                 }

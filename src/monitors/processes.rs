@@ -587,6 +587,29 @@ fn cmd_basename(cmd: &str) -> &str {
 
 // ── Render ─────────────────────────────────────────────────────
 
+/// First visible row of the table. `scroll_offset` is the selected index;
+/// the view only moves when the selection would leave it, so the list
+/// doesn't jump under the pointer or the cursor on every step.
+static VIEW_TOP: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+fn view_top(selected: usize, page: usize, total: usize) -> usize {
+    use std::sync::atomic::Ordering;
+    let top = scroll_into_view(VIEW_TOP.load(Ordering::Relaxed), selected, page, total);
+    VIEW_TOP.store(top, Ordering::Relaxed);
+    top
+}
+
+fn scroll_into_view(top: usize, selected: usize, page: usize, total: usize) -> usize {
+    let top = if selected < top {
+        selected
+    } else if page > 0 && selected >= top + page {
+        selected + 1 - page
+    } else {
+        top
+    };
+    top.min(total.saturating_sub(page))
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn render(
     f: &mut Frame,
@@ -628,8 +651,7 @@ pub fn render(
 
     let page = table_h.saturating_sub(1) as usize;
     let total = rows.len();
-    let max_scroll = total.saturating_sub(page);
-    let scroll = scroll_offset.min(max_scroll);
+    let scroll = view_top(scroll_offset, page, total);
 
     // ── Header ──
     let hs = Style::default().fg(theme.dim).bg(theme.surface);
@@ -686,6 +708,28 @@ pub fn render(
         hdr.push(Span::styled(" ".repeat(w - used), hs));
     }
     let mut lines = vec![Line::from(hdr)];
+
+    // Mouse targets: rows select, the pid/name/cpu%/MEM% headers sort.
+    {
+        use crate::screens::{hit, Hit};
+        hit(
+            Rect::new(table.x, table.y + 1, table.width, page as u16),
+            Hit::Rows {
+                panel: crate::app::PanelId::Processes,
+                first: scroll,
+            },
+        );
+        let mut x = table.x;
+        for (w, field) in [
+            (c_pid, SortField::Pid),
+            (c_name, SortField::Name),
+            (c_cpu, SortField::Cpu),
+            (c_mem, SortField::Mem),
+        ] {
+            hit(Rect::new(x, table.y, w as u16, 1), Hit::SortBy(field));
+            x += w as u16 + 1;
+        }
+    }
 
     // ── Rows ──
     for (i, r) in rows.iter().skip(scroll).take(page).enumerate() {
@@ -866,4 +910,18 @@ pub fn render(
         Paragraph::new(vec![Line::from(l1), l2]).style(Style::default().bg(theme.surface)),
         detail,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn view_moves_only_when_the_selection_leaves_it() {
+        use super::scroll_into_view as v;
+        assert_eq!(v(0, 5, 10, 100), 0);
+        assert_eq!(v(0, 10, 10, 100), 1);
+        assert_eq!(v(20, 15, 10, 100), 15);
+        assert_eq!(v(20, 25, 10, 100), 20);
+        assert_eq!(v(95, 99, 10, 100), 90);
+        assert_eq!(v(3, 0, 10, 5), 0);
+    }
 }

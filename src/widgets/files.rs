@@ -171,6 +171,13 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
         scroll = selected.saturating_sub(visible_items - 1);
     }
     app.panel_states.files_scroll = scroll;
+    crate::screens::hit(
+        list_chunks[1],
+        crate::screens::Hit::Rows {
+            panel: crate::app::PanelId::Files,
+            first: scroll,
+        },
+    );
 
     let name_w = (avail_w).saturating_sub(3 + 6); // icon(2) + space(1) + size(5) + space(1)
     let name_w = name_w.max(8);

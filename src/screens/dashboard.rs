@@ -110,6 +110,9 @@ pub fn render_layout(f: &mut Frame, area: Rect, app: &mut App, layout: &[Vec<Str
         let (names, constraints) = solve_column(items, col_area.height);
         let rows = Layout::vertical(constraints).split(col_area);
         for (p, &row_area) in names.iter().zip(rows.iter()) {
+            if let Some(id) = PanelId::from_name(p, &app.config) {
+                crate::screens::hit(row_area, crate::screens::Hit::Panel(id));
+            }
             render_dashboard_panel(f, row_area, p, app, &sum, term, embed_viz);
         }
     }
