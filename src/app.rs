@@ -346,6 +346,7 @@ pub struct App {
     pub panel_states: PanelStates,
     pub ambient: crate::screens::aesthetic::AmbientState,
     pub show_help: bool,
+    pub help_scroll: u16,
     pub show_settings: bool,
     pub show_setup_wizard: bool,
     pub setup_wizard_step: usize,
@@ -428,6 +429,7 @@ impl App {
             panel_states: PanelStates::default(),
             ambient: Default::default(),
             show_help: false,
+            help_scroll: 0,
             show_settings: false,
             show_setup_wizard: false,
             setup_wizard_step: 0,
@@ -762,7 +764,16 @@ impl App {
                 }
                 KeyCode::Char('q') | KeyCode::Char('Q') => self.running = false,
                 KeyCode::Char('T') => self.cycle_theme(),
-                _ => self.show_help = false,
+                KeyCode::Up | KeyCode::Char('k') => {
+                    self.help_scroll = self.help_scroll.saturating_sub(1)
+                }
+                KeyCode::Down | KeyCode::Char('j') => self.help_scroll += 1,
+                KeyCode::PageUp => self.help_scroll = self.help_scroll.saturating_sub(10),
+                KeyCode::PageDown => self.help_scroll += 10,
+                _ => {
+                    self.show_help = false;
+                    self.help_scroll = 0;
+                }
             }
             return;
         }
@@ -1803,7 +1814,7 @@ impl App {
         self.render_status(f, status_bar);
 
         if self.show_help {
-            screens::help::render(f, area, &self.theme, &self.config);
+            screens::help::render(f, area, &self.theme, &self.config, &mut self.help_scroll);
         }
         if self.show_setup_wizard {
             screens::setup_wizard::render(f, area, self);
@@ -2057,6 +2068,23 @@ impl App {
                     hint("c", "cmd");
                     hint("k", "term");
                     hint("K", "kill");
+                }
+                Some(PanelId::Files) => {
+                    hint("↑↓", "move");
+                    hint("←→", "dir");
+                    hint("/", "search");
+                    hint(".", "hidden");
+                    hint("N", "rename");
+                    hint("m", "mkdir");
+                    hint("y", "copy path");
+                    hint("o", "open");
+                    hint("x", "delete");
+                }
+                Some(PanelId::WriterNotes) => {
+                    hint("↑↓", "note");
+                    hint("PgUp/PgDn", "scroll");
+                    hint("enter", "edit");
+                    hint("tab", "focus");
                 }
                 Some(PanelId::Timer) => {
                     hint("space", "start/pause");

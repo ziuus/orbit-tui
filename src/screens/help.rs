@@ -25,7 +25,7 @@ const SECTIONS: &[Section] = &[
     (
         "pages",
         &[
-            ("1 2 3 4", "overview · monitor · ambient · focus"),
+            ("1 2 3 4", "overview monitor ambient focus"),
             ("tab ⇧tab", "cycle panel focus"),
             ("enter", "zoom focused panel"),
             ("esc", "clear focus / unzoom"),
@@ -65,6 +65,32 @@ const SECTIONS: &[Section] = &[
         &[("space", "start / pause"), ("r s", "reset · skip phase")],
     ),
     (
+        "tasks · agenda (focused)",
+        &[
+            ("a d", "add · delete"),
+            ("space", "toggle task done"),
+            ("e enter", "edit the file"),
+        ],
+    ),
+    (
+        "notes (focused)",
+        &[
+            ("↑ ↓", "select note"),
+            ("pgup pgdn", "scroll preview"),
+            ("e enter", "open in $EDITOR"),
+        ],
+    ),
+    (
+        "files (focused)",
+        &[
+            ("← →", "parent · open"),
+            ("/ .", "search · hidden files"),
+            ("N m", "rename · new folder"),
+            ("y o", "copy path · open"),
+            ("x", "delete"),
+        ],
+    ),
+    (
         "calendar (focused)",
         &[("← →", "month"), ("↑ ↓", "year"), ("home", "today")],
     ),
@@ -83,8 +109,9 @@ const SECTIONS: &[Section] = &[
 ];
 
 /// Floating keybind reference. Any key closes it. Sections flow into two
-/// columns when a single column would not fit the terminal height.
-pub fn render(f: &mut Frame, area: Rect, theme: &Theme, config: &Config) {
+/// columns when a single column would not fit the terminal height, and the
+/// box scrolls (↑↓ / PgUp PgDn) if even that is too tall.
+pub fn render(f: &mut Frame, area: Rect, theme: &Theme, config: &Config, scroll: &mut u16) {
     let bg = theme.surface;
     let base = Style::default().bg(bg);
     let blank = || Line::from(Span::styled("", base));
@@ -96,7 +123,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, config: &Config) {
         ))];
         v.extend(keys.iter().map(|(k, d)| {
             Line::from(vec![
-                Span::styled(format!("   {:<10}", k), base.fg(theme.accent)),
+                Span::styled(format!("  {:<10}", k), base.fg(theme.accent)),
                 Span::styled(d.to_string(), base.fg(theme.text)),
             ])
         }));
@@ -172,19 +199,34 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, config: &Config) {
 
     let w = lines.iter().map(line_w).max().unwrap_or(60) as u16 + 4;
     let box_area = centered(area, w.min(area.width), lines.len() as u16 + 2);
+    let visible = box_area.height.saturating_sub(2) as usize;
+    let overflow = lines.len().saturating_sub(visible) as u16;
+    *scroll = (*scroll).min(overflow);
+    let mut block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(theme.accent))
+        .title(Span::styled(
+            " vanta · help ",
+            Style::default().fg(theme.accent),
+        ))
+        .style(base);
+    if overflow > 0 {
+        let more = match (*scroll > 0, *scroll < overflow) {
+            (true, true) => " ↑↓ more ",
+            (false, _) => " ↓ more · j/k scroll ",
+            (true, false) => " ↑ more ",
+        };
+        block = block.title_bottom(
+            Line::from(Span::styled(more, Style::default().fg(theme.dim))).right_aligned(),
+        );
+    }
     f.render_widget(Clear, box_area);
     f.render_widget(
-        Paragraph::new(lines).style(base).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(theme.accent))
-                .title(Span::styled(
-                    " vanta · help ",
-                    Style::default().fg(theme.accent),
-                ))
-                .style(base),
-        ),
+        Paragraph::new(lines)
+            .style(base)
+            .scroll((*scroll, 0))
+            .block(block),
         box_area,
     );
 }
