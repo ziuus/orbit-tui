@@ -501,7 +501,7 @@ pub fn sample() {
                 let update_track = |current: &nowplaying::MediaSession| {
                     let mut st = STATE.lock().unwrap();
                     let t = Track {
-                        player: current.source.display_name.clone().unwrap_or_else(|| current.source.id.clone()),
+                        player: current.source.name.clone().unwrap_or_else(|| current.source.id.clone()),
                         bus_name: current.id.clone(),
                         status: match current.playback.status {
                             nowplaying::PlaybackStatus::Playing => Status::Playing,
