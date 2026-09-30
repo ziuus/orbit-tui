@@ -8,7 +8,7 @@ use crate::screens::{hit, panel, too_small, Hit};
 const MIN: (u16, u16) = (80, 24);
 
 /// Monitor layouts, cycled from the Esc menu (ui.monitor_layout).
-pub const LAYOUTS: [&str; 4] = ["classic", "processes", "side", "graphs"];
+pub const LAYOUTS: [&str; 5] = ["classic", "processes", "side", "graphs", "split"];
 
 /// Draw one Monitor panel into `area`.
 fn draw(f: &mut Frame, app: &App, id: PanelId, area: Rect) {
@@ -135,6 +135,26 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
                 draw(f, app, id, *r);
             }
             draw(f, app, PanelId::Processes, table);
+        }
+        "split" => {
+            // Half & half: 2×2 metrics grid on the left, full process table on the right.
+            let [left, right] =
+                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .areas(area);
+            let [top_left, btm_left] =
+                Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .areas(left);
+            let [c, m] =
+                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .areas(top_left);
+            let [n, d] =
+                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .areas(btm_left);
+            draw(f, app, PanelId::Cpu, c);
+            draw(f, app, PanelId::Memory, m);
+            draw(f, app, PanelId::Network, n);
+            draw(f, app, PanelId::Disk, d);
+            draw(f, app, PanelId::Processes, right);
         }
         _ => classic(f, app, area, show_gpu),
     }

@@ -319,44 +319,55 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
     }
     let fx = facts();
 
-    let build_line = |idx: usize, k: &str, v_spans: Vec<Span<'static>>| {
-        let is_sel = is_focused && idx == selected;
-        let badge_style = if is_sel {
-            Style::default().fg(theme.bg).bg(theme.accent)
-        } else {
-            Style::default().fg(theme.accent)
-        };
-        let label_style = if is_sel {
-            Style::default().fg(theme.bg).bg(theme.accent)
-        } else if is_focused {
-            Style::default().fg(theme.text)
-        } else {
-            Style::default().fg(theme.dim)
-        };
+    let build_line =
+        |idx: usize, k: &str, left_spans: Vec<Span<'static>>, right_spans: Vec<Span<'static>>| {
+            let is_sel = is_focused && idx == selected;
+            let badge_style = if is_sel {
+                Style::default().fg(theme.bg).bg(theme.accent)
+            } else {
+                Style::default().fg(theme.accent)
+            };
+            let label_style = if is_sel {
+                Style::default().fg(theme.bg).bg(theme.accent)
+            } else if is_focused {
+                Style::default().fg(theme.text)
+            } else {
+                Style::default().fg(theme.dim)
+            };
 
-        let mut spans = vec![
-            Span::styled("◈ ", badge_style),
-            Span::styled(format!("{:<6} ", k), label_style),
-            Span::styled("· ", Style::default().fg(theme.dim)),
-        ];
-        spans.extend(v_spans);
-        Line::from(spans)
-    };
+            let mut left = vec![
+                Span::styled("◈ ", badge_style),
+                Span::styled(format!("{:<6}", k), label_style),
+            ];
+            if !left_spans.is_empty() {
+                left.push(Span::styled(" · ", Style::default().fg(theme.dim)));
+                left.extend(left_spans);
+            }
+
+            let l_len: usize = left.iter().map(|s| s.content.chars().count()).sum();
+            let r_len: usize = right_spans.iter().map(|s| s.content.chars().count()).sum();
+            let total_w = area.width as usize;
+
+            let mut spans = left;
+            if l_len + r_len < total_w {
+                let gap = total_w - l_len - r_len;
+                spans.push(Span::styled(" ".repeat(gap), Style::default()));
+            } else {
+                spans.push(Span::styled(" ", Style::default()));
+            }
+            spans.extend(right_spans);
+            Line::from(spans)
+        };
 
     let mut lines: Vec<Line> = Vec::new();
     let mut i = 0;
 
-    // Columns left for a value after the "◈ LABEL  · " prefix.
     let avail = (area.width as usize).saturating_sub(11);
     if let Some((ssid, sig)) = &fx.wifi {
-        // " · ▂▄▆█ 100%" takes 12; the SSID gets what's left, up to 14.
         let w_name = avail.saturating_sub(12).clamp(6, 14);
         let ellip = crate::widgets::meter::ellipsize(ssid, w_name);
-        // Pad SSID to fixed width so signal bars always start at the same column
-        let padded = format!("{:<w$}", ellip, w = w_name);
-        let mut v = vec![
-            Span::styled(padded, Style::default().fg(theme.text)),
-            Span::styled(" · ", Style::default().fg(theme.dim)),
+        let left = vec![Span::styled(ellip, Style::default().fg(theme.text))];
+        let right = vec![
             Span::styled(
                 signal_bars(*sig),
                 Style::default().fg(if *sig < 40 {
@@ -367,10 +378,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
             ),
             Span::styled(format!(" {:>3}%", sig), Style::default().fg(theme.dim)),
         ];
-        if avail < w_name + 12 {
-            v.truncate(1);
-        }
-        lines.push(build_line(i, "WIFI", v));
+        lines.push(build_line(i, "WIFI", left, right));
         i += 1;
     }
 
@@ -378,45 +386,48 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         let mut parts = ip.split_whitespace();
         let iface = parts.next().unwrap_or("net");
         let addr = parts.next().unwrap_or(ip.as_str());
-        // Pad iface to fixed 5 chars so IP address always starts at the same column
-        let v = vec![
-            Span::styled(format!("{:<5}", iface), Style::default().fg(theme.dim)),
-            Span::styled(" · ", Style::default().fg(theme.dim)),
-            Span::styled(addr.to_string(), Style::default().fg(theme.text)),
-        ];
-        lines.push(build_line(i, "IP", v));
+        let left = vec![Span::styled(
+            iface.to_string(),
+            Style::default().fg(theme.dim),
+        )];
+        let right = vec![Span::styled(
+            addr.to_string(),
+            Style::default().fg(theme.text),
+        )];
+        lines.push(build_line(i, "IP", left, right));
         i += 1;
     }
 
     if let Some(n) = fx.packages {
         let upd = fx.updates.unwrap_or(0);
-        let mut v = vec![Span::styled(
+        let left = if upd > 0 {
+            vec![Span::styled(
+                format!("{} updates", upd),
+                Style::default().fg(theme.yellow),
+            )]
+        } else if fx.updates.is_some() && area.width >= 28 {
+            vec![Span::styled("up to date", Style::default().fg(theme.dim))]
+        } else {
+            Vec::new()
+        };
+        let right = vec![Span::styled(
             format!("{} pkgs", n),
             Style::default().fg(theme.text),
         )];
-        if upd > 0 {
-            v.push(Span::styled(" · ", Style::default().fg(theme.dim)));
-            v.push(Span::styled(
-                format!("{} updates", upd),
-                Style::default().fg(theme.yellow),
-            ));
-        } else if fx.updates.is_some() && area.width >= 28 {
-            v.push(Span::styled(" · ", Style::default().fg(theme.dim)));
-            v.push(Span::styled("up to date", Style::default().fg(theme.dim)));
-        }
-        lines.push(build_line(i, "PKGS", v));
+        lines.push(build_line(i, "PKGS", left, right));
         i += 1;
     }
 
     if let Some((run_n, all_n)) = fx.docker {
-        let v = vec![
+        let left = vec![Span::styled("docker", Style::default().fg(theme.dim))];
+        let right = vec![
             Span::styled(
                 format!("{}/{}", run_n, all_n),
                 Style::default().fg(theme.text),
             ),
             Span::styled(" running", Style::default().fg(theme.dim)),
         ];
-        lines.push(build_line(i, "DOCKER", v));
+        lines.push(build_line(i, "DOCKER", left, right));
         i += 1;
     }
 
@@ -431,22 +442,25 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         } else {
             theme.accent
         };
-        let mut v = vec![Span::styled(
+        let left = if area.width >= 30 {
+            vec![Span::styled(
+                format!("{}t", cores as usize),
+                Style::default().fg(theme.dim),
+            )]
+        } else {
+            Vec::new()
+        };
+        let right = vec![Span::styled(
             format!("{:.2} {:.2} {:.2}", one, five, fifteen),
             Style::default().fg(col),
         )];
-        if area.width >= 32 {
-            v.push(Span::styled(
-                format!(" · {}t", cores as usize),
-                Style::default().fg(theme.dim),
-            ));
-        }
-        lines.push(build_line(i, "LOAD", v));
+        lines.push(build_line(i, "LOAD", left, right));
         i += 1;
 
         lines.push(build_line(
             i,
             "PROCS",
+            vec![Span::styled("tasks", Style::default().fg(theme.dim))],
             vec![
                 Span::styled(
                     crate::monitors::processes::count().to_string(),
@@ -466,13 +480,21 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         } else {
             theme.red
         };
-        let mut v = vec![Span::styled(
-            format!("{}%{}", b.pct, if b.charging { " ⚡" } else { "" }),
+        let left = vec![Span::styled(
+            if b.charging {
+                "⚡ charging"
+            } else {
+                "battery"
+            },
+            Style::default().fg(theme.dim),
+        )];
+        let mut right = vec![Span::styled(
+            format!("{}%", b.pct),
             Style::default().fg(col),
         )];
         if let Some(w) = b.watts {
             if area.width >= 34 {
-                v.push(Span::styled(
+                right.push(Span::styled(
                     format!(" · {:.1}W", w),
                     Style::default().fg(theme.dim),
                 ));
@@ -480,9 +502,9 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         }
         if let Some(s) = b.eta_secs.filter(|s| *s > 0 && *s < 48 * 3600) {
             let eta = format!(" · {}h{:02}m", s / 3600, (s % 3600) / 60);
-            v.push(Span::styled(eta, Style::default().fg(theme.dim)));
+            right.push(Span::styled(eta, Style::default().fg(theme.dim)));
         }
-        lines.push(build_line(i, "BAT", v));
+        lines.push(build_line(i, "BAT", left, right));
         i += 1;
     }
 
@@ -501,6 +523,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
         lines.push(build_line(
             i,
             "TEMPS",
+            vec![Span::styled("cores", Style::default().fg(theme.dim))],
             vec![Span::styled(t_str, Style::default().fg(theme.temp(max)))],
         ));
     }

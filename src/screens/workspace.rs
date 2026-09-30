@@ -64,8 +64,13 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
 
     if cfg.tasks && tasks_area.height > 2 {
         let snap = crate::monitors::tasks::snapshot();
-        let open = snap.tasks.iter().filter(|t| !t.completed).count();
-        let tasks_rt = format!(" {} open ", open);
+        let total = snap.tasks.len();
+        let done = snap.tasks.iter().filter(|t| t.completed).count();
+        let tasks_rt = if total > 0 {
+            format!(" {}/{} done ", done, total)
+        } else {
+            " 0 tasks ".to_string()
+        };
         let hint = if app.panel_states.task_input_active {
             "Enter submit · Esc cancel"
         } else {
@@ -301,7 +306,7 @@ fn ago(secs: u64) -> String {
 }
 
 /// Focus layouts, cycled from the Esc menu (ui.focus_layout).
-pub const LAYOUTS: [&str; 4] = ["classic", "writer", "planner", "files"];
+pub const LAYOUTS: [&str; 5] = ["classic", "writer", "planner", "files", "zen"];
 
 /// Areas for [timer, agenda, tasks, news, notes, files]; a zero-height
 /// area means that panel isn't part of the layout.
@@ -357,6 +362,13 @@ fn focus_areas(layout: &str, area: Rect, work_ratio: u16, cfg: &WidgetConfig) ->
         "files" => {
             let [t, a, k, n] = column(left, true);
             [t, a, k, n, none, right]
+        }
+        // Minimalist zen mode: side-by-side timer and task list with spacious viewports
+        "zen" => {
+            let [t, k] =
+                Layout::horizontal([Constraint::Percentage(45), Constraint::Percentage(55)])
+                    .areas(area);
+            [t, none, k, none, none, none]
         }
         _ => {
             let [t, a, k, n] = column(left, true);

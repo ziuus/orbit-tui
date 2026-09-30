@@ -140,6 +140,15 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
         path_str
     };
 
+    let sort_label = match app.panel_states.files_sort_mode {
+        1 => "size ▾",
+        2 => "type ▾",
+        _ => "name ▾",
+    };
+    let sort_badge = format!("[{}]", sort_label);
+    let path_len = path_disp.chars().count() + 2;
+    let gap = avail_w.saturating_sub(path_len + sort_badge.len() + 1);
+
     let header = Paragraph::new(vec![
         Line::from(vec![
             Span::styled(" ", Style::default().fg(theme.accent)),
@@ -149,6 +158,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
                     .fg(theme.accent)
                     .add_modifier(Modifier::BOLD),
             ),
+            Span::styled(" ".repeat(gap), Style::default()),
+            Span::styled(sort_badge, Style::default().fg(theme.dim)),
         ]),
         Line::from(vec![Span::styled(
             "─".repeat(inner_list_area.width as usize),
@@ -292,6 +303,12 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
         } else {
             format!(" · {}", format_size(item.size).trim())
         };
+        let p_scroll = app.panel_states.files_preview_scroll;
+        let scroll_label = if p_scroll > 0 {
+            format!(" · +{} lines (K/J to scroll)", p_scroll)
+        } else {
+            String::new()
+        };
         preview_lines.push(Line::from(vec![Span::styled(
             format!(" {} {}", file_icon(item), item.name),
             Style::default()
@@ -299,7 +316,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
                 .add_modifier(Modifier::BOLD),
         )]));
         preview_lines.push(Line::from(vec![Span::styled(
-            format!(" {}{}", kind, size_label),
+            format!(" {}{}{}", kind, size_label, scroll_label),
             Style::default().fg(theme.dim),
         )]));
         preview_lines.push(Line::from(vec![Span::styled(
@@ -315,6 +332,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut crate::app::App) {
                 PreviewContent::Text(text) => {
                     for line in text
                         .lines()
+                        .skip(p_scroll)
                         .take(preview_area.height.saturating_sub(4) as usize)
                     {
                         // Basic syntax hint: leading # → accent, --- → dim, else text

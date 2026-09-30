@@ -318,6 +318,8 @@ pub struct PanelStates {
     pub files_search_input: String,
     pub files_mkdir_input_active: bool,
     pub files_mkdir_input: String,
+    pub files_sort_mode: usize,
+    pub files_preview_scroll: usize,
 
     pub tasks_selected: usize,
     pub task_input_active: bool,
@@ -364,6 +366,8 @@ impl Default for PanelStates {
             files_search_input: String::new(),
             files_mkdir_input_active: false,
             files_mkdir_input: String::new(),
+            files_sort_mode: 0,
+            files_preview_scroll: 0,
 
             tasks_selected: 0,
             task_input_active: false,
@@ -1739,6 +1743,7 @@ impl App {
                     KeyCode::Up | KeyCode::Char('k') => {
                         self.panel_states.files_selected =
                             self.panel_states.files_selected.saturating_sub(1);
+                        self.panel_states.files_preview_scroll = 0;
                         let snap = crate::monitors::files::snapshot();
                         let items = self.get_filtered_files(&snap);
                         if let Some(item) = items.get(self.panel_states.files_selected) {
@@ -1748,10 +1753,62 @@ impl App {
                     KeyCode::Down | KeyCode::Char('j') => {
                         self.panel_states.files_selected =
                             self.panel_states.files_selected.saturating_add(1);
+                        self.panel_states.files_preview_scroll = 0;
                         let snap = crate::monitors::files::snapshot();
                         let items = self.get_filtered_files(&snap);
                         if let Some(item) = items.get(self.panel_states.files_selected) {
                             crate::monitors::files::update_preview(&item.path);
+                        }
+                    }
+                    KeyCode::Char('J') | KeyCode::PageDown => {
+                        self.panel_states.files_preview_scroll =
+                            self.panel_states.files_preview_scroll.saturating_add(6);
+                    }
+                    KeyCode::Char('K') | KeyCode::PageUp => {
+                        self.panel_states.files_preview_scroll =
+                            self.panel_states.files_preview_scroll.saturating_sub(6);
+                    }
+                    KeyCode::Char('s') | KeyCode::Char('S') => {
+                        self.panel_states.files_sort_mode =
+                            (self.panel_states.files_sort_mode + 1) % 3;
+                        let mode_name = match self.panel_states.files_sort_mode {
+                            1 => "size",
+                            2 => "type",
+                            _ => "name",
+                        };
+                        self.panel_states.files_selected = 0;
+                        self.toast(format!("sort · {}", mode_name));
+                    }
+                    KeyCode::Char('~') => {
+                        if let Ok(home) = std::env::var("HOME") {
+                            crate::monitors::files::chdir(&std::path::PathBuf::from(home));
+                            self.panel_states.files_selected = 0;
+                            self.panel_states.files_preview_scroll = 0;
+                            self.toast("jump · ~ (home)");
+                        }
+                    }
+                    KeyCode::Char('g') => {
+                        crate::monitors::files::chdir(&std::path::PathBuf::from("/"));
+                        self.panel_states.files_selected = 0;
+                        self.panel_states.files_preview_scroll = 0;
+                        self.toast("jump · / (root)");
+                    }
+                    KeyCode::Char('v') | KeyCode::Char('V') => {
+                        let vault = self
+                            .config
+                            .ui
+                            .obsidian_vault
+                            .replace("~", &std::env::var("HOME").unwrap_or_default());
+                        crate::monitors::files::chdir(&std::path::PathBuf::from(vault));
+                        self.panel_states.files_selected = 0;
+                        self.panel_states.files_preview_scroll = 0;
+                        self.toast("jump · vault");
+                    }
+                    KeyCode::Esc => {
+                        if !self.panel_states.files_search_input.is_empty() {
+                            self.panel_states.files_search_input.clear();
+                            self.panel_states.files_selected = 0;
+                            self.toast("filter cleared");
                         }
                     }
                     KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => {
@@ -1761,6 +1818,7 @@ impl App {
                             if item.is_dir {
                                 crate::monitors::files::chdir(&item.path);
                                 self.panel_states.files_selected = 0;
+                                self.panel_states.files_preview_scroll = 0;
                             }
                         }
                     }
@@ -1794,6 +1852,7 @@ impl App {
                         if let Some(parent) = snap.current_dir.parent() {
                             crate::monitors::files::chdir(parent);
                             self.panel_states.files_selected = 0;
+                            self.panel_states.files_preview_scroll = 0;
                         }
                     }
                     _ => {}
@@ -1827,7 +1886,8 @@ impl App {
         &self,
         snap: &crate::monitors::files::FilesSnapshot,
     ) -> Vec<crate::monitors::files::FileItem> {
-        snap.items
+        let mut out: Vec<crate::monitors::files::FileItem> = snap
+            .items
             .iter()
             .filter(|item| {
                 if !self.panel_states.files_show_hidden && item.name.starts_with('.') {
@@ -1844,7 +1904,47 @@ impl App {
                 true
             })
             .cloned()
-            .collect()
+            .collect();
+
+        match self.panel_states.files_sort_mode {
+            1 => {
+                // Sort by size: dirs first, then largest size descending
+                out.sort_by(|a, b| {
+                    b.is_dir
+                        .cmp(&a.is_dir)
+                        .then_with(|| b.size.cmp(&a.size))
+                        .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+                });
+            }
+            2 => {
+                // Sort by type/extension
+                out.sort_by(|a, b| {
+                    let ext_a = a
+                        .path
+                        .extension()
+                        .map(|e| e.to_string_lossy().to_lowercase())
+                        .unwrap_or_default();
+                    let ext_b = b
+                        .path
+                        .extension()
+                        .map(|e| e.to_string_lossy().to_lowercase())
+                        .unwrap_or_default();
+                    b.is_dir
+                        .cmp(&a.is_dir)
+                        .then_with(|| ext_a.cmp(&ext_b))
+                        .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+                });
+            }
+            _ => {
+                // Sort by name: dirs first, then alphabetically
+                out.sort_by(|a, b| {
+                    b.is_dir
+                        .cmp(&a.is_dir)
+                        .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+                });
+            }
+        }
+        out
     }
 
     fn trigger_focused_action(&mut self) {
