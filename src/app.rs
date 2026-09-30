@@ -388,6 +388,9 @@ pub struct App {
     pub panel_states: PanelStates,
     pub ambient: crate::screens::aesthetic::AmbientState,
     pub show_help: bool,
+    /// The Esc menu.
+    pub show_menu: bool,
+    pub menu_row: usize,
     pub help_scroll: u16,
     pub show_settings: bool,
     pub show_setup_wizard: bool,
@@ -476,6 +479,8 @@ impl App {
             panel_states: PanelStates::default(),
             ambient: Default::default(),
             show_help: false,
+            show_menu: false,
+            menu_row: 0,
             help_scroll: 0,
             show_settings: false,
             show_setup_wizard: false,
@@ -573,8 +578,61 @@ impl App {
         modes
     }
 
+    pub fn cycle_theme_back(&mut self) {
+        self.set_theme(Theme::prev_name(&self.config.ui.theme));
+    }
+
     pub fn cycle_theme(&mut self) {
-        let next = Theme::next_name(&self.config.ui.theme);
+        self.set_theme(Theme::next_name(&self.config.ui.theme));
+    }
+
+    pub fn cycle_style(&mut self, forward: bool) {
+        use crate::config::DesignStyle;
+        let all = DesignStyle::ALL;
+        let i = all
+            .iter()
+            .position(|s| *s == self.config.ui.style)
+            .unwrap_or(0);
+        let n = all.len();
+        self.config.ui.style = all[if forward {
+            (i + 1) % n
+        } else {
+            (i + n - 1) % n
+        }];
+        self.config.save();
+        self.toast(format!("style · {}", self.config.ui.style.label()));
+    }
+
+    /// Name of the current page's layout, for the menu.
+    pub fn layout_name(&self) -> String {
+        match self.mode {
+            DashboardMode::Dashboard => self.config.dashboard.preset.clone(),
+            _ => "default".to_string(),
+        }
+    }
+
+    /// Step the current page to its next/previous layout.
+    pub fn cycle_layout(&mut self, forward: bool) {
+        if self.mode == DashboardMode::Dashboard {
+            const PRESETS: [&str; 5] =
+                ["cockpit", "monitoring", "minimal", "aesthetic", "workspace"];
+            let i = PRESETS
+                .iter()
+                .position(|p| *p == self.config.dashboard.preset)
+                .unwrap_or(0);
+            let n = PRESETS.len();
+            let next = PRESETS[if forward {
+                (i + 1) % n
+            } else {
+                (i + n - 1) % n
+            }];
+            self.config.dashboard.apply_preset(next);
+            self.config.save();
+            self.toast(format!("layout · {}", next));
+        }
+    }
+
+    fn set_theme(&mut self, next: String) {
         self.config.ui.theme = next.to_string();
         self.theme = Theme::from_name(&next);
         self.night = None;
@@ -664,6 +722,29 @@ impl App {
             }
             return true;
         }
+        if self.show_menu {
+            let n = crate::screens::menu::ITEMS.len();
+            if let Some(down) = wheel {
+                self.menu_row = if down {
+                    (self.menu_row + 1) % n
+                } else {
+                    (self.menu_row + n - 1) % n
+                };
+                return true;
+            }
+            match crate::screens::hits_at(ev.column, ev.row)
+                .first()
+                .map(|(h, _)| *h)
+            {
+                Some(crate::screens::Hit::MenuRow(i)) => {
+                    self.menu_row = i;
+                    crate::screens::menu::activate(self);
+                }
+                Some(crate::screens::Hit::Overlay) => {}
+                _ => self.show_menu = false,
+            }
+            return true;
+        }
         if self.show_settings {
             if let Some(down) = wheel {
                 self.press(if down { KeyCode::Down } else { KeyCode::Up });
@@ -736,7 +817,11 @@ impl App {
                         self.press(key);
                         return true;
                     }
-                    Hit::Tab(_) | Hit::SortBy(_) | Hit::SettingRow(_) | Hit::Overlay => {}
+                    Hit::Tab(_)
+                    | Hit::SortBy(_)
+                    | Hit::SettingRow(_)
+                    | Hit::Overlay
+                    | Hit::MenuRow(_) => {}
                 }
             }
             return false;
@@ -798,7 +883,7 @@ impl App {
                     self.press(if back { KeyCode::Left } else { KeyCode::Right });
                     return true;
                 }
-                Hit::NotePreview | Hit::SettingRow(_) | Hit::Overlay => {}
+                Hit::NotePreview | Hit::SettingRow(_) | Hit::Overlay | Hit::MenuRow(_) => {}
                 Hit::Panel(panel) => {
                     if double {
                         self.focused_panel = Some(panel);
@@ -1014,6 +1099,11 @@ impl App {
 
         if self.show_settings {
             crate::screens::settings::handle_key(self, key.code);
+            return;
+        }
+
+        if self.show_menu {
+            crate::screens::menu::handle_key(self, key.code);
             return;
         }
 
@@ -1262,11 +1352,15 @@ impl App {
                     (None, None) => {}
                 }
             }
+            // Esc backs out one level: unzoom, then unfocus, then the menu.
             KeyCode::Esc => {
                 if self.zoomed.is_some() {
                     self.zoomed = None;
-                } else {
+                } else if self.focused_panel.is_some() {
                     self.focused_panel = None;
+                } else {
+                    self.show_menu = true;
+                    self.menu_row = 0;
                 }
             }
 
@@ -1991,6 +2085,7 @@ impl App {
     pub fn render(&mut self, f: &mut Frame) {
         self.frame = self.frame.wrapping_add(1);
         screens::clear_hits();
+        screens::set_design(self.config.ui.style);
         self.summary = monitors::summary();
         if self
             .toast
@@ -2091,6 +2186,9 @@ impl App {
             screens::setup_wizard::render(f, area, self);
         } else if self.show_settings {
             screens::settings::render(f, area, self);
+        }
+        if self.show_menu {
+            screens::menu::render(f, area, self);
         }
     }
 

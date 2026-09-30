@@ -2,6 +2,7 @@ pub mod aesthetic;
 pub mod dashboard;
 pub mod debug_logs;
 pub mod help;
+pub mod menu;
 pub mod monitor;
 pub mod settings;
 pub mod workspace;
@@ -37,6 +38,8 @@ pub enum Hit {
     SettingRow(usize),
     /// A modal overlay's box (clicks inside don't close it).
     Overlay,
+    /// The n-th Esc-menu item.
+    MenuRow(usize),
 }
 
 static HITS: std::sync::Mutex<Vec<(Rect, Hit)>> = std::sync::Mutex::new(Vec::new());
@@ -67,8 +70,23 @@ pub fn hits_at(x: u16, y: u16) -> Vec<(Hit, Rect)> {
         .collect()
 }
 
-/// Panel chrome shared by every page: rounded border, small-caps title,
-/// accent highlight when focused. Returns the inner area.
+static DESIGN: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Select the design style every panel is drawn in. Set once per frame.
+pub fn set_design(style: crate::config::DesignStyle) {
+    let i = crate::config::DesignStyle::ALL
+        .iter()
+        .position(|s| *s == style)
+        .unwrap_or(0);
+    DESIGN.store(i as u8, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn design() -> crate::config::DesignStyle {
+    crate::config::DesignStyle::ALL[DESIGN.load(std::sync::atomic::Ordering::Relaxed) as usize % 6]
+}
+
+/// Panel chrome shared by every page. Its shape follows the design style;
+/// its colours follow the theme. Returns the inner area.
 pub fn panel_full(
     f: &mut Frame,
     area: Rect,
@@ -78,62 +96,110 @@ pub fn panel_full(
     theme: &Theme,
     focused: bool,
 ) -> Rect {
-    let (border, text) = if focused {
-        (theme.accent, theme.accent)
-    } else {
-        (theme.surface, theme.dim)
+    use crate::config::DesignStyle as D;
+    use crate::theme::blend;
+    use ratatui::style::Modifier;
+
+    let style = design();
+    let (border, text) = match (style, focused) {
+        (_, true) => (theme.accent, theme.accent),
+        (D::Neon, false) => (blend(theme.accent, theme.bg, 0.35), theme.secondary),
+        (D::Glass, false) => (blend(theme.surface, theme.text, 0.28), theme.text),
+        (D::Brutalist, false) => (theme.dim, theme.text),
+        (D::Retro, false) => (theme.dim, theme.text),
+        _ => (theme.surface, theme.dim),
+    };
+    let fill = match style {
+        D::Glass => Some(blend(theme.bg, theme.text, 0.075)),
+        _ => None,
     };
 
-    let title_style = Style::default().fg(text);
+    // Title text in the style's voice.
+    let tag = |t: &str, color| -> Span<'static> {
+        match style {
+            D::Brutalist => Span::styled(
+                format!(" {} ", t.to_uppercase()),
+                Style::default()
+                    .fg(theme.bg)
+                    .bg(color)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            D::Retro => Span::styled(
+                format!("[ {} ]", t.to_uppercase()),
+                Style::default().fg(color),
+            ),
+            D::Neon => Span::styled(
+                format!("╸{}╺", t),
+                Style::default().fg(color).add_modifier(Modifier::BOLD),
+            ),
+            D::Minimal => {
+                Span::styled(format!("{} ", t.to_lowercase()), Style::default().fg(color))
+            }
+            _ => Span::styled(format!(" {} ", t), Style::default().fg(color)),
+        }
+    };
+
+    let (borders, border_type) = match style {
+        D::Soft | D::Glass | D::Neon => (Borders::ALL, BorderType::Rounded),
+        D::Brutalist => (Borders::ALL, BorderType::Thick),
+        D::Retro => (Borders::ALL, BorderType::Double),
+        D::Minimal => (Borders::TOP, BorderType::Plain),
+    };
+    let border_style = match style {
+        D::Minimal if !focused => Style::default().fg(blend(theme.surface, theme.bg, 0.3)),
+        _ => Style::default().fg(border),
+    };
     let mut block = Block::default()
-        .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(border))
-        .title_top(Line::from(Span::styled(
-            format!(" {} ", title),
-            title_style,
-        )));
+        .borders(borders)
+        .border_type(border_type)
+        .border_style(border_style)
+        .title_top(Line::from(tag(title, text)));
+    if let Some(bg) = fill {
+        block = block.style(Style::default().bg(bg));
+    }
 
     if let Some(rt) = right_title {
-        let left_len = title.chars().count() + 2;
-        let w = area.width as usize;
-        // Reserve 2 chars for borders (╭ ╮) + 2 chars margin between left and right title
-        let avail = w.saturating_sub(left_len + 4);
-        if avail >= 4 {
-            let rt_len = rt.chars().count();
-            let display_rt = if rt_len + 2 <= avail {
-                rt.to_string()
-            } else if avail >= 6 {
-                let keep = avail.saturating_sub(3);
-                format!("{}…", rt.chars().take(keep).collect::<String>())
-            } else {
-                String::new()
+        let left_len = title.chars().count() + 4;
+        let avail = (area.width as usize).saturating_sub(left_len + 4);
+        let rt = rt.trim();
+        let shown = if rt.chars().count() + 4 <= avail {
+            rt.to_string()
+        } else if avail >= 8 {
+            format!("{}…", rt.chars().take(avail - 5).collect::<String>())
+        } else {
+            String::new()
+        };
+        if !shown.is_empty() {
+            let span = match style {
+                D::Brutalist => Span::styled(
+                    format!(" {} ", shown.to_uppercase()),
+                    Style::default().fg(theme.bg).bg(theme.dim),
+                ),
+                D::Retro => Span::styled(format!("[ {} ]", shown), Style::default().fg(theme.dim)),
+                _ => Span::styled(format!(" {} ", shown), Style::default().fg(theme.dim)),
             };
-
-            if !display_rt.is_empty() {
-                let rt_style = Style::default().fg(theme.dim);
-                block = block.title_top(
-                    Line::from(Span::styled(format!(" {} ", display_rt), rt_style))
-                        .alignment(Alignment::Right),
-                );
-            }
+            block = block.title_top(Line::from(span).alignment(Alignment::Right));
         }
     }
 
-    if let Some(ft) = footer {
-        if focused {
-            let w = area.width as usize;
-            if w >= ft.chars().count() + 4 {
-                let ft_style = Style::default().fg(theme.accent);
-                block = block.title_bottom(
-                    Line::from(Span::styled(format!(" {} ", ft), ft_style))
-                        .alignment(Alignment::Center),
-                );
-            }
+    if let Some(ft) = footer.filter(|_| focused && borders.contains(Borders::BOTTOM)) {
+        if area.width as usize >= ft.chars().count() + 4 {
+            block = block.title_bottom(
+                Line::from(Span::styled(
+                    format!(" {} ", ft),
+                    Style::default().fg(theme.accent),
+                ))
+                .alignment(Alignment::Center),
+            );
         }
     }
 
-    let inner = block.inner(area);
+    let mut inner = block.inner(area);
+    // Minimal has no side borders; keep the content off the panel edges.
+    if style == D::Minimal && inner.width > 2 {
+        inner.x += 1;
+        inner.width -= 2;
+    }
     f.render_widget(block, area);
     inner
 }

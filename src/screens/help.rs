@@ -28,7 +28,7 @@ const SECTIONS: &[Section] = &[
             ("1 2 3 4", "overview monitor ambient focus"),
             ("tab ⇧tab", "cycle panel focus"),
             ("enter", "zoom focused panel"),
-            ("esc", "clear focus / unzoom"),
+            ("esc", "unzoom · unfocus · menu"),
         ],
     ),
     (

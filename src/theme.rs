@@ -177,6 +177,13 @@ impl Theme {
         names[(idx + 1) % names.len()].clone()
     }
 
+    /// Name before `current` in the cycle order.
+    pub fn prev_name(current: &str) -> String {
+        let names = theme_names();
+        let idx = names.iter().position(|n| n == current).unwrap_or(0);
+        names[(idx + names.len() - 1) % names.len()].clone()
+    }
+
     pub fn dark() -> Self {
         Self {
             bg: rgb(10, 10, 15),

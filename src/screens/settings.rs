@@ -30,6 +30,7 @@ pub enum SettingType {
     ClockFont,
     ClockStyle,
     Theme,
+    DesignStyle,
     NightHours,
     Transparent,
     GaugeStyle,
@@ -94,6 +95,12 @@ pub const SETTINGS_ITEMS: &[Item] = &[
         "appearance",
         "Theme",
         "Colour palette. T cycles it from any page.",
+    ),
+    item(
+        S::DesignStyle,
+        "appearance",
+        "Design style",
+        "The shape of the whole UI: soft, minimal, brutalist, glass, retro or neon.",
     ),
     item(
         S::NightHours,
@@ -339,6 +346,7 @@ fn value(app: &App, kind: SettingType) -> Value {
     Value::Text(match kind {
         S::DashboardPreset => app.config.dashboard.preset.clone(),
         S::Theme => ui.theme.clone(),
+        S::DesignStyle => ui.style.label().to_string(),
         S::NightHours => match ui.night_hours.trim() {
             "" => return Value::Switch(false),
             h => h.to_string(),
@@ -644,6 +652,7 @@ pub fn change_setting(app: &mut App, forward: bool) {
             app.config.dashboard.apply_preset(&next);
         }
         S::Theme => app.cycle_theme(),
+        S::DesignStyle => return app.cycle_style(forward),
         S::NightHours => {
             let presets = crate::config::NIGHT_PRESETS.map(String::from);
             ui.night_hours = cycle(&presets, &ui.night_hours.trim().to_string(), forward);

@@ -131,6 +131,47 @@ pub enum PerformanceMode {
     VeryHigh,
 }
 
+/// The shape of the whole UI, independent of the colour theme: borders,
+/// titles, fills and focus markers.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DesignStyle {
+    /// Rounded borders, quiet titles. The default.
+    #[default]
+    Soft,
+    /// No boxes at all: titles and whitespace carry the structure.
+    Minimal,
+    /// Heavy borders, inverted uppercase title blocks.
+    Brutalist,
+    /// Filled, softly bordered panels floating over the page.
+    Glass,
+    /// Double-line borders and [BRACKETED] titles, like an old BIOS screen.
+    Retro,
+    /// Accent-lit borders with bright title tags.
+    Neon,
+}
+
+impl DesignStyle {
+    pub const ALL: [DesignStyle; 6] = [
+        DesignStyle::Soft,
+        DesignStyle::Minimal,
+        DesignStyle::Brutalist,
+        DesignStyle::Glass,
+        DesignStyle::Retro,
+        DesignStyle::Neon,
+    ];
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Soft => "soft",
+            Self::Minimal => "minimal",
+            Self::Brutalist => "brutalist",
+            Self::Glass => "glass",
+            Self::Retro => "retro",
+            Self::Neon => "neon",
+        }
+    }
+}
+
 impl PerformanceMode {
     /// Human name for menus and the status bar.
     pub fn label(&self) -> &'static str {
@@ -148,6 +189,8 @@ impl PerformanceMode {
 #[serde(default)]
 pub struct UiConfig {
     pub performance_mode: PerformanceMode,
+    /// Design style (see DesignStyle).
+    pub style: DesignStyle,
     /// Seconds between data samples (CPU, memory, processes, ...).
     pub refresh_rate: f64,
     /// Render frames per second. Animations (visualizer, matrix, donut) run at this rate.
@@ -283,6 +326,7 @@ impl Default for UiConfig {
     fn default() -> Self {
         Self {
             performance_mode: PerformanceMode::Normal,
+            style: DesignStyle::Soft,
             refresh_rate: 0.5,
             fps: 30,
             theme: "dark".to_string(),
