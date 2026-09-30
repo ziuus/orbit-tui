@@ -235,6 +235,11 @@ pub struct Alert {
 
 /// Active alerts, most severe first.
 pub fn alerts(s: &Summary) -> Vec<Alert> {
+    alerts_with_cfg(s, 20, 90)
+}
+
+/// Active alerts with configurable battery and disk threshold percentages.
+pub fn alerts_with_cfg(s: &Summary, bat_pct_thresh: u8, disk_pct_thresh: u8) -> Vec<Alert> {
     let mut out = Vec::new();
     let mut push = |kind, short: String, long: String, critical| {
         out.push(Alert {
@@ -245,13 +250,14 @@ pub fn alerts(s: &Summary) -> Vec<Alert> {
         })
     };
     if let Some((p, false)) = s.battery {
-        if p <= 20 {
-            let long = if p <= 10 {
+        if p <= bat_pct_thresh {
+            let crit = p <= (bat_pct_thresh / 2).max(10);
+            let long = if crit {
                 format!("Battery critical: {}%. Plug in now.", p)
             } else {
                 format!("Battery low: {}%.", p)
             };
-            push("bat", format!("bat {}%", p), long, p <= 10);
+            push("bat", format!("bat {}%", p), long, crit);
         }
     }
     if let Some(c) = s.temp_c.filter(|_| s.hot) {
@@ -263,7 +269,8 @@ pub fn alerts(s: &Summary) -> Vec<Alert> {
         };
         push("hot", format!("hot {:.0}°", c), long, crit);
     }
-    if let Some(d) = s.disk_pct.filter(|d| *d >= 90.0) {
+    let d_thresh = disk_pct_thresh as f64;
+    if let Some(d) = s.disk_pct.filter(|d| *d >= d_thresh) {
         push(
             "disk",
             format!("disk {:.0}%", d),
@@ -458,7 +465,12 @@ impl App {
     }
 
     pub fn new(config: Config) -> Self {
-        let theme = Theme::from_name(&config.ui.theme);
+        let base_theme = Theme::from_name(&config.ui.theme);
+        let theme = if config.ui.high_contrast {
+            base_theme.high_contrast()
+        } else {
+            base_theme
+        };
         let mode = DashboardMode::from_str(&config.ui.startup_mode);
         let sampler_interval = monitors::start(Duration::from_secs_f64(config.ui.refresh_rate));
         music_viz::set_style(&config.ui.visualizer);
@@ -654,7 +666,12 @@ impl App {
 
     fn set_theme(&mut self, next: String) {
         self.config.ui.theme = next.to_string();
-        self.theme = Theme::from_name(&next);
+        let base = Theme::from_name(&next);
+        self.theme = if self.config.ui.high_contrast {
+            base.high_contrast()
+        } else {
+            base
+        };
         self.night = None;
         self.config.save();
         self.toast(format!("theme · {}", next));
@@ -2263,27 +2280,40 @@ impl App {
     /// Desktop-notify alerts as they appear or turn critical. Checked each
     /// frame but only acts on changes, so it costs a comparison.
     fn announce_alerts(&mut self) {
-        let active = alerts(&self.summary);
+        let active = alerts_with_cfg(
+            &self.summary,
+            self.config.ui.battery_alert_pct,
+            self.config.ui.disk_alert_pct,
+        );
         let keys: Vec<(&'static str, bool)> = active.iter().map(|a| (a.kind, a.critical)).collect();
         let fire = self.alert_latch.update(&keys);
-        if !self.config.ui.notify {
-            return;
-        }
+        use chrono::Timelike;
+        let now = chrono::Local::now();
+        let minute = now.hour() * 60 + now.minute();
+        let quiet = self.config.ui.quiet_at(minute);
+        let send_desktop = self.config.ui.notify && !quiet;
         for (kind, _) in fire {
             if let Some(a) = active.iter().find(|a| a.kind == kind) {
-                use crate::notify::{record, Urgency};
+                use crate::notify::{record_with_send, Urgency};
                 let urgency = if a.critical {
                     Urgency::Critical
                 } else {
                     Urgency::Normal
                 };
-                record(
+                record_with_send(
                     &format!("System Alert: {}", a.kind.to_uppercase()),
                     &a.long,
                     urgency,
+                    send_desktop,
                 );
             }
         }
+    }
+
+    /// Refresh theme after high contrast or night settings toggle.
+    pub fn refresh_theme(&mut self) {
+        self.night = None;
+        self.apply_night();
     }
 
     /// Swap in the dimmed palette during `ui.night_hours`. The check is a
@@ -2294,7 +2324,13 @@ impl App {
         let night = self.config.ui.night_at(now.hour() * 60 + now.minute());
         if self.night != Some(night) {
             let base = Theme::from_name(&self.config.ui.theme);
-            self.theme = if night { base.dimmed() } else { base };
+            self.theme = if self.config.ui.high_contrast {
+                base.high_contrast()
+            } else if night {
+                base.dimmed()
+            } else {
+                base
+            };
             self.night = Some(night);
         }
     }
@@ -2392,7 +2428,11 @@ impl App {
         }
         // The most severe active alert gets a coloured pill so it's visible
         // from across the room; extra alerts are summarised as "+N".
-        let alerts = alerts(s);
+        let alerts = alerts_with_cfg(
+            s,
+            self.config.ui.battery_alert_pct,
+            self.config.ui.disk_alert_pct,
+        );
         if let Some(a) = alerts.first() {
             let bg = if a.critical { t.red } else { t.yellow };
             left.push(Span::styled(

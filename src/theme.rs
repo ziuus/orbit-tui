@@ -242,6 +242,36 @@ impl Theme {
         }
     }
 
+    /// High-contrast / outdoor variant: pushes background to pure black or
+    /// white and ensures maximum foreground readability.
+    pub fn high_contrast(&self) -> Self {
+        if self.is_light() {
+            Self {
+                bg: rgb(255, 255, 255),
+                surface: rgb(235, 235, 235),
+                text: rgb(0, 0, 0),
+                dim: rgb(70, 70, 70),
+                accent: rgb(0, 75, 180),
+                secondary: rgb(110, 30, 160),
+                green: rgb(0, 130, 40),
+                yellow: rgb(180, 100, 0),
+                red: rgb(200, 15, 15),
+            }
+        } else {
+            Self {
+                bg: rgb(0, 0, 0),
+                surface: rgb(20, 20, 24),
+                text: rgb(255, 255, 255),
+                dim: rgb(165, 165, 180),
+                accent: rgb(80, 220, 255),
+                secondary: rgb(230, 140, 255),
+                green: rgb(40, 255, 120),
+                yellow: rgb(255, 230, 40),
+                red: rgb(255, 65, 65),
+            }
+        }
+    }
+
     /// Name that follows `current` in the cycle order.
     pub fn next_name(current: &str) -> String {
         let names = theme_names();

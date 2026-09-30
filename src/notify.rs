@@ -28,8 +28,8 @@ pub struct NotificationRecord {
 static NOTIF_ID: AtomicU64 = AtomicU64::new(1);
 static HISTORY: Mutex<Vec<NotificationRecord>> = Mutex::new(Vec::new());
 
-/// Record an in-app notification in history and dispatch desktop notify-send.
-pub fn record(title: &str, body: &str, urgency: Urgency) {
+/// Record an in-app notification in history, optionally dispatching desktop notify-send.
+pub fn record_with_send(title: &str, body: &str, urgency: Urgency, dispatch_desktop: bool) {
     let now = chrono::Local::now().format("%H:%M:%S").to_string();
     let id = NOTIF_ID.fetch_add(1, Ordering::Relaxed);
     let record = NotificationRecord {
@@ -47,7 +47,14 @@ pub fn record(title: &str, body: &str, urgency: Urgency) {
             list.truncate(64);
         }
     }
-    send(title, body, urgency);
+    if dispatch_desktop {
+        send(title, body, urgency);
+    }
+}
+
+/// Record an in-app notification in history and dispatch desktop notify-send.
+pub fn record(title: &str, body: &str, urgency: Urgency) {
+    record_with_send(title, body, urgency, true);
 }
 
 /// Retrieve all recorded notifications (newest first).

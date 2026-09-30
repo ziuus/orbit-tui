@@ -259,6 +259,21 @@ pub struct UiConfig {
     /// Dim every colour during these hours: "22:00-07:00", "always", or ""
     /// (off). Wraps past midnight.
     pub night_hours: String,
+    /// Low battery alert threshold percentage (10, 15, 20, 25, 30).
+    #[serde(default = "default_battery_alert_pct")]
+    pub battery_alert_pct: u8,
+    /// Root disk full alert threshold percentage (80, 85, 90, 95).
+    #[serde(default = "default_disk_alert_pct")]
+    pub disk_alert_pct: u8,
+    /// Suppress desktop alert notifications during these hours: "22:00-07:00", "always", or "" (off).
+    #[serde(default)]
+    pub quiet_hours: String,
+    /// Maximize contrast and outdoor visibility.
+    #[serde(default)]
+    pub high_contrast: bool,
+    /// Ambient scenes excluded from automatic rotation.
+    #[serde(default)]
+    pub ambient_exclude: Vec<String>,
 }
 
 /// Presets offered in the settings menu, in cycle order.
@@ -296,6 +311,36 @@ impl UiConfig {
             minute >= a || minute < b
         }
     }
+
+    /// Whether quiet hours apply at `minute` (minutes since midnight).
+    pub fn quiet_at(&self, minute: u32) -> bool {
+        let spec = self.quiet_hours.trim();
+        if spec.is_empty() {
+            return false;
+        }
+        if spec == "always" {
+            return true;
+        }
+        let Some((a, b)) = spec
+            .split_once('-')
+            .and_then(|(a, b)| Some((parse_hhmm(a)?, parse_hhmm(b)?)))
+        else {
+            return false;
+        };
+        if a <= b {
+            (a..b).contains(&minute)
+        } else {
+            minute >= a || minute < b
+        }
+    }
+}
+
+fn default_battery_alert_pct() -> u8 {
+    20
+}
+
+fn default_disk_alert_pct() -> u8 {
+    90
 }
 
 fn default_true() -> bool {
@@ -368,6 +413,11 @@ impl Default for UiConfig {
             break_minutes: default_break_minutes(),
             long_break_minutes: default_long_break_minutes(),
             night_hours: String::new(),
+            battery_alert_pct: default_battery_alert_pct(),
+            disk_alert_pct: default_disk_alert_pct(),
+            quiet_hours: String::new(),
+            high_contrast: false,
+            ambient_exclude: Vec::new(),
             mouse: true,
             notify: true,
         }

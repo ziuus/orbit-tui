@@ -33,6 +33,7 @@ pub enum SettingType {
     ClockStyle,
     Theme,
     DesignStyle,
+    HighContrast,
     NightHours,
     Transparent,
     GaugeStyle,
@@ -51,6 +52,9 @@ pub enum SettingType {
     BreakMinutes,
     Mouse,
     Notify,
+    QuietHours,
+    BatteryAlertPct,
+    DiskAlertPct,
     WidgetCpu,
     WidgetMemory,
     WidgetDisk,
@@ -109,6 +113,12 @@ pub const SETTINGS_ITEMS: &[Item] = &[
         "appearance",
         "Night dimming",
         "Dim every colour during these hours.",
+    ),
+    item(
+        S::HighContrast,
+        "appearance",
+        "High contrast",
+        "Maximize contrast for outdoor or sunlight readability.",
     ),
     item(
         S::Transparent,
@@ -250,9 +260,27 @@ pub const SETTINGS_ITEMS: &[Item] = &[
     ),
     item(
         S::Notify,
-        "input",
+        "alerts",
         "Desktop notifications",
         "Low battery, overheating, full disk and focus-timer alerts.",
+    ),
+    item(
+        S::QuietHours,
+        "alerts",
+        "Quiet hours",
+        "Silence desktop notifications during these hours.",
+    ),
+    item(
+        S::BatteryAlertPct,
+        "alerts",
+        "Battery alert %",
+        "Alert when remaining battery drops to this percentage.",
+    ),
+    item(
+        S::DiskAlertPct,
+        "alerts",
+        "Disk alert %",
+        "Alert when root disk fills to this percentage.",
     ),
     item(S::WidgetCpu, "panels", "CPU", "Show the CPU panel."),
     item(
@@ -363,6 +391,7 @@ fn value(app: &App, kind: SettingType) -> Value {
         S::FocusLayout => ui.focus_layout.clone(),
         S::Theme => ui.theme.clone(),
         S::DesignStyle => ui.style.label().to_string(),
+        S::HighContrast => return Value::Switch(ui.high_contrast),
         S::NightHours => match ui.night_hours.trim() {
             "" => return Value::Switch(false),
             h => h.to_string(),
@@ -392,6 +421,12 @@ fn value(app: &App, kind: SettingType) -> Value {
         S::BreakMinutes => format!("{} min", ui.break_minutes),
         S::Mouse => return Value::Switch(ui.mouse),
         S::Notify => return Value::Switch(ui.notify),
+        S::QuietHours => match ui.quiet_hours.trim() {
+            "" => return Value::Switch(false),
+            h => h.to_string(),
+        },
+        S::BatteryAlertPct => format!("{}%", ui.battery_alert_pct),
+        S::DiskAlertPct => format!("{}%", ui.disk_alert_pct),
         S::ImageQuality => if app.panel_states.pixel_images {
             "braille"
         } else {
@@ -677,6 +712,10 @@ pub fn change_setting(app: &mut App, forward: bool) {
             ui.focus_layout = cycle(&opts, &ui.focus_layout, forward);
         }
         S::DesignStyle => return app.cycle_style(forward),
+        S::HighContrast => {
+            ui.high_contrast = !ui.high_contrast;
+            app.refresh_theme();
+        }
         S::NightHours => {
             let presets = crate::config::NIGHT_PRESETS.map(String::from);
             ui.night_hours = cycle(&presets, &ui.night_hours.trim().to_string(), forward);
@@ -768,6 +807,18 @@ pub fn change_setting(app: &mut App, forward: bool) {
             }
         }
         S::Notify => ui.notify = !ui.notify,
+        S::QuietHours => {
+            let presets = crate::config::NIGHT_PRESETS.map(String::from);
+            ui.quiet_hours = cycle(&presets, &ui.quiet_hours.trim().to_string(), forward);
+        }
+        S::BatteryAlertPct => {
+            let opts: [u8; 5] = [10, 15, 20, 25, 30];
+            ui.battery_alert_pct = cycle(&opts, &ui.battery_alert_pct, forward);
+        }
+        S::DiskAlertPct => {
+            let opts: [u8; 4] = [80, 85, 90, 95];
+            ui.disk_alert_pct = cycle(&opts, &ui.disk_alert_pct, forward);
+        }
         S::ImageQuality => app.panel_states.pixel_images = !app.panel_states.pixel_images,
         S::SystemLogo => app.panel_states.force_robot_logo = !app.panel_states.force_robot_logo,
         _ => {}

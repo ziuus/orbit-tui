@@ -347,8 +347,24 @@ fn smooth_temporal(target: &[f32]) -> Vec<f32> {
 
 // ── Narrow bar rendering ──
 // Each column = 1 character using 8 block levels.
-// Bars rendered bottom-up with a teal→white gradient.
 const BLOCKS: [char; 9] = [' ', ' ', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+const BLOCKS_STR: [&str; 9] = [" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+
+static BRAILLE_CHARS: std::sync::LazyLock<[&'static str; 256]> = std::sync::LazyLock::new(|| {
+    let mut arr = [" "; 256];
+    for bits in 0..256u32 {
+        if bits > 0 {
+            let s = Box::leak(
+                char::from_u32(0x2800 | bits)
+                    .unwrap_or(' ')
+                    .to_string()
+                    .into_boxed_str(),
+            );
+            arr[bits as usize] = s;
+        }
+    }
+    arr
+});
 
 // Playerctl removed – audio detection uses cava data directly
 // (Audacious, mpv, etc. all work now)
@@ -472,23 +488,26 @@ fn draw_bars(
     dim: bool,
 ) -> Vec<Line<'static>> {
     let display_rows = rows as f32;
-    let mut lines: Vec<Line> = Vec::with_capacity(rows);
+    let mut lines: Vec<Line<'static>> = Vec::with_capacity(rows);
     for display_row in (0..rows).rev() {
         let mut spans: Vec<Span<'static>> = Vec::with_capacity(cols);
         for &h in heights {
             let bar_float = (h / norm_peak).min(1.0) * display_rows;
             let row_low = display_row as f32;
             let (ch, filled) = if bar_float <= row_low {
-                (' ', false)
+                (" ", false)
             } else if bar_float >= row_low + 1.0 {
-                ('█', true)
+                ("█", true)
             } else {
                 let frac = bar_float - row_low;
-                (BLOCKS[(frac * 8.0).round().clamp(1.0, 8.0) as usize], true)
+                (
+                    BLOCKS_STR[(frac * 8.0).round().clamp(1.0, 8.0) as usize],
+                    true,
+                )
             };
             let height_frac = display_row as f32 / display_rows;
             spans.push(Span::styled(
-                ch.to_string(),
+                ch,
                 Style::default().fg(bar_color(theme, height_frac, filled, dim)),
             ));
         }
@@ -508,7 +527,7 @@ fn draw_mirror(
 ) -> Vec<Line<'static>> {
     let half = (rows / 2).max(1) as f32;
     let mid = rows / 2;
-    let mut lines: Vec<Line> = Vec::with_capacity(rows);
+    let mut lines: Vec<Line<'static>> = Vec::with_capacity(rows);
     for row in 0..rows {
         // Distance from centre, in rows.
         let dist = if row >= mid {
@@ -520,10 +539,10 @@ fn draw_mirror(
         for &h in heights {
             let amp = (h / norm_peak).min(1.0) * half;
             let filled = amp > dist;
-            let ch = if filled { '█' } else { ' ' };
+            let ch = if filled { "█" } else { " " };
             let height_frac = dist / half;
             spans.push(Span::styled(
-                ch.to_string(),
+                ch,
                 Style::default().fg(bar_color(theme, height_frac, filled, dim)),
             ));
         }
@@ -552,19 +571,18 @@ fn draw_wave(
         })
         .collect();
     let color = if dim { theme.dim } else { theme.accent };
-    let mut lines: Vec<Line> = Vec::with_capacity(rows);
+    let mut lines: Vec<Line<'static>> = Vec::with_capacity(rows);
     for row in 0..rows {
         let mut spans: Vec<Span<'static>> = Vec::with_capacity(cols);
         for &wr in wave_rows.iter().take(cols) {
-            let ch = if row == wr {
-                '━'
+            let (ch, c) = if row == wr {
+                ("━", color)
             } else if row > wr && row <= mid {
-                '│' // faint fill down to the midline
+                ("│", theme.dim)
             } else {
-                ' '
+                (" ", color)
             };
-            let c = if ch == '│' { theme.dim } else { color };
-            spans.push(Span::styled(ch.to_string(), Style::default().fg(c)));
+            spans.push(Span::styled(ch, Style::default().fg(c)));
         }
         lines.push(Line::from(spans));
     }
@@ -596,7 +614,7 @@ fn draw_peaks(
 
     let display_rows = rows as f32;
     let cap_col = if dim { theme.dim } else { theme.text };
-    let mut lines: Vec<Line> = Vec::with_capacity(rows);
+    let mut lines: Vec<Line<'static>> = Vec::with_capacity(rows);
     for display_row in (0..rows).rev() {
         let row_low = display_row as f32;
         let mut spans: Vec<Span<'static>> = Vec::with_capacity(cols);
@@ -604,12 +622,15 @@ fn draw_peaks(
             let bar_float = h * display_rows;
             let cap_row = ((caps[i] * display_rows).ceil() as usize).min(rows.saturating_sub(1));
             let (ch, filled) = if bar_float <= row_low {
-                (' ', false)
+                (" ", false)
             } else if bar_float >= row_low + 1.0 {
-                ('█', true)
+                ("█", true)
             } else {
                 let frac = bar_float - row_low;
-                (BLOCKS[(frac * 8.0).round().clamp(1.0, 8.0) as usize], true)
+                (
+                    BLOCKS_STR[(frac * 8.0).round().clamp(1.0, 8.0) as usize],
+                    true,
+                )
             };
             // The cap sits on the row just above the bar's current top.
             let is_cap = !filled && display_row == cap_row && caps[i] > 0.02;
@@ -619,14 +640,7 @@ fn draw_peaks(
             } else {
                 Style::default().fg(bar_color(theme, height_frac, filled, dim))
             };
-            spans.push(Span::styled(
-                if is_cap {
-                    "▁".to_string()
-                } else {
-                    ch.to_string()
-                },
-                style,
-            ));
+            spans.push(Span::styled(if is_cap { "▁" } else { ch }, style));
         }
         lines.push(Line::from(spans));
     }
@@ -676,7 +690,7 @@ fn draw_braille(
     let color = if dim { theme.dim } else { theme.accent };
     let top_color = if dim { theme.dim } else { theme.secondary };
 
-    let mut lines: Vec<Line> = Vec::with_capacity(rows);
+    let mut lines: Vec<Line<'static>> = Vec::with_capacity(rows);
 
     for term_row in (0..rows).rev() {
         let mut spans: Vec<Span<'static>> = Vec::with_capacity(braille_cols);
@@ -708,11 +722,7 @@ fn draw_braille(
                 }
             }
 
-            let ch = if bits == 0 {
-                ' '
-            } else {
-                char::from_u32(0x2800 | bits as u32).unwrap_or(' ')
-            };
+            let ch = BRAILLE_CHARS[bits as usize];
 
             // Top portion of each bar → secondary color for gradient feel.
             let max_h = left_h.max(right_h);
@@ -723,7 +733,7 @@ fn draw_braille(
                 color
             };
 
-            spans.push(Span::styled(ch.to_string(), Style::default().fg(c)));
+            spans.push(Span::styled(ch, Style::default().fg(c)));
         }
         lines.push(Line::from(spans));
     }

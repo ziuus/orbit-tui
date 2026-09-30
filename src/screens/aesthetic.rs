@@ -144,6 +144,17 @@ pub fn scenes(app: &App) -> Vec<Scene> {
     if cfg.widgets.pinned_media {
         v.push(Scene::Gallery);
     }
+    if !cfg.ui.ambient_exclude.is_empty() {
+        v.retain(|s| {
+            !cfg.ui
+                .ambient_exclude
+                .iter()
+                .any(|ex| ex.eq_ignore_ascii_case(s.label()))
+        });
+        if v.is_empty() {
+            v.push(Scene::Horizon);
+        }
+    }
     v
 }
 
