@@ -6,16 +6,67 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-pub const BUILTIN_THEMES: [&str; 8] = [
+pub const BUILTIN_THEMES: [&str; 21] = [
     "dark",
     "catppuccin",
     "tokyo-night",
     "nord",
     "gruvbox",
     "dracula",
+    "rose-pine",
+    "everforest",
+    "kanagawa",
+    "one-dark",
+    "monokai",
+    "synthwave",
+    "oxocarbon",
+    "github-dark",
+    "ayu-mirage",
+    "phosphor",
+    "amber",
     "light",
     "solarized-light",
+    "catppuccin-latte",
+    "gruvbox-light",
 ];
+
+/// Palettes defined as data: name, then bg, accent, secondary, surface,
+/// text, dim, green, yellow, red.
+#[rustfmt::skip]
+const PALETTES: &[(&str, [u32; 9])] = &[
+    ("rose-pine",        [0x191724, 0xebbcba, 0xc4a7e7, 0x26233a, 0xe0def4, 0x6e6a86, 0x9ccfd8, 0xf6c177, 0xeb6f92]),
+    ("everforest",       [0x2d353b, 0xa7c080, 0x7fbbb3, 0x3d484d, 0xd3c6aa, 0x859289, 0xa7c080, 0xdbbc7f, 0xe67e80]),
+    ("kanagawa",         [0x1f1f28, 0x7e9cd8, 0x957fb8, 0x2a2a37, 0xdcd7ba, 0x727169, 0x98bb6c, 0xe6c384, 0xe46876]),
+    ("one-dark",         [0x282c34, 0x61afef, 0xc678dd, 0x3e4451, 0xabb2bf, 0x5c6370, 0x98c379, 0xe5c07b, 0xe06c75]),
+    ("monokai",          [0x272822, 0xa6e22e, 0x66d9ef, 0x3e3d32, 0xf8f8f2, 0x75715e, 0xa6e22e, 0xe6db74, 0xf92672]),
+    ("synthwave",        [0x241b2f, 0xff7edb, 0x36f9f6, 0x34294f, 0xf4eeff, 0x848bbd, 0x72f1b8, 0xfede5d, 0xfe4450]),
+    ("oxocarbon",        [0x161616, 0x78a9ff, 0xbe95ff, 0x262626, 0xf2f4f8, 0x6f6f6f, 0x42be65, 0xffe97b, 0xee5396]),
+    ("github-dark",      [0x0d1117, 0x58a6ff, 0xbc8cff, 0x21262d, 0xc9d1d9, 0x6e7681, 0x3fb950, 0xd29922, 0xf85149]),
+    ("ayu-mirage",       [0x1f2430, 0xffcc66, 0x5ccfe6, 0x2d3442, 0xcccac2, 0x707a8c, 0xd5ff80, 0xffd173, 0xf28779]),
+    ("phosphor",         [0x050a05, 0x33ff66, 0x1fbf4d, 0x0f1f12, 0xb8ffc8, 0x2f6b3c, 0x33ff66, 0xd6ff5c, 0xff5c5c]),
+    ("amber",            [0x0c0802, 0xffb000, 0xff8c1a, 0x1f1606, 0xffd98a, 0x7a5a1e, 0xc8d65a, 0xffb000, 0xff5a36]),
+    ("catppuccin-latte", [0xeff1f5, 0x1e66f5, 0x8839ef, 0xdce0e8, 0x4c4f69, 0x8c8fa1, 0x40a02b, 0xdf8e1d, 0xd20f39]),
+    ("gruvbox-light",    [0xfbf1c7, 0x076678, 0x8f3f71, 0xebdbb2, 0x3c3836, 0x928374, 0x79740e, 0xb57614, 0x9d0006]),
+];
+
+fn hex(c: u32) -> Color {
+    Color::Rgb((c >> 16) as u8, (c >> 8) as u8, c as u8)
+}
+
+fn palette(name: &str) -> Option<Theme> {
+    let (_, c) = PALETTES.iter().find(|(n, _)| *n == name)?;
+    Some(Theme {
+        bg: hex(c[0]),
+        accent: hex(c[1]),
+        secondary: hex(c[2]),
+        surface: hex(c[3]),
+        text: hex(c[4]),
+        dim: hex(c[5]),
+        green: hex(c[6]),
+        yellow: hex(c[7]),
+        red: hex(c[8]),
+    })
+}
 
 #[derive(Deserialize)]
 struct CustomTheme {
@@ -139,6 +190,9 @@ impl Theme {
         if let Some(custom) = CUSTOM_THEMES.get(name) {
             return custom.clone();
         }
+        if let Some(t) = palette(name) {
+            return t;
+        }
         match name {
             "light" => Self::light(),
             "dracula" => Self::dracula(),
@@ -251,6 +305,21 @@ impl Theme {
             green: rgb(184, 187, 38),
             yellow: rgb(254, 128, 25),
             red: rgb(251, 73, 52),
+        }
+    }
+
+    /// Colour for resting panel borders: the surface colour, lifted toward
+    /// `dim` when a palette's surface is too close to its background to
+    /// read as a line.
+    pub fn border(&self) -> Color {
+        let lum = |c: Color| match c {
+            Color::Rgb(r, g, b) => (r as i32 * 3 + g as i32 * 6 + b as i32) / 10,
+            _ => 0,
+        };
+        if (lum(self.surface) - lum(self.bg)).abs() < 22 {
+            blend(self.surface, self.dim, 0.45)
+        } else {
+            self.surface
         }
     }
 
@@ -373,5 +442,29 @@ mod tests {
         assert_eq!(t.usage_ramp(0.5), t.yellow);
         assert_eq!(t.usage_ramp(0.0), t.accent);
         assert_eq!(t.usage_ramp(1.0), t.red);
+    }
+
+    #[test]
+    fn every_builtin_name_resolves_to_its_own_palette() {
+        for name in BUILTIN_THEMES {
+            let t = Theme::from_name(name);
+            if name != "dark" {
+                assert!(
+                    t.bg != Theme::dark().bg || t.accent != Theme::dark().accent,
+                    "{name} fell back to dark"
+                );
+            }
+            // Text must stand out from the background in every palette.
+            let lum = |c: Color| match c {
+                Color::Rgb(r, g, b) => (r as i32 * 3 + g as i32 * 6 + b as i32) / 10,
+                _ => 0,
+            };
+            assert!(
+                (lum(t.text) - lum(t.bg)).abs() > 90,
+                "{name}: text too close to bg"
+            );
+        }
+        assert!(Theme::from_name("catppuccin-latte").is_light());
+        assert!(!Theme::from_name("phosphor").is_light());
     }
 }

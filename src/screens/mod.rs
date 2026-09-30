@@ -107,7 +107,7 @@ pub fn panel_full(
         (D::Glass, false) => (blend(theme.surface, theme.text, 0.28), theme.text),
         (D::Brutalist, false) => (theme.dim, theme.text),
         (D::Retro, false) => (theme.dim, theme.text),
-        _ => (theme.surface, theme.dim),
+        _ => (theme.border(), theme.dim),
     };
     let fill = match style {
         D::Glass => Some(blend(theme.bg, theme.text, 0.075)),
@@ -146,7 +146,7 @@ pub fn panel_full(
         D::Minimal => (Borders::TOP, BorderType::Plain),
     };
     let border_style = match style {
-        D::Minimal if !focused => Style::default().fg(blend(theme.surface, theme.bg, 0.3)),
+        D::Minimal if !focused => Style::default().fg(theme.border()),
         _ => Style::default().fg(border),
     };
     let mut block = Block::default()
