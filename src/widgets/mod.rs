@@ -15,6 +15,7 @@ pub mod music_viz;
 pub mod news;
 pub mod pinned_media;
 pub mod pomodoro;
+pub mod scenes;
 pub mod snow;
 pub mod starfield;
 pub mod status;

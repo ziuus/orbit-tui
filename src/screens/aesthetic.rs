@@ -38,6 +38,12 @@ pub enum Scene {
     Starfield,
     Life,
     Snow,
+    /// A striped sun sinking behind mountains over a rolling neon grid.
+    Synthwave,
+    /// Curtains of northern lights over a starry sky and a treeline.
+    Aurora,
+    /// A lava lamp of merging, splitting metaballs.
+    Lava,
     Creative,
 }
 
@@ -55,6 +61,9 @@ impl Scene {
             Scene::Starfield => "starfield",
             Scene::Life => "life",
             Scene::Snow => "snow",
+            Scene::Synthwave => "synthwave",
+            Scene::Aurora => "aurora",
+            Scene::Lava => "lava lamp",
             Scene::Creative => "creative",
         }
     }
@@ -112,6 +121,9 @@ pub fn scenes(app: &App) -> Vec<Scene> {
         v.push(Scene::Rain);
     }
     v.push(Scene::Topo);
+    v.push(Scene::Synthwave);
+    v.push(Scene::Aurora);
+    v.push(Scene::Lava);
     v.push(Scene::Starfield);
     v.push(Scene::Life);
     v.push(Scene::Snow);
@@ -154,9 +166,34 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
         Scene::Orbit => orbit(f, drift(stage, 3, 1, t), app, theme),
         Scene::Studio => studio(f, drift(stage, 3, 1, t), app, theme),
         Scene::Gallery => gallery(f, stage, app, theme, t),
-        Scene::Starfield => starfield(f, stage, app, theme),
-        Scene::Life => life(f, stage, app, theme),
-        Scene::Snow => snow(f, stage, app, theme),
+        Scene::Starfield => {
+            starfield(f, stage, app, theme);
+            caption(f, stage, app, theme, t);
+        }
+        Scene::Life => {
+            life(f, stage, app, theme);
+            caption(f, stage, app, theme, t);
+        }
+        Scene::Snow => {
+            snow(f, stage, app, theme);
+            caption(f, stage, app, theme, t);
+        }
+        Scene::Synthwave | Scene::Aurora | Scene::Lava => {
+            let paint = match scene {
+                Scene::Synthwave => crate::widgets::scenes::synthwave,
+                Scene::Aurora => crate::widgets::scenes::aurora,
+                _ => crate::widgets::scenes::lava,
+            };
+            let night = app.night == Some(true);
+            paint(
+                f.buffer_mut(),
+                stage,
+                theme,
+                app.config.ui.motion_enabled,
+                night,
+            );
+            caption(f, stage, app, theme, t);
+        }
         Scene::Custom(ref id) => {
             let mut matched = false;
             for ext in &app.ext_manager.extensions {
@@ -784,6 +821,34 @@ fn render_footer(f: &mut Frame, area: Rect, theme: &Theme, list: &[Scene], idx: 
     f.render_widget(
         Paragraph::new(Line::from(spans)).alignment(Alignment::Center),
         area,
+    );
+}
+
+/// A small time/date pill wandering along the bottom-left corner, for the
+/// full-bleed scenes that have no clock of their own.
+fn caption(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
+    let now = chrono::Local::now();
+    let time = if app.config.ui.clock_24h {
+        now.format("%H:%M").to_string()
+    } else {
+        now.format("%-I:%M %P").to_string()
+    };
+    let text = format!(" {}  ·  {} ", time, now.format("%A"));
+    let w = (text.chars().count() as u16).min(area.width);
+    if area.height < 4 || w == 0 {
+        return;
+    }
+    let x = area.x + 2 + tri(t, 6).min(area.width.saturating_sub(w + 2));
+    let y = area.bottom().saturating_sub(3 + tri(t / 5, 1));
+    f.render_widget(
+        Paragraph::new(Span::styled(
+            text,
+            Style::default()
+                .fg(theme.text)
+                .bg(theme.bg)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Rect::new(x, y, w, 1),
     );
 }
 
