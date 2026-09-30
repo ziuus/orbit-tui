@@ -33,6 +33,10 @@ pub enum Hit {
     NotePreview,
     /// The full-screen Ambient stage.
     Scene,
+    /// The n-th visible settings row.
+    SettingRow(usize),
+    /// A modal overlay's box (clicks inside don't close it).
+    Overlay,
 }
 
 static HITS: std::sync::Mutex<Vec<(Rect, Hit)>> = std::sync::Mutex::new(Vec::new());

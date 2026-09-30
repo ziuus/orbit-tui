@@ -1,10 +1,17 @@
+//! Settings overlay: grouped, searchable, keyboard and mouse driven.
+//!
+//! `/` filters by name, group or description; ↑↓ move; ←→ / enter / space
+//! change the value; a click selects a row and a second click changes it.
+
 use ratatui::layout::Rect;
-use ratatui::style::Style;
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 use ratatui::Frame;
 
 use crate::app::App;
+use crate::config::WidgetConfig;
+use crate::screens::{hit, Hit};
 
 fn centered(area: Rect, w: u16, h: u16) -> Rect {
     let w = w.min(area.width);
@@ -17,7 +24,7 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
     )
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SettingType {
     DashboardPreset,
     ClockFont,
@@ -36,6 +43,10 @@ pub enum SettingType {
     RefreshRate,
     Fps,
     Clock24h,
+    AmbientRotate,
+    FocusMinutes,
+    BreakMinutes,
+    Mouse,
     WidgetCpu,
     WidgetMemory,
     WidgetDisk,
@@ -53,238 +64,472 @@ pub enum SettingType {
     SystemLogo,
 }
 
-pub const SETTINGS_ITEMS: &[(SettingType, &str)] = &[
-    (SettingType::DashboardPreset, "Dashboard Layout"),
-    (SettingType::Theme, "Theme"),
-    (SettingType::NightHours, "Night Dimming"),
-    (SettingType::Transparent, "Transparent Background"),
-    (SettingType::GaugeStyle, "Gauge Style"),
-    (SettingType::GraphStyle, "Graph Style"),
-    (SettingType::MeterStyle, "Meter Style"),
-    (SettingType::MotionEnabled, "Motion"),
-    (SettingType::MotionMode, "Motion Mode"),
-    (SettingType::MotionSpeed, "Motion Speed"),
-    (SettingType::Visualizer, "Visualizer"),
-    (SettingType::ClockFont, "Clock Font"),
-    (SettingType::ClockStyle, "Clock Style"),
-    (SettingType::PerformanceMode, "Performance Profile"),
-    (SettingType::RefreshRate, "Refresh Rate (s)"),
-    (SettingType::Fps, "FPS"),
-    (SettingType::Clock24h, "24h Clock"),
-    (SettingType::WidgetCpu, "Show CPU"),
-    (SettingType::WidgetMemory, "Show Memory"),
-    (SettingType::WidgetDisk, "Show Disk"),
-    (SettingType::WidgetNetwork, "Show Network"),
-    (SettingType::WidgetGpu, "Show GPU"),
-    (SettingType::WidgetClock, "Show Clock"),
-    (SettingType::WidgetCalendar, "Show Calendar"),
-    (SettingType::WidgetMusicViz, "Show Visualizer"),
-    (SettingType::WidgetProcesses, "Show Processes"),
-    (SettingType::WidgetMedia, "Show Media"),
-    (SettingType::WidgetMatrix, "Show Matrix"),
-    (SettingType::WidgetVideo, "Show Video"),
-    (SettingType::WidgetPinnedMedia, "Show Pinned Media"),
-    (SettingType::ImageQuality, "Image Engine"),
-    (SettingType::SystemLogo, "System Logo"),
+pub struct Item {
+    pub kind: SettingType,
+    pub group: &'static str,
+    pub label: &'static str,
+    pub about: &'static str,
+}
+
+const fn item(
+    kind: SettingType,
+    group: &'static str,
+    label: &'static str,
+    about: &'static str,
+) -> Item {
+    Item {
+        kind,
+        group,
+        label,
+        about,
+    }
+}
+
+use SettingType as S;
+
+pub const SETTINGS_ITEMS: &[Item] = &[
+    item(
+        S::Theme,
+        "appearance",
+        "Theme",
+        "Colour palette. T cycles it from any page.",
+    ),
+    item(
+        S::NightHours,
+        "appearance",
+        "Night dimming",
+        "Dim every colour during these hours.",
+    ),
+    item(
+        S::Transparent,
+        "appearance",
+        "Transparent background",
+        "Let the terminal's own background show through.",
+    ),
+    item(
+        S::ImageQuality,
+        "appearance",
+        "Image engine",
+        "Pixel-perfect images where the terminal supports them, or braille.",
+    ),
+    item(
+        S::SystemLogo,
+        "appearance",
+        "System logo",
+        "Your distro's logo or the Vanta robot in the system panel.",
+    ),
+    item(
+        S::ClockFont,
+        "clock",
+        "Clock font",
+        "Digit shapes for the big clocks.",
+    ),
+    item(
+        S::ClockStyle,
+        "clock",
+        "Clock style",
+        "How the digits are filled in.",
+    ),
+    item(
+        S::Clock24h,
+        "clock",
+        "24-hour clock",
+        "Show 14:30 instead of 2:30 pm.",
+    ),
+    item(
+        S::GaugeStyle,
+        "widgets",
+        "Gauge style",
+        "Look of the cpu/mem dials. g cycles it.",
+    ),
+    item(
+        S::GraphStyle,
+        "widgets",
+        "Graph style",
+        "History graphs in blocks or braille. G cycles it.",
+    ),
+    item(
+        S::MeterStyle,
+        "widgets",
+        "Meter style",
+        "Look of the usage bars. m cycles it.",
+    ),
+    item(
+        S::Visualizer,
+        "widgets",
+        "Visualizer",
+        "Audio visualizer style. v cycles it.",
+    ),
+    item(
+        S::DashboardPreset,
+        "layout",
+        "Overview layout",
+        "Which panels the Overview page shows, and where.",
+    ),
+    item(
+        S::AmbientRotate,
+        "ambient",
+        "Scene rotation",
+        "How long each Ambient scene stays before the next.",
+    ),
+    item(
+        S::MotionEnabled,
+        "ambient",
+        "Motion",
+        "Animate 3D and moving scenes. o toggles it.",
+    ),
+    item(
+        S::MotionMode,
+        "ambient",
+        "Motion mode",
+        "How the 3D object moves.",
+    ),
+    item(
+        S::MotionSpeed,
+        "ambient",
+        "Motion speed",
+        "Animation speed multiplier.",
+    ),
+    item(
+        S::FocusMinutes,
+        "focus",
+        "Focus length",
+        "Minutes per focus session.",
+    ),
+    item(
+        S::BreakMinutes,
+        "focus",
+        "Break length",
+        "Minutes per short break.",
+    ),
+    item(
+        S::PerformanceMode,
+        "performance",
+        "Performance profile",
+        "Trade smoothness for CPU. Normal is best for 24/7.",
+    ),
+    item(
+        S::RefreshRate,
+        "performance",
+        "Refresh rate",
+        "Seconds between system samples. + / - adjust it.",
+    ),
+    item(
+        S::Fps,
+        "performance",
+        "Frame rate cap",
+        "Maximum redraws per second while something animates.",
+    ),
+    item(
+        S::Mouse,
+        "input",
+        "Mouse",
+        "Click, scroll and select. Off restores terminal text selection.",
+    ),
+    item(S::WidgetCpu, "panels", "CPU", "Show the CPU panel."),
+    item(
+        S::WidgetMemory,
+        "panels",
+        "Memory",
+        "Show the memory panel.",
+    ),
+    item(S::WidgetDisk, "panels", "Disk", "Show the disk panels."),
+    item(
+        S::WidgetNetwork,
+        "panels",
+        "Network",
+        "Show the network panel.",
+    ),
+    item(S::WidgetGpu, "panels", "GPU", "Show the GPU panel."),
+    item(S::WidgetClock, "panels", "Clock", "Show the clock panel."),
+    item(
+        S::WidgetCalendar,
+        "panels",
+        "Calendar",
+        "Show the calendar panel.",
+    ),
+    item(
+        S::WidgetMedia,
+        "panels",
+        "Now playing",
+        "Show the media panel.",
+    ),
+    item(
+        S::WidgetMusicViz,
+        "panels",
+        "Visualizer",
+        "Show the audio visualizer.",
+    ),
+    item(
+        S::WidgetProcesses,
+        "panels",
+        "Processes",
+        "Show the top-processes panel.",
+    ),
+    item(
+        S::WidgetMatrix,
+        "panels",
+        "Matrix rain",
+        "Include the Rain scene.",
+    ),
+    item(
+        S::WidgetVideo,
+        "panels",
+        "3D object",
+        "Include the Orbit scene.",
+    ),
+    item(
+        S::WidgetPinnedMedia,
+        "panels",
+        "Pinned image",
+        "Include the Gallery scene.",
+    ),
 ];
 
-pub fn render(f: &mut Frame, area: Rect, app: &App) {
-    let theme = &app.theme;
-    let bg = theme.surface;
-    let base = Style::default().bg(bg).fg(theme.text);
-    let mut lines = vec![
-        Line::from(vec![
-            Span::styled("   ↑ ↓ ", base.fg(theme.dim)),
-            Span::styled("navigate   ", base.fg(theme.text)),
-            Span::styled("← → / enter ", base.fg(theme.dim)),
-            Span::styled("change   ", base.fg(theme.text)),
-            Span::styled("esc ", base.fg(theme.dim)),
-            Span::styled("close", base.fg(theme.text)),
-        ]),
-        Line::from(Span::styled("", base)),
-    ];
+/// The items matching the current search, in display order.
+pub fn filtered(query: &str) -> Vec<&'static Item> {
+    let q = query.trim().to_lowercase();
+    SETTINGS_ITEMS
+        .iter()
+        .filter(|i| {
+            q.is_empty()
+                || i.label.to_lowercase().contains(&q)
+                || i.group.contains(&q)
+                || i.about.to_lowercase().contains(&q)
+        })
+        .collect()
+}
 
-    let w = 54;
+enum Value {
+    Switch(bool),
+    Text(String),
+}
 
-    // Add settings items
-    let start_idx = app.settings_scroll;
-    let max_visible = 18; // approx max rows to fit
+fn widget_flag(w: &mut WidgetConfig, kind: SettingType) -> Option<&mut bool> {
+    Some(match kind {
+        S::WidgetCpu => &mut w.cpu,
+        S::WidgetMemory => &mut w.memory,
+        S::WidgetDisk => &mut w.disk,
+        S::WidgetNetwork => &mut w.network,
+        S::WidgetGpu => &mut w.gpu,
+        S::WidgetClock => &mut w.clock,
+        S::WidgetCalendar => &mut w.calendar,
+        S::WidgetMusicViz => &mut w.music_viz,
+        S::WidgetProcesses => &mut w.processes,
+        S::WidgetMedia => &mut w.media,
+        S::WidgetMatrix => &mut w.matrix,
+        S::WidgetVideo => &mut w.video,
+        S::WidgetPinnedMedia => &mut w.pinned_media,
+        _ => return None,
+    })
+}
 
-    for (i, (stype, label)) in SETTINGS_ITEMS.iter().enumerate() {
-        if i < start_idx || i >= start_idx + max_visible {
-            continue;
-        }
-        let is_selected = i == app.settings_row;
-        let line_style = if is_selected {
-            base.fg(theme.bg).bg(theme.accent)
-        } else {
-            base
-        };
-
-        let val_str = match stype {
-            SettingType::DashboardPreset => app.config.dashboard.preset.clone(),
-            SettingType::Theme => app.config.ui.theme.clone(),
-            SettingType::NightHours => match app.config.ui.night_hours.trim() {
-                "" => "off".to_string(),
-                h => h.to_string(),
-            },
-            SettingType::Transparent => {
-                let c = app
-                    .config
-                    .ui
-                    .transparent
-                    .unwrap_or_else(|| !app.theme.is_light());
-                if c {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::GaugeStyle => app.config.ui.gauge_style.clone(),
-            SettingType::GraphStyle => app.config.ui.graph_style.clone(),
-            SettingType::MeterStyle => app.config.ui.meter_style.clone(),
-            SettingType::MotionEnabled => {
-                if app.config.ui.motion_enabled {
-                    "enabled".to_string()
-                } else {
-                    "paused".to_string()
-                }
-            }
-            SettingType::MotionMode => app.config.ui.motion_mode.clone(),
-            SettingType::MotionSpeed => format!("{:.2}x", app.config.ui.motion_speed),
-            SettingType::Visualizer => app.config.ui.visualizer.clone(),
-            SettingType::ClockFont => app.config.ui.clock_font.clone(),
-            SettingType::ClockStyle => app.config.ui.clock_style.clone(),
-            SettingType::PerformanceMode => app.config.ui.performance_mode.label().to_string(),
-            SettingType::RefreshRate => format!("{:.1}", app.config.ui.refresh_rate),
-            SettingType::Fps => app.config.ui.fps.to_string(),
-            SettingType::Clock24h => {
-                if app.config.ui.clock_24h {
-                    "yes".to_string()
-                } else {
-                    "no".to_string()
-                }
-            }
-            SettingType::WidgetCpu => {
-                if app.config.widgets.cpu {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetMemory => {
-                if app.config.widgets.memory {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetDisk => {
-                if app.config.widgets.disk {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetNetwork => {
-                if app.config.widgets.network {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetGpu => {
-                if app.config.widgets.gpu {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetClock => {
-                if app.config.widgets.clock {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetCalendar => {
-                if app.config.widgets.calendar {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetMusicViz => {
-                if app.config.widgets.music_viz {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetProcesses => {
-                if app.config.widgets.processes {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetMedia => {
-                if app.config.widgets.media {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetMatrix => {
-                if app.config.widgets.matrix {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetPinnedMedia => {
-                if app.config.widgets.pinned_media {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::WidgetVideo => {
-                if app.config.widgets.video {
-                    "on".to_string()
-                } else {
-                    "off".to_string()
-                }
-            }
-            SettingType::ImageQuality => {
-                if app.panel_states.pixel_images {
-                    "Pixelated (Braille)".to_string()
-                } else {
-                    "Clear (High-Res)".to_string()
-                }
-            }
-            SettingType::SystemLogo => {
-                if app.panel_states.force_robot_logo {
-                    "Vanta Robot".to_string()
-                } else {
-                    "OS Ascii Logo".to_string()
-                }
-            }
-        };
-
-        let inner_w = (w - 2) as usize;
-        let padding = inner_w.saturating_sub(label.len() + val_str.len() + 8);
-        let pad_str = " ".repeat(padding);
-
-        lines.push(Line::from(vec![
-            Span::styled(if is_selected { " > " } else { "   " }, line_style),
-            Span::styled(format!("{} ", label), line_style),
-            Span::styled(pad_str, line_style),
-            Span::styled(format!(" {}   ", val_str), line_style),
-        ]));
+fn value(app: &App, kind: SettingType) -> Value {
+    let ui = &app.config.ui;
+    if let Some(on) = widget_flag(&mut app.config.widgets.clone(), kind) {
+        return Value::Switch(*on);
     }
+    Value::Text(match kind {
+        S::DashboardPreset => app.config.dashboard.preset.clone(),
+        S::Theme => ui.theme.clone(),
+        S::NightHours => match ui.night_hours.trim() {
+            "" => return Value::Switch(false),
+            h => h.to_string(),
+        },
+        S::Transparent => {
+            return Value::Switch(ui.transparent.unwrap_or_else(|| !app.theme.is_light()))
+        }
+        S::GaugeStyle => ui.gauge_style.clone(),
+        S::GraphStyle => ui.graph_style.clone(),
+        S::MeterStyle => ui.meter_style.clone(),
+        S::MotionEnabled => return Value::Switch(ui.motion_enabled),
+        S::MotionMode => ui.motion_mode.clone(),
+        S::MotionSpeed => format!("{:.2}×", ui.motion_speed),
+        S::Visualizer => ui.visualizer.clone(),
+        S::ClockFont => ui.clock_font.clone(),
+        S::ClockStyle => ui.clock_style.clone(),
+        S::PerformanceMode => ui.performance_mode.label().to_lowercase(),
+        S::RefreshRate => format!("{:.1}s", ui.refresh_rate),
+        S::Fps => format!("{} fps", ui.fps),
+        S::Clock24h => return Value::Switch(ui.clock_24h),
+        S::AmbientRotate => match ui.ambient_rotate_secs {
+            0 => "never".to_string(),
+            s if s < 60 => format!("{}s", s),
+            s => format!("{} min", s / 60),
+        },
+        S::FocusMinutes => format!("{} min", ui.focus_minutes),
+        S::BreakMinutes => format!("{} min", ui.break_minutes),
+        S::Mouse => return Value::Switch(ui.mouse),
+        S::ImageQuality => if app.panel_states.pixel_images {
+            "braille"
+        } else {
+            "high-res"
+        }
+        .to_string(),
+        S::SystemLogo => if app.panel_states.force_robot_logo {
+            "vanta robot"
+        } else {
+            "distro logo"
+        }
+        .to_string(),
+        _ => String::new(),
+    })
+}
 
-    let box_area = centered(area, w, lines.len() as u16 + 2);
+/// A display row: a group heading, or the item at this filtered index.
+enum Row {
+    Group(&'static str),
+    Item(usize),
+}
+
+fn rows(items: &[&'static Item]) -> Vec<Row> {
+    let mut out = Vec::new();
+    let mut last = "";
+    for (i, it) in items.iter().enumerate() {
+        if it.group != last {
+            out.push(Row::Group(it.group));
+            last = it.group;
+        }
+        out.push(Row::Item(i));
+    }
+    out
+}
+
+pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
+    let theme = app.theme.clone();
+    let base = Style::default().bg(theme.surface).fg(theme.text);
+    let items = filtered(&app.settings_search);
+    app.settings_row = app.settings_row.min(items.len().saturating_sub(1));
+    let rows = rows(&items);
+
+    let w = area.width.saturating_sub(4).clamp(40, 68);
+    // search + blank + rows + blank + description, plus the border.
+    let want = rows.len() as u16 + 6;
+    let box_area = centered(area, w, want.min(area.height.saturating_sub(2)).max(8));
+    let inner_w = box_area.width.saturating_sub(2) as usize;
+    let list_h = box_area.height.saturating_sub(6) as usize;
+
+    // Keep the selection on screen, pulling its group heading in with it.
+    let sel_row = rows
+        .iter()
+        .position(|r| matches!(r, Row::Item(i) if *i == app.settings_row))
+        .unwrap_or(0);
+    let want_top = sel_row.saturating_sub(1);
+    if want_top < app.settings_scroll {
+        app.settings_scroll = want_top;
+    } else if sel_row >= app.settings_scroll + list_h {
+        app.settings_scroll = sel_row + 1 - list_h;
+    }
+    app.settings_scroll = app.settings_scroll.min(rows.len().saturating_sub(list_h));
+
+    let mut lines: Vec<Line> = Vec::new();
+    // Search bar.
+    let count = format!("{}/{} ", items.len(), SETTINGS_ITEMS.len());
+    let (query, qstyle) = if app.settings_search_active || !app.settings_search.is_empty() {
+        (
+            format!(
+                "{}{}",
+                app.settings_search,
+                if app.settings_search_active {
+                    "▏"
+                } else {
+                    ""
+                }
+            ),
+            base.fg(theme.text),
+        )
+    } else {
+        ("type / to search".to_string(), base.fg(theme.dim))
+    };
+    let pad = inner_w.saturating_sub(3 + query.chars().count() + count.chars().count());
+    lines.push(Line::from(vec![
+        Span::styled(" ⌕ ", base.fg(theme.accent)),
+        Span::styled(query, qstyle),
+        Span::styled(" ".repeat(pad), base),
+        Span::styled(count, base.fg(theme.dim)),
+    ]));
+    lines.push(Line::from(Span::styled(
+        "─".repeat(inner_w),
+        base.fg(theme.bg),
+    )));
+
+    // The box first, so the rows registered below sit on top of it.
+    hit(box_area, Hit::Overlay);
+    let list_y = box_area.y + 3;
+    for (n, row) in rows
+        .iter()
+        .enumerate()
+        .skip(app.settings_scroll)
+        .take(list_h)
+    {
+        match row {
+            Row::Group(g) => {
+                let head = format!(" {} ", g.to_uppercase());
+                let fill = inner_w.saturating_sub(head.chars().count() + 1);
+                lines.push(Line::from(vec![
+                    Span::styled(head, base.fg(theme.secondary).add_modifier(Modifier::BOLD)),
+                    Span::styled("┈".repeat(fill), base.fg(theme.dim)),
+                ]));
+            }
+            Row::Item(i) => {
+                let it = items[*i];
+                let sel = *i == app.settings_row;
+                let row_style = if sel {
+                    Style::default().bg(theme.accent).fg(theme.bg)
+                } else {
+                    base
+                };
+                let (val, vstyle) = match value(app, it.kind) {
+                    Value::Switch(true) => (
+                        "● on ".to_string(),
+                        if sel { row_style } else { base.fg(theme.green) },
+                    ),
+                    Value::Switch(false) => (
+                        "○ off".to_string(),
+                        if sel { row_style } else { base.fg(theme.dim) },
+                    ),
+                    Value::Text(t) if sel => (format!("‹ {} ›", t), row_style),
+                    Value::Text(t) => (t, base.fg(theme.accent)),
+                };
+                let label = format!("{}  {}", if sel { "▸" } else { " " }, it.label);
+                let gap = inner_w.saturating_sub(label.chars().count() + val.chars().count() + 3);
+                lines.push(Line::from(vec![
+                    Span::styled(format!(" {}", label), row_style),
+                    Span::styled(" ".repeat(gap), row_style),
+                    Span::styled(val, vstyle),
+                    Span::styled("  ", row_style),
+                ]));
+                hit(
+                    Rect::new(
+                        box_area.x + 1,
+                        list_y + (n - app.settings_scroll) as u16,
+                        box_area.width.saturating_sub(2),
+                        1,
+                    ),
+                    Hit::SettingRow(*i),
+                );
+            }
+        }
+    }
+    if items.is_empty() {
+        lines.push(Line::from(Span::styled(
+            "   no settings match",
+            base.fg(theme.dim),
+        )));
+    }
+    while lines.len() < list_h + 2 {
+        lines.push(Line::from(Span::styled("", base)));
+    }
+    lines.push(Line::from(Span::styled("", base)));
+    let about = items.get(app.settings_row).map_or("", |i| i.about);
+    lines.push(Line::from(Span::styled(
+        format!(
+            " {}",
+            crate::widgets::meter::ellipsize(about, inner_w.saturating_sub(2))
+        ),
+        base.fg(theme.dim).add_modifier(Modifier::ITALIC),
+    )));
+
     f.render_widget(Clear, box_area);
     f.render_widget(
         Paragraph::new(lines).style(base).block(
@@ -296,6 +541,13 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
                     " settings ",
                     Style::default().fg(theme.accent),
                 ))
+                .title_bottom(
+                    Line::from(Span::styled(
+                        " ↑↓ move · ←→ change · / search · esc close ",
+                        Style::default().fg(theme.dim),
+                    ))
+                    .right_aligned(),
+                )
                 .style(base),
         ),
         box_area,
@@ -304,202 +556,225 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
 
 pub fn handle_key(app: &mut App, key: crossterm::event::KeyCode) {
     use crossterm::event::KeyCode::*;
-    match key {
-        Up | Char('k') => {
-            if app.settings_row > 0 {
-                app.settings_row -= 1;
-            } else {
-                app.settings_row = SETTINGS_ITEMS.len() - 1;
+    let n = filtered(&app.settings_search).len();
+    if app.settings_search_active {
+        match key {
+            Esc => {
+                app.settings_search.clear();
+                app.settings_search_active = false;
             }
-            if app.settings_row < app.settings_scroll {
-                app.settings_scroll = app.settings_row;
-            } else if app.settings_row >= app.settings_scroll + 18 {
-                app.settings_scroll = app.settings_row.saturating_sub(17);
-            }
-        }
-        Down | Char('j') => {
-            if app.settings_row + 1 < SETTINGS_ITEMS.len() {
-                app.settings_row += 1;
-            } else {
+            Enter => app.settings_search_active = false,
+            Backspace => {
+                app.settings_search.pop();
                 app.settings_row = 0;
             }
-            if app.settings_row >= app.settings_scroll + 18 {
-                app.settings_scroll = app.settings_row.saturating_sub(17);
-            } else if app.settings_row < app.settings_scroll {
-                app.settings_scroll = app.settings_row;
+            Up | Down => {}
+            Char(c) => {
+                app.settings_search.push(c);
+                app.settings_row = 0;
             }
+            _ => {}
         }
+        if !matches!(key, Up | Down) {
+            return;
+        }
+    }
+    let step = |row: usize, by: isize| -> usize {
+        if n == 0 {
+            0
+        } else {
+            (row as isize + by).rem_euclid(n as isize) as usize
+        }
+    };
+    match key {
+        Up | Char('k') => app.settings_row = step(app.settings_row, -1),
+        Down | Char('j') => app.settings_row = step(app.settings_row, 1),
+        PageUp => app.settings_row = app.settings_row.saturating_sub(8),
+        PageDown => app.settings_row = (app.settings_row + 8).min(n.saturating_sub(1)),
+        Home => app.settings_row = 0,
+        End => app.settings_row = n.saturating_sub(1),
+        Char('/') => app.settings_search_active = true,
         Left | Char('h') => change_setting(app, false),
-        Right | Char('l') | Enter => change_setting(app, true),
+        Right | Char('l') | Enter | Char(' ') => change_setting(app, true),
+        Esc if !app.settings_search.is_empty() => app.settings_search.clear(),
         Esc | Char('q') | Char('S') => app.show_settings = false,
         _ => {}
     }
 }
 
-fn change_setting(app: &mut App, forward: bool) {
-    let (stype, _) = SETTINGS_ITEMS[app.settings_row];
-    match stype {
-        SettingType::DashboardPreset => {
-            let presets = ["cockpit", "monitoring", "minimal", "aesthetic", "workspace"];
-            let pos = presets
-                .iter()
-                .position(|&x| x == app.config.dashboard.preset)
-                .unwrap_or(0);
-            let next = if forward {
-                presets[(pos + 1) % presets.len()]
-            } else {
-                presets[(pos + presets.len() - 1) % presets.len()]
-            };
-            app.config.dashboard.apply_preset(next);
+/// Cycle `cur` through `opts` (by position when it's one of them, else to
+/// the first option).
+fn cycle<T: PartialEq + Clone>(opts: &[T], cur: &T, forward: bool) -> T {
+    let n = opts.len();
+    let pos = opts.iter().position(|x| x == cur);
+    let i = match (pos, forward) {
+        (Some(p), true) => (p + 1) % n,
+        (Some(p), false) => (p + n - 1) % n,
+        (None, _) => 0,
+    };
+    opts[i].clone()
+}
+
+pub fn change_setting(app: &mut App, forward: bool) {
+    let Some(kind) = filtered(&app.settings_search)
+        .get(app.settings_row)
+        .map(|i| i.kind)
+    else {
+        return;
+    };
+    if let Some(flag) = widget_flag(&mut app.config.widgets, kind) {
+        *flag = !*flag;
+        app.config.save();
+        return;
+    }
+    let ui = &mut app.config.ui;
+    match kind {
+        S::DashboardPreset => {
+            let presets =
+                ["cockpit", "monitoring", "minimal", "aesthetic", "workspace"].map(String::from);
+            let next = cycle(&presets, &app.config.dashboard.preset, forward);
+            app.config.dashboard.apply_preset(&next);
         }
-        SettingType::Theme => {
-            app.cycle_theme();
-        }
-        SettingType::NightHours => {
-            let presets = crate::config::NIGHT_PRESETS;
-            let n = presets.len();
-            let pos = presets
-                .iter()
-                .position(|&x| x == app.config.ui.night_hours.trim())
-                .unwrap_or(0);
-            let next = (if forward { pos + 1 } else { pos + n - 1 }) % n;
-            app.config.ui.night_hours = presets[next].to_string();
+        S::Theme => app.cycle_theme(),
+        S::NightHours => {
+            let presets = crate::config::NIGHT_PRESETS.map(String::from);
+            ui.night_hours = cycle(&presets, &ui.night_hours.trim().to_string(), forward);
             app.night = None;
         }
-        SettingType::Transparent => {
-            let current = app
-                .config
-                .ui
-                .transparent
-                .unwrap_or_else(|| !app.theme.is_light());
-            app.config.ui.transparent = Some(!current);
-            app.config.save();
+        S::Transparent => {
+            let current = ui.transparent.unwrap_or_else(|| !app.theme.is_light());
+            ui.transparent = Some(!current);
         }
-        SettingType::GaugeStyle => {
+        S::GaugeStyle => {
             crate::widgets::gauge::cycle_style();
-            app.config.ui.gauge_style = crate::widgets::gauge::style_name().to_string();
+            ui.gauge_style = crate::widgets::gauge::style_name().to_string();
         }
-        SettingType::GraphStyle => {
+        S::GraphStyle => {
             crate::widgets::block_graph::cycle_style();
-            app.config.ui.graph_style = crate::widgets::block_graph::style_name().to_string();
+            ui.graph_style = crate::widgets::block_graph::style_name().to_string();
         }
-        SettingType::MeterStyle => {
+        S::MeterStyle => {
             crate::widgets::meter::cycle_style();
-            app.config.ui.meter_style = crate::widgets::meter::style_name().to_string();
+            ui.meter_style = crate::widgets::meter::style_name().to_string();
         }
-        SettingType::MotionEnabled => {
-            app.config.ui.motion_enabled = !app.config.ui.motion_enabled;
+        S::MotionEnabled => ui.motion_enabled = !ui.motion_enabled,
+        S::MotionMode => {
+            let modes = ["spin", "tumble", "wobble", "swing"].map(String::from);
+            ui.motion_mode = cycle(&modes, &ui.motion_mode, forward);
         }
-        SettingType::MotionMode => {
-            let modes = ["spin", "tumble", "wobble", "swing"];
-            let pos = modes
-                .iter()
-                .position(|&x| x == app.config.ui.motion_mode)
-                .unwrap_or(0);
-            let next = if forward {
-                modes[(pos + 1) % modes.len()]
-            } else {
-                modes[(pos + modes.len() - 1) % modes.len()]
-            };
-            app.config.ui.motion_mode = next.to_string();
-        }
-        SettingType::MotionSpeed => {
+        S::MotionSpeed => {
             let speeds = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
             let pos = speeds
                 .iter()
-                .position(|&x| (x - app.config.ui.motion_speed).abs() < 0.1)
+                .position(|&x| (x - ui.motion_speed).abs() < 0.1)
                 .unwrap_or(3);
-            let next = if forward {
+            ui.motion_speed = if forward {
                 speeds[(pos + 1).min(speeds.len() - 1)]
             } else {
                 speeds[pos.saturating_sub(1)]
             };
-            app.config.ui.motion_speed = next;
         }
-        SettingType::Visualizer => {
+        S::Visualizer => {
             crate::widgets::music_viz::cycle_style();
-            app.config.ui.visualizer = crate::widgets::music_viz::style_name().to_string();
+            ui.visualizer = crate::widgets::music_viz::style_name().to_string();
         }
-        SettingType::PerformanceMode => {
-            let modes = [
-                crate::config::PerformanceMode::VeryLight,
-                crate::config::PerformanceMode::Light,
-                crate::config::PerformanceMode::Normal,
-                crate::config::PerformanceMode::High,
-                crate::config::PerformanceMode::VeryHigh,
-            ];
-            let pos = modes
-                .iter()
-                .position(|x| x == &app.config.ui.performance_mode)
-                .unwrap_or(2);
-            let next = if forward {
-                modes[(pos + 1) % modes.len()].clone()
+        S::PerformanceMode => {
+            use crate::config::PerformanceMode as P;
+            let modes = [P::VeryLight, P::Light, P::Normal, P::High, P::VeryHigh];
+            ui.performance_mode = cycle(&modes, &ui.performance_mode, forward);
+            let mode = ui.performance_mode.clone();
+            app.apply_performance_mode(&mode);
+        }
+        S::RefreshRate => app.adjust_refresh(forward),
+        S::Fps => {
+            ui.fps = if forward {
+                ui.fps + 5
             } else {
-                modes[(pos + modes.len() - 1) % modes.len()].clone()
-            };
-            app.config.ui.performance_mode = next;
-            app.apply_performance_mode(&app.config.ui.performance_mode.clone());
+                ui.fps.saturating_sub(5)
+            }
+            .clamp(5, 120)
         }
-        SettingType::RefreshRate => {
-            app.adjust_refresh(forward);
+        S::ClockFont => {
+            let fonts = ["minimal", "standard", "rounded", "digital"].map(String::from);
+            ui.clock_font = cycle(&fonts, &ui.clock_font, forward);
         }
-        SettingType::Fps => {
-            let cur = app.config.ui.fps;
-            let next = if forward {
-                cur + 5
+        S::ClockStyle => {
+            let styles =
+                ["braille", "minimal", "outline", "solid", "dotted", "hollow"].map(String::from);
+            ui.clock_style = cycle(&styles, &ui.clock_style, forward);
+        }
+        S::Clock24h => ui.clock_24h = !ui.clock_24h,
+        S::AmbientRotate => {
+            ui.ambient_rotate_secs = cycle(
+                &[60, 120, 300, 600, 1800, 0],
+                &ui.ambient_rotate_secs,
+                forward,
+            )
+        }
+        S::FocusMinutes => {
+            let opts: Vec<u64> = (15..=60).step_by(5).collect();
+            ui.focus_minutes = cycle(&opts, &ui.focus_minutes, forward);
+        }
+        S::BreakMinutes => {
+            ui.break_minutes = cycle(&[3, 5, 10, 15], &ui.break_minutes, forward);
+        }
+        S::Mouse => {
+            ui.mouse = !ui.mouse;
+            if ui.mouse {
+                crate::mouse::enable();
             } else {
-                cur.saturating_sub(5)
-            };
-            app.config.ui.fps = next.clamp(5, 120);
+                crate::mouse::disable();
+            }
         }
-        SettingType::ClockFont => {
-            let fonts = ["minimal", "standard", "rounded", "digital"];
-            let pos = fonts
-                .iter()
-                .position(|&x| x == app.config.ui.clock_font)
-                .unwrap_or(0);
-            app.config.ui.clock_font = if forward {
-                fonts[(pos + 1) % fonts.len()].to_string()
-            } else {
-                fonts[(pos + fonts.len() - 1) % fonts.len()].to_string()
-            };
-        }
-        SettingType::ClockStyle => {
-            let styles = ["braille", "minimal", "outline", "solid", "dotted", "hollow"];
-            let pos = styles
-                .iter()
-                .position(|&x| x == app.config.ui.clock_style)
-                .unwrap_or(0);
-            app.config.ui.clock_style = if forward {
-                styles[(pos + 1) % styles.len()].to_string()
-            } else {
-                styles[(pos + styles.len() - 1) % styles.len()].to_string()
-            };
-        }
-        SettingType::Clock24h => app.config.ui.clock_24h = !app.config.ui.clock_24h,
-        SettingType::WidgetCpu => app.config.widgets.cpu = !app.config.widgets.cpu,
-        SettingType::WidgetMemory => app.config.widgets.memory = !app.config.widgets.memory,
-        SettingType::WidgetDisk => app.config.widgets.disk = !app.config.widgets.disk,
-        SettingType::WidgetNetwork => app.config.widgets.network = !app.config.widgets.network,
-        SettingType::WidgetGpu => app.config.widgets.gpu = !app.config.widgets.gpu,
-        SettingType::WidgetClock => app.config.widgets.clock = !app.config.widgets.clock,
-        SettingType::WidgetCalendar => app.config.widgets.calendar = !app.config.widgets.calendar,
-        SettingType::WidgetMusicViz => app.config.widgets.music_viz = !app.config.widgets.music_viz,
-        SettingType::WidgetProcesses => {
-            app.config.widgets.processes = !app.config.widgets.processes
-        }
-        SettingType::WidgetMedia => app.config.widgets.media = !app.config.widgets.media,
-        SettingType::WidgetMatrix => app.config.widgets.matrix = !app.config.widgets.matrix,
-        SettingType::WidgetVideo => app.config.widgets.video = !app.config.widgets.video,
-        SettingType::WidgetPinnedMedia => {
-            app.config.widgets.pinned_media = !app.config.widgets.pinned_media
-        }
-        SettingType::ImageQuality => {
-            app.panel_states.pixel_images = !app.panel_states.pixel_images;
-        }
-        SettingType::SystemLogo => {
-            app.panel_states.force_robot_logo = !app.panel_states.force_robot_logo;
-        }
+        S::ImageQuality => app.panel_states.pixel_images = !app.panel_states.pixel_images,
+        S::SystemLogo => app.panel_states.force_robot_logo = !app.panel_states.force_robot_logo,
+        _ => {}
     }
     app.config.save();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn search_matches_label_group_and_description() {
+        assert_eq!(filtered("").len(), SETTINGS_ITEMS.len());
+        assert!(filtered("mouse").iter().any(|i| i.kind == S::Mouse));
+        assert!(filtered("PANELS").iter().all(|i| i.group == "panels"
+            || i.label.to_lowercase().contains("panels")
+            || i.about.to_lowercase().contains("panels")));
+        assert!(filtered("dim").iter().any(|i| i.kind == S::NightHours));
+        assert!(filtered("zzzz").is_empty());
+    }
+
+    #[test]
+    fn groups_are_contiguous_so_each_heading_appears_once() {
+        let items = filtered("");
+        let heads: Vec<&str> = rows(&items)
+            .iter()
+            .filter_map(|r| match r {
+                Row::Group(g) => Some(*g),
+                Row::Item(_) => None,
+            })
+            .collect();
+        let mut dedup = heads.clone();
+        dedup.dedup();
+        let mut sorted = heads.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(
+            heads.len(),
+            sorted.len(),
+            "a group heading repeats: {heads:?}"
+        );
+        assert_eq!(heads, dedup);
+    }
+
+    #[test]
+    fn cycle_wraps_both_ways_and_resets_unknown_values() {
+        assert_eq!(cycle(&[1, 2, 3], &3, true), 1);
+        assert_eq!(cycle(&[1, 2, 3], &1, false), 3);
+        assert_eq!(cycle(&[1, 2, 3], &9, true), 1);
+    }
 }

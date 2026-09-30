@@ -353,6 +353,8 @@ pub struct App {
     pub setup_install_log: String,
     pub settings_row: usize,
     pub settings_scroll: usize,
+    pub settings_search: String,
+    pub settings_search_active: bool,
     /// A focused panel expanded to fill the page (Enter / Esc).
     pub zoomed: Option<PanelId>,
     pub summary: Summary,
@@ -438,6 +440,8 @@ impl App {
             setup_install_log: String::new(),
             settings_row: 0,
             settings_scroll: 0,
+            settings_search: String::new(),
+            settings_search_active: false,
             zoomed: None,
             summary: Summary::default(),
             last_input: Instant::now(),
@@ -617,9 +621,22 @@ impl App {
             return true;
         }
         if self.show_settings {
-            match wheel {
-                Some(down) => self.press(if down { KeyCode::Down } else { KeyCode::Up }),
-                None => self.show_settings = false,
+            if let Some(down) = wheel {
+                self.press(if down { KeyCode::Down } else { KeyCode::Up });
+                return true;
+            }
+            let hits = crate::screens::hits_at(ev.column, ev.row);
+            match hits.first().map(|(h, _)| *h) {
+                // First click selects, a click on the selected row changes it.
+                Some(crate::screens::Hit::SettingRow(i)) => {
+                    if self.settings_row == i {
+                        crate::screens::settings::change_setting(self, true);
+                    } else {
+                        self.settings_row = i;
+                    }
+                }
+                Some(crate::screens::Hit::Overlay) => {}
+                _ => self.show_settings = false,
             }
             return true;
         }
@@ -675,7 +692,7 @@ impl App {
                         self.press(key);
                         return true;
                     }
-                    Hit::Tab(_) | Hit::SortBy(_) => {}
+                    Hit::Tab(_) | Hit::SortBy(_) | Hit::SettingRow(_) | Hit::Overlay => {}
                 }
             }
             return false;
@@ -737,7 +754,7 @@ impl App {
                     self.press(if back { KeyCode::Left } else { KeyCode::Right });
                     return true;
                 }
-                Hit::NotePreview => {}
+                Hit::NotePreview | Hit::SettingRow(_) | Hit::Overlay => {}
                 Hit::Panel(panel) => {
                     if double {
                         self.focused_panel = Some(panel);
