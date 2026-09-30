@@ -379,6 +379,63 @@ pub fn parse_event_input(input: &str) -> (String, DateTime<Local>, DateTime<Loca
     (summary, start_time, end_time)
 }
 
+fn event_block(uid: &str, summary: &str, start: DateTime<Local>, end: DateTime<Local>) -> String {
+    format!(
+        "BEGIN:VEVENT\nUID:{}\nSUMMARY:{}\nDTSTART:{}\nDTEND:{}\nEND:VEVENT\n",
+        uid,
+        summary,
+        start.format("%Y%m%dT%H%M00"),
+        end.format("%Y%m%dT%H%M00")
+    )
+}
+
+/// Put a VEVENT block before END:VCALENDAR, creating the calendar if needed.
+fn insert_block(content: &str, block: &str) -> String {
+    if let Some(pos) = content.rfind("END:VCALENDAR") {
+        let mut s = content.to_string();
+        s.insert_str(pos, block);
+        s
+    } else {
+        format!(
+            "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Vanta//EN\n{}{}END:VCALENDAR\n",
+            content, block
+        )
+    }
+}
+
+/// The text an event is edited as: its title, date and start time, in the
+/// same form the add box understands, e.g. "Design review 2026-10-01 14:30".
+pub fn edit_input_for(ev: &Event) -> String {
+    format!(
+        "{} {} {}",
+        ev.summary,
+        ev.start_time.format("%Y-%m-%d"),
+        ev.start_time.format("%H:%M")
+    )
+}
+
+/// Replace `target` with the event described by `input`, keeping its UID
+/// and its original length.
+pub fn replace_event_in_content(content: &str, target: &Event, input: &str) -> Option<String> {
+    let prefix = target.start_time.format("%Y%m%d").to_string();
+    let without = delete_event_from_content(content, &target.uid, &target.summary, &prefix)?;
+    let (summary, start, default_end) = parse_event_input(input);
+    let end = target
+        .end_time
+        .map(|e| start + (e - target.start_time))
+        .filter(|e| *e > start)
+        .unwrap_or(default_end);
+    let uid = if target.uid.is_empty() {
+        format!("vanta-{}@localhost", start.timestamp_millis())
+    } else {
+        target.uid.clone()
+    };
+    Some(insert_block(
+        &without,
+        &event_block(&uid, &summary, start, end),
+    ))
+}
+
 pub fn add_event_to_content(content: &str, input: &str) -> (String, Event) {
     let (summary, start_time, end_time) = parse_event_input(input);
     let uid = format!(
@@ -388,24 +445,7 @@ pub fn add_event_to_content(content: &str, input: &str) -> (String, Event) {
             .map(|d| d.as_millis())
             .unwrap_or(0)
     );
-    let dtstart = start_time.format("%Y%m%dT%H%M00").to_string();
-    let dtend = end_time.format("%Y%m%dT%H%M00").to_string();
-
-    let event_block = format!(
-        "BEGIN:VEVENT\nUID:{}\nSUMMARY:{}\nDTSTART:{}\nDTEND:{}\nEND:VEVENT\n",
-        uid, summary, dtstart, dtend
-    );
-
-    let new_content = if let Some(pos) = content.rfind("END:VCALENDAR") {
-        let mut s = content.to_string();
-        s.insert_str(pos, &event_block);
-        s
-    } else {
-        format!(
-            "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Vanta//EN\n{}{}END:VCALENDAR\n",
-            content, event_block
-        )
-    };
+    let new_content = insert_block(content, &event_block(&uid, &summary, start_time, end_time));
 
     (
         new_content,
@@ -508,6 +548,25 @@ pub fn add_event(input: &str) -> bool {
     }
 }
 
+/// Rewrite the `index`-th upcoming event from an edit-box string.
+pub fn edit_event(index: usize, input: &str) -> bool {
+    let snap = snapshot();
+    let (Some(target), false) = (snap.events.get(index), input.trim().is_empty()) else {
+        return false;
+    };
+    let file_path = get_agenda_file();
+    let Ok(content) = fs::read_to_string(&file_path) else {
+        return false;
+    };
+    match replace_event_in_content(&content, target, input.trim()) {
+        Some(new) if fs::write(&file_path, &new).is_ok() => {
+            rescan();
+            true
+        }
+        _ => false,
+    }
+}
+
 pub fn delete_event(index: usize) -> bool {
     let snap = snapshot();
     if index >= snap.events.len() {
@@ -534,6 +593,25 @@ pub fn delete_event(index: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn editing_keeps_uid_and_length_and_round_trips_its_input() {
+        let (cal, ev) = add_event_to_content("", "Standup 2030-03-04 09:00");
+        // A 90-minute event.
+        let cal = cal.replace("DTEND:20300304T100000", "DTEND:20300304T103000");
+        let ev = Event {
+            end_time: Some(ev.start_time + chrono::Duration::minutes(90)),
+            ..ev
+        };
+        assert_eq!(edit_input_for(&ev), "Standup 2030-03-04 09:00");
+        let new = replace_event_in_content(&cal, &ev, "Planning 2030-03-05 14:15").unwrap();
+        assert_eq!(new.matches("BEGIN:VEVENT").count(), 1);
+        assert!(new.contains(&format!("UID:{}", ev.uid)));
+        assert!(new.contains("SUMMARY:Planning"));
+        assert!(new.contains("DTSTART:20300305T141500"));
+        assert!(new.contains("DTEND:20300305T154500"), "{new}");
+        assert!(!new.contains("Standup"));
+    }
 
     #[test]
     fn test_parse_time_str() {

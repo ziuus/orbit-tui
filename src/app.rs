@@ -317,6 +317,8 @@ pub struct PanelStates {
     pub task_input: String,
     pub agenda_selected: usize,
     pub agenda_input_active: bool,
+    /// Index of the event being edited; None while adding a new one.
+    pub agenda_edit: Option<usize>,
     pub agenda_input: String,
     pub pinned_media_input_active: bool,
     pub pinned_media_input: String,
@@ -361,6 +363,7 @@ impl Default for PanelStates {
             task_input: String::new(),
             agenda_selected: 0,
             agenda_input_active: false,
+            agenda_edit: None,
             agenda_input: String::new(),
             pinned_media_input_active: false,
             pinned_media_input: String::new(),
@@ -832,6 +835,14 @@ impl App {
         if ps.agenda_input_active {
             match key.code {
                 KeyCode::Esc => {
+                    ps.agenda_input_active = false;
+                    ps.agenda_input.clear();
+                    ps.agenda_edit = None;
+                }
+                KeyCode::Enter if ps.agenda_edit.is_some() => {
+                    if let Some(i) = ps.agenda_edit.take() {
+                        crate::monitors::agenda::edit_event(i, &ps.agenda_input);
+                    }
                     ps.agenda_input_active = false;
                     ps.agenda_input.clear();
                 }
@@ -1363,6 +1374,17 @@ impl App {
                 KeyCode::Char('a') | KeyCode::Char('n') => {
                     self.panel_states.agenda_input_active = true;
                     self.panel_states.agenda_input.clear();
+                    self.panel_states.agenda_edit = None;
+                }
+                KeyCode::Char('r') | KeyCode::F(2) => {
+                    let snap = crate::monitors::agenda::snapshot();
+                    let i = self.panel_states.agenda_selected;
+                    if let Some(ev) = snap.events.get(i) {
+                        self.panel_states.agenda_input =
+                            crate::monitors::agenda::edit_input_for(ev);
+                        self.panel_states.agenda_input_active = true;
+                        self.panel_states.agenda_edit = Some(i);
+                    }
                 }
                 KeyCode::Char('d') | KeyCode::Delete => {
                     let count = crate::monitors::agenda::snapshot().events.len();
@@ -2313,6 +2335,9 @@ impl App {
             match self.focused_panel {
                 Some(PanelId::Tasks) | Some(PanelId::Agenda) => {
                     hint("a", "add");
+                    if self.focused_panel == Some(PanelId::Agenda) {
+                        hint("r", "edit");
+                    }
                     hint("d", "delete");
                     hint("e", "edit file");
                     if self.focused_panel == Some(PanelId::Tasks) {

@@ -71,7 +71,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
         let hint = if app.panel_states.agenda_input_active {
             "Enter submit · Esc cancel"
         } else {
-            "a add · d del · e edit · ↑↓ select"
+            "a add · r edit · d del · e file · ↑↓"
         };
         crate::screens::hit(rows[0], crate::screens::Hit::Panel(PanelId::Agenda));
         let inner = panel_full(

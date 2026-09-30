@@ -77,6 +77,7 @@ const SECTIONS: &[Section] = &[
         "tasks · agenda (focused)",
         &[
             ("a d", "add · delete"),
+            ("r", "edit event (agenda)"),
             ("space", "toggle task done"),
             ("e enter", "edit the file"),
         ],
