@@ -6,27 +6,36 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-pub const BUILTIN_THEMES: [&str; 21] = [
+pub const BUILTIN_THEMES: [&str; 30] = [
     "dark",
     "catppuccin",
     "tokyo-night",
+    "tokyo-night-storm",
     "nord",
+    "nordic-frost",
     "gruvbox",
     "dracula",
+    "cyberpunk",
     "rose-pine",
     "everforest",
     "kanagawa",
     "one-dark",
     "monokai",
     "synthwave",
+    "outrun-sunset",
     "oxocarbon",
     "github-dark",
     "ayu-mirage",
     "phosphor",
+    "matrix-green",
     "amber",
+    "zenburn",
+    "solarized-dark",
     "light",
     "solarized-light",
+    "papercolor-light",
     "catppuccin-latte",
+    "catppuccin-frappe",
     "gruvbox-light",
 ];
 
@@ -34,6 +43,15 @@ pub const BUILTIN_THEMES: [&str; 21] = [
 /// text, dim, green, yellow, red.
 #[rustfmt::skip]
 const PALETTES: &[(&str, [u32; 9])] = &[
+    ("cyberpunk",         [0x08080a, 0xfcee0a, 0x00f0ff, 0x18181f, 0xf0f0f5, 0x717182, 0x00ff9f, 0xfcee0a, 0xff003c]),
+    ("solarized-dark",   [0x002b36, 0x268bd2, 0x2aa198, 0x073642, 0x93a1a1, 0x586e75, 0x859900, 0xb58900, 0xdc322f]),
+    ("tokyo-night-storm", [0x24283b, 0x7aa2f7, 0xbb9af7, 0x292e42, 0xc0caf5, 0x565f89, 0x9ece6a, 0xe0af68, 0xf7768e]),
+    ("catppuccin-frappe", [0x303446, 0x8caaee, 0xf4b8e4, 0x414559, 0xc6d0f5, 0x737994, 0xa6d189, 0xe5c890, 0xe78284]),
+    ("nordic-frost",      [0x0f141c, 0x88c0d0, 0x81a1c1, 0x1e2736, 0xe5e9f0, 0x4c566a, 0xa3be8c, 0xebcb8b, 0xbf616a]),
+    ("matrix-green",      [0x020a04, 0x00ff41, 0x008f11, 0x0b1c0e, 0xa6ffb8, 0x1f5c2b, 0x00ff41, 0x96f53d, 0xff3b30]),
+    ("outrun-sunset",     [0x140a24, 0xff007f, 0x00f5d4, 0x221338, 0xf5e6ff, 0x7f6596, 0x00f5d4, 0xffbe0b, 0xff0055]),
+    ("zenburn",           [0x3f3f3f, 0xdca3a3, 0x93e0e3, 0x4f4f4f, 0xdcdccc, 0x7f9f7f, 0x7f9f7f, 0xdfaf8f, 0xcc9393]),
+    ("papercolor-light",  [0xeeeeee, 0x0087af, 0xaf005f, 0xe4e4e4, 0x444444, 0x878787, 0x5f8700, 0xd75f00, 0xd70000]),
     ("rose-pine",        [0x191724, 0xebbcba, 0xc4a7e7, 0x26233a, 0xe0def4, 0x6e6a86, 0x9ccfd8, 0xf6c177, 0xeb6f92]),
     ("everforest",       [0x2d353b, 0xa7c080, 0x7fbbb3, 0x3d484d, 0xd3c6aa, 0x859289, 0xa7c080, 0xdbbc7f, 0xe67e80]),
     ("kanagawa",         [0x1f1f28, 0x7e9cd8, 0x957fb8, 0x2a2a37, 0xdcd7ba, 0x727169, 0x98bb6c, 0xe6c384, 0xe46876]),

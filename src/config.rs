@@ -139,6 +139,8 @@ pub enum DesignStyle {
     /// Rounded borders, quiet titles. The default.
     #[default]
     Soft,
+    /// Material UI style: clean crisp cards, elevated pill badges and structured dividers.
+    Material,
     /// No boxes at all: titles and whitespace carry the structure.
     Minimal,
     /// Heavy borders, inverted uppercase title blocks.
@@ -149,25 +151,31 @@ pub enum DesignStyle {
     Retro,
     /// Accent-lit borders with bright title tags.
     Neon,
+    /// Cyberdeck aesthetic: angled brackets ◢ TITLE ◣, high-tech markers and glowing borders.
+    Cyber,
 }
 
 impl DesignStyle {
-    pub const ALL: [DesignStyle; 6] = [
+    pub const ALL: [DesignStyle; 8] = [
         DesignStyle::Soft,
+        DesignStyle::Material,
         DesignStyle::Minimal,
         DesignStyle::Brutalist,
         DesignStyle::Glass,
         DesignStyle::Retro,
         DesignStyle::Neon,
+        DesignStyle::Cyber,
     ];
     pub fn label(&self) -> &'static str {
         match self {
             Self::Soft => "soft",
+            Self::Material => "material",
             Self::Minimal => "minimal",
             Self::Brutalist => "brutalist",
             Self::Glass => "glass",
             Self::Retro => "retro",
             Self::Neon => "neon",
+            Self::Cyber => "cyber",
         }
     }
 }

@@ -5,12 +5,92 @@
 //! children.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 /// How loudly to notify. Maps to notify-send's urgency levels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Urgency {
     Normal,
     Critical,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NotificationRecord {
+    pub id: u64,
+    pub time: String,
+    pub title: String,
+    pub body: String,
+    pub urgency: Urgency,
+    pub read: bool,
+}
+
+static NOTIF_ID: AtomicU64 = AtomicU64::new(1);
+static HISTORY: Mutex<Vec<NotificationRecord>> = Mutex::new(Vec::new());
+
+/// Record an in-app notification in history and dispatch desktop notify-send.
+pub fn record(title: &str, body: &str, urgency: Urgency) {
+    let now = chrono::Local::now().format("%H:%M:%S").to_string();
+    let id = NOTIF_ID.fetch_add(1, Ordering::Relaxed);
+    let record = NotificationRecord {
+        id,
+        time: now,
+        title: title.to_string(),
+        body: body.to_string(),
+        urgency,
+        read: false,
+    };
+    {
+        let mut list = HISTORY.lock().unwrap_or_else(|e| e.into_inner());
+        list.insert(0, record);
+        if list.len() > 64 {
+            list.truncate(64);
+        }
+    }
+    send(title, body, urgency);
+}
+
+/// Retrieve all recorded notifications (newest first).
+pub fn list() -> Vec<NotificationRecord> {
+    HISTORY.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+/// Unread notification count.
+pub fn unread_count() -> usize {
+    HISTORY
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .iter()
+        .filter(|n| !n.read)
+        .count()
+}
+
+/// Mark all current notifications as read.
+pub fn mark_all_read() {
+    let mut list = HISTORY.lock().unwrap_or_else(|e| e.into_inner());
+    for item in list.iter_mut() {
+        item.read = true;
+    }
+}
+
+/// Clear all notifications from history.
+pub fn clear() {
+    HISTORY.lock().unwrap_or_else(|e| e.into_inner()).clear();
+}
+
+/// Dismiss a single notification by id.
+pub fn dismiss(id: u64) {
+    let mut list = HISTORY.lock().unwrap_or_else(|e| e.into_inner());
+    list.retain(|n| n.id != id);
+}
+
+/// Emit a test notification for user preview.
+pub fn test_notification() {
+    record(
+        "Vanta System Alert",
+        "Test alert: Notifications previewer is active and operational.",
+        Urgency::Normal,
+    );
 }
 
 pub fn send(title: &str, body: &str, urgency: Urgency) {

@@ -234,6 +234,140 @@ pub fn lava(buf: &mut Buffer, area: Rect, theme: &Theme, motion: bool, night: bo
     });
 }
 
+/// Cyberpunk: a rainy megacity skyline with neon signs, glowing skyscraper windows,
+/// volumetric haze, and reflections in the wet asphalt below.
+pub fn cyberpunk(buf: &mut Buffer, area: Rect, theme: &Theme, motion: bool, night: bool) {
+    let t = tick(motion);
+    request(motion, night, 14);
+    let (w, h) = (area.width as f32, area.height as f32 * 2.0);
+    let horizon = h * 0.72;
+    let sky_bg = blend(theme.bg, Color::Rgb(5, 5, 12), 0.6);
+    let fog = blend(theme.secondary, theme.red, 0.4);
+    let ground = blend(theme.bg, Color::Rgb(0, 0, 0), 0.7);
+
+    paint(buf, area, |x, y| {
+        let (fx, fy) = (x as f32, y as f32);
+        if fy < horizon {
+            let norm_y = fy / horizon;
+            let mut c = lerp(sky_bg, fog, norm_y.powf(2.0) * 0.35);
+
+            let col_idx = (fx / 7.0).floor() as u32;
+            let col_h = horizon * (0.35 + 0.5 * hash(col_idx, 101));
+            let b_top = horizon - col_h;
+
+            if fy > b_top {
+                let b_edge = (fx % 7.0) < 0.8;
+                if b_edge {
+                    return lerp(c, theme.dim, 0.4);
+                }
+                let win_x = (fx % 7.0) > 1.8 && (fx % 7.0) < 5.8;
+                let win_y = (fy % 4.0) > 1.2 && (fy % 4.0) < 3.2;
+                let win_hash = hash(col_idx, (fy / 4.0).floor() as u32);
+                let lit = win_hash > 0.45;
+                if win_x && win_y && lit {
+                    let win_col = if win_hash > 0.85 {
+                        theme.accent
+                    } else if win_hash > 0.65 {
+                        theme.yellow
+                    } else {
+                        theme.secondary
+                    };
+                    let flicker = 0.8 + 0.2 * (t * 2.0 + win_hash * 50.0).sin();
+                    return lerp(theme.bg, win_col, flicker);
+                }
+                return lerp(ground, theme.surface, 0.5);
+            }
+
+            let neon_x = w * 0.55;
+            let neon_y = horizon * 0.45;
+            let dx = fx - neon_x;
+            let dy = fy - neon_y;
+            let dist_sq = dx * dx + dy * dy;
+            if dist_sq < 250.0 {
+                let glow = (1.0 - (dist_sq / 250.0).sqrt()).powf(1.5);
+                c = lerp(c, theme.accent, glow * 0.7);
+            }
+            c
+        } else {
+            let depth = (fy - horizon) / (h - horizon);
+            let ripple = (fx * 0.15 + t * 4.0).sin() * 0.02 * depth;
+            let reflected_y =
+                (horizon - (fy - horizon) * 0.85 + ripple * h).clamp(0.0, horizon - 1.0);
+            let ref_col_idx = (fx / 7.0).floor() as u32;
+            let ref_h = horizon * (0.35 + 0.5 * hash(ref_col_idx, 101));
+            let mut ref_col = ground;
+            if reflected_y > (horizon - ref_h) {
+                ref_col = lerp(theme.surface, theme.secondary, 0.4);
+            }
+            let sheen = (1.0 - depth).powf(1.8) * 0.65;
+            lerp(ground, ref_col, sheen)
+        }
+    });
+}
+
+/// Black hole: a spinning relativistic accretion disk with gravitational lensing
+/// and Doppler beaming around a dark event horizon.
+pub fn blackhole(buf: &mut Buffer, area: Rect, theme: &Theme, motion: bool, night: bool) {
+    let t = tick(motion);
+    request(motion, night, 14);
+    let (w, h) = (area.width as f32, area.height as f32 * 2.0);
+    let cx = w * 0.5;
+    let cy = h * 0.5;
+    let r_event = (h * 0.20).min(w * 0.10);
+    let r_disk = r_event * 2.8;
+
+    paint(buf, area, |x, y| {
+        let fx = x as f32 + 0.5;
+        let fy = y as f32 + 0.5;
+
+        let dx = (fx - cx) * 0.55;
+        let dy = fy - cy;
+        let dist = (dx * dx + dy * dy).sqrt();
+
+        let warp = if dist > r_event {
+            (r_event / dist).powf(2.0) * 0.4
+        } else {
+            0.0
+        };
+
+        if dist < r_event {
+            let photon_ring = (dist / r_event).powf(6.0);
+            return lerp(Color::Rgb(0, 0, 0), theme.accent, photon_ring * 0.3);
+        }
+
+        let disk_y = dy * 2.2 + dx * 0.35;
+        let disk_r = (dx * dx + disk_y * disk_y).sqrt();
+
+        let in_disk = disk_r > (r_event * 1.05) && disk_r < r_disk;
+        if in_disk {
+            let v = (disk_r - r_event * 1.05) / (r_disk - r_event * 1.05);
+            let doppler = (-dx / r_disk).clamp(-0.8, 0.8) + 0.8;
+            let angle = (disk_y).atan2(dx);
+            let swirl = 0.5 + 0.5 * (angle * 4.0 - t * 2.2 + (1.0 - v) * 5.0).sin();
+            let intensity = (1.0 - v).powf(1.4) * (0.6 + 0.4 * swirl) * doppler;
+
+            let disk_col = if intensity > 0.8 {
+                lerp(theme.yellow, theme.text, (intensity - 0.8) / 0.5)
+            } else if intensity > 0.4 {
+                lerp(theme.red, theme.yellow, (intensity - 0.4) / 0.4)
+            } else {
+                lerp(blend(theme.bg, theme.red, 0.3), theme.red, intensity / 0.4)
+            };
+            return disk_col;
+        }
+
+        let lx = (fx + warp * dx * 10.0) as u16;
+        let ly = (fy + warp * dy * 10.0) as u16;
+        let bg_c = sky(theme, lx, ly, h, t, blend(theme.bg, theme.secondary, 0.08));
+
+        let einstein_dist = (dist - r_event * 1.5).abs();
+        let glow = (1.0 - einstein_dist / (r_event * 0.8))
+            .clamp(0.0, 1.0)
+            .powf(2.5);
+        lerp(bg_c, theme.accent, glow * 0.35)
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,7 +377,7 @@ mod tests {
         let t = Theme::dark();
         for (w, h) in [(1, 1), (3, 2), (60, 20), (200, 50)] {
             let area = Rect::new(0, 0, w, h);
-            for scene in [synthwave, aurora, lava] {
+            for scene in [synthwave, aurora, lava, cyberpunk, blackhole] {
                 let mut buf = Buffer::empty(area);
                 scene(&mut buf, area, &t, true, false);
                 assert!((0..w).all(|x| (0..h).all(|y| buf[(x, y)].symbol() == "▀")));

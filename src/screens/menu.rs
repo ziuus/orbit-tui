@@ -19,16 +19,18 @@ pub enum Item {
     Theme,
     Style,
     Layout,
+    Notifications,
     Options,
     Help,
     Quit,
 }
 
-pub const ITEMS: [Item; 7] = [
+pub const ITEMS: [Item; 8] = [
     Item::Resume,
     Item::Theme,
     Item::Style,
     Item::Layout,
+    Item::Notifications,
     Item::Options,
     Item::Help,
     Item::Quit,
@@ -41,6 +43,7 @@ impl Item {
             Item::Theme => "theme",
             Item::Style => "style",
             Item::Layout => "layout",
+            Item::Notifications => "notifications",
             Item::Options => "options",
             Item::Help => "help",
             Item::Quit => "quit",
@@ -116,16 +119,29 @@ fn value(app: &App, item: Item) -> Option<String> {
         Item::Theme => app.config.ui.theme.clone(),
         Item::Style => app.config.ui.style.label().to_string(),
         Item::Layout => app.layout_name(),
+        Item::Notifications => {
+            let unread = crate::notify::unread_count();
+            let total = crate::notify::list().len();
+            if unread > 0 {
+                format!("{} unread", unread)
+            } else if total > 0 {
+                format!("{} total", total)
+            } else {
+                "none".to_string()
+            }
+        }
         _ => return None,
     })
 }
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
+    use crate::config::DesignStyle as D;
     let theme = &app.theme;
+    let style_mode = crate::screens::design();
     dim_backdrop(f.buffer_mut(), area, theme);
 
     let big = area.width >= LOGO_W + 6 && area.height >= LOGO_H + ITEMS.len() as u16 + 9;
-    let w = if big { LOGO_W + 6 } else { 40.min(area.width) };
+    let w = if big { LOGO_W + 6 } else { 42.min(area.width) };
     let h = ITEMS.len() as u16 + if big { LOGO_H + 8 } else { 6 };
     let box_area = Rect::new(
         area.x + area.width.saturating_sub(w) / 2,
@@ -135,18 +151,36 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     );
     hit(box_area, Hit::Overlay);
     f.render_widget(Clear, box_area);
-    let base = Style::default().bg(theme.bg);
+
+    let (border_type, border_col) = match style_mode {
+        D::Brutalist => (BorderType::Thick, theme.text),
+        D::Retro => (BorderType::Double, theme.dim),
+        D::Material => (BorderType::Plain, theme.accent),
+        D::Neon => (BorderType::Rounded, theme.accent),
+        D::Cyber => (BorderType::Rounded, theme.secondary),
+        _ => (BorderType::Rounded, blend(theme.accent, theme.bg, 0.35)),
+    };
+    let base_bg = match style_mode {
+        D::Glass => blend(theme.bg, theme.text, 0.08),
+        D::Material => blend(theme.bg, theme.surface, 0.35),
+        _ => theme.bg,
+    };
+    let base = Style::default().bg(base_bg);
+
+    let bottom_title = match style_mode {
+        D::Retro => "[ ↑↓:MOVE  ←→:CHANGE  ENTER:PICK  ESC:CLOSE ]",
+        D::Brutalist => " ↑↓ MOVE · ←→ CHANGE · ENTER SELECT · ESC CLOSE ",
+        D::Cyber => "◢ ↑↓ MOVE · ←→ CHANGE · ENTER PICK · ESC CLOSE ◣",
+        _ => " ↑↓ move · ←→ change · enter select · esc close ",
+    };
+
     f.render_widget(
         Block::default()
             .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(blend(theme.accent, theme.bg, 0.35)))
+            .border_type(border_type)
+            .border_style(Style::default().fg(border_col))
             .title_bottom(
-                Line::from(Span::styled(
-                    " ↑↓ move · ←→ change · enter select · esc close ",
-                    Style::default().fg(theme.dim),
-                ))
-                .centered(),
+                Line::from(Span::styled(bottom_title, Style::default().fg(theme.dim))).centered(),
             )
             .style(base),
         box_area,
@@ -167,21 +201,50 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         );
         y += 2;
     } else {
-        f.render_widget(
-            Paragraph::new(Line::from(Span::styled(
+        let title_span = match style_mode {
+            D::Retro => Span::styled(
+                "[ V A N T A ]",
+                Style::default()
+                    .fg(theme.accent)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            D::Cyber => Span::styled(
+                "◢ V A N T A ◣",
+                Style::default()
+                    .fg(theme.accent)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            D::Material => Span::styled(
+                "▰ V A N T A",
+                Style::default()
+                    .fg(theme.accent)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            _ => Span::styled(
                 "V A N T A",
                 Style::default()
                     .fg(theme.accent)
                     .add_modifier(Modifier::BOLD),
-            )))
-            .centered(),
+            ),
+        };
+        f.render_widget(
+            Paragraph::new(Line::from(title_span)).centered(),
             Rect::new(box_area.x, y + 1, box_area.width, 1),
         );
         y += 3;
     }
 
-    let row_w = 30u16.min(box_area.width.saturating_sub(4));
+    let row_w = 32u16.min(box_area.width.saturating_sub(4));
     let rx = box_area.x + (box_area.width - row_w) / 2;
+    let cursor_icon = match style_mode {
+        D::Brutalist => "█",
+        D::Retro => "►",
+        D::Neon => "╸",
+        D::Cyber => "◢",
+        D::Material => "●",
+        _ => "▸",
+    };
+
     for (i, item) in ITEMS.iter().enumerate() {
         let sel = i == app.menu_row;
         let r = Rect::new(rx, y + i as u16, row_w, 1);
@@ -189,7 +252,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         let (fg, bg) = if sel {
             (theme.bg, theme.accent)
         } else {
-            (theme.text, theme.bg)
+            (theme.text, base_bg)
         };
         let style = Style::default().fg(fg).bg(bg);
         let label = if sel {
@@ -197,8 +260,9 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         } else {
             item.label().to_string()
         };
+        let prefix = if sel { cursor_icon } else { " " };
         let mut spans = vec![Span::styled(
-            format!(" {} {}", if sel { "▸" } else { " " }, label),
+            format!(" {} {}", prefix, label),
             style.add_modifier(if sel {
                 Modifier::BOLD
             } else {
@@ -263,6 +327,10 @@ pub fn activate(app: &mut App) {
     }
     app.show_menu = false;
     match item {
+        Item::Notifications => {
+            app.show_notifications = true;
+            crate::notify::mark_all_read();
+        }
         Item::Options => app.show_settings = true,
         Item::Help => app.show_help = true,
         Item::Quit => app.running = false,

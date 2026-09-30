@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
@@ -391,6 +391,10 @@ pub struct App {
     /// The Esc menu.
     pub show_menu: bool,
     pub menu_row: usize,
+    /// Notification Center overlay.
+    pub show_notifications: bool,
+    pub notif_selected: usize,
+    pub notif_scroll: usize,
     pub help_scroll: u16,
     pub show_settings: bool,
     pub show_setup_wizard: bool,
@@ -481,6 +485,9 @@ impl App {
             show_help: false,
             show_menu: false,
             menu_row: 0,
+            show_notifications: false,
+            notif_selected: 0,
+            notif_scroll: 0,
             help_scroll: 0,
             show_settings: false,
             show_setup_wizard: false,
@@ -758,6 +765,25 @@ impl App {
             }
             return true;
         }
+        if self.show_notifications {
+            if let Some(down) = wheel {
+                let count = crate::notify::list().len();
+                if down {
+                    self.notif_selected = (self.notif_selected + 1).min(count.saturating_sub(1));
+                } else if self.notif_selected > 0 {
+                    self.notif_selected -= 1;
+                }
+                return true;
+            }
+            match crate::screens::hits_at(ev.column, ev.row)
+                .first()
+                .map(|(h, _)| *h)
+            {
+                Some(crate::screens::Hit::Overlay) => {}
+                _ => self.show_notifications = false,
+            }
+            return true;
+        }
         if self.show_settings {
             if let Some(down) = wheel {
                 self.press(if down { KeyCode::Down } else { KeyCode::Up });
@@ -834,7 +860,8 @@ impl App {
                     | Hit::SortBy(_)
                     | Hit::SettingRow(_)
                     | Hit::Overlay
-                    | Hit::MenuRow(_) => {}
+                    | Hit::MenuRow(_)
+                    | Hit::Notifications => {}
                 }
             }
             return false;
@@ -842,6 +869,13 @@ impl App {
 
         for (h, rect) in hits {
             match h {
+                Hit::Notifications => {
+                    self.show_notifications = !self.show_notifications;
+                    if self.show_notifications {
+                        crate::notify::mark_all_read();
+                    }
+                    return true;
+                }
                 Hit::Tab(i) => {
                     if let Some(m) = self.available_modes().get(i).cloned() {
                         self.set_mode(m);
@@ -1115,6 +1149,11 @@ impl App {
             return;
         }
 
+        if self.show_notifications {
+            crate::screens::notifications::handle_key(self, key.code);
+            return;
+        }
+
         if self.show_menu {
             crate::screens::menu::handle_key(self, key.code);
             return;
@@ -1365,9 +1404,11 @@ impl App {
                     (None, None) => {}
                 }
             }
-            // Esc backs out one level: unzoom, then unfocus, then the menu.
+            // Esc backs out one level: close modals, unzoom, unfocus, then the menu.
             KeyCode::Esc => {
-                if self.zoomed.is_some() {
+                if self.show_notifications {
+                    self.show_notifications = false;
+                } else if self.zoomed.is_some() {
                     self.zoomed = None;
                 } else if self.focused_panel.is_some() {
                     self.focused_panel = None;
@@ -1377,11 +1418,22 @@ impl App {
                 }
             }
 
+            KeyCode::Char('N') => {
+                self.show_notifications = true;
+                crate::notify::mark_all_read();
+            }
+            KeyCode::Char('L') => self.cycle_layout(true),
+            KeyCode::Char('l') if self.focused_panel.is_none() => self.cycle_layout(true),
+            KeyCode::Char('M') if self.focused_panel.is_none() => {
+                self.show_menu = true;
+                self.menu_row = 0;
+            }
+
             // Media transport is global: it's the whole point of a dashboard.
             KeyCode::Char(' ') if self.focused_panel != Some(PanelId::Tasks) => {
                 media::control(Action::PlayPause);
             }
-            KeyCode::Char('n') | KeyCode::Char('N') => media::control(Action::Next),
+            KeyCode::Char('n') => media::control(Action::Next),
             KeyCode::Char('p') | KeyCode::Char('P') => media::control(Action::Previous),
             KeyCode::Char('>') | KeyCode::Char('.') => media::control(Action::VolumeUp),
             KeyCode::Char('<') => media::control(Action::VolumeDown),
@@ -2203,6 +2255,9 @@ impl App {
         if self.show_menu {
             screens::menu::render(f, area, self);
         }
+        if self.show_notifications {
+            screens::notifications::render(f, area, self);
+        }
     }
 
     /// Desktop-notify alerts as they appear or turn critical. Checked each
@@ -2216,13 +2271,17 @@ impl App {
         }
         for (kind, _) in fire {
             if let Some(a) = active.iter().find(|a| a.kind == kind) {
-                use crate::notify::{send, Urgency};
+                use crate::notify::{record, Urgency};
                 let urgency = if a.critical {
                     Urgency::Critical
                 } else {
                     Urgency::Normal
                 };
-                send("vanta", &a.long, urgency);
+                record(
+                    &format!("System Alert: {}", a.kind.to_uppercase()),
+                    &a.long,
+                    urgency,
+                );
             }
         }
     }
@@ -2375,21 +2434,111 @@ impl App {
         let mut tabs: Vec<(usize, usize)> = Vec::new();
 
         let modes = self.available_modes();
+        let style_mode = crate::screens::design();
 
         for (i, m) in modes.into_iter().enumerate() {
-            let style = if m == self.mode {
-                Style::default().fg(t.bg).bg(t.accent)
-            } else {
-                dim
-            };
-            // Hotkey is simply (i+1) instead of hardcoded!
+            let is_cur = m == self.mode;
             let hotkey = format!("{}", i + 1);
-            let label = format!(" {} {} ", hotkey, m.label());
+            let (label, style) = match style_mode {
+                crate::config::DesignStyle::Brutalist => {
+                    let text = format!("[{}|{}]", hotkey, m.label().to_uppercase());
+                    let s = if is_cur {
+                        Style::default()
+                            .fg(t.bg)
+                            .bg(t.accent)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(t.text).bg(t.surface)
+                    };
+                    (text, s)
+                }
+                crate::config::DesignStyle::Retro => {
+                    let text = format!("[{}:{}]", hotkey, m.label().to_uppercase());
+                    let s = if is_cur {
+                        Style::default().fg(t.accent).add_modifier(Modifier::BOLD)
+                    } else {
+                        dim
+                    };
+                    (text, s)
+                }
+                crate::config::DesignStyle::Neon => {
+                    let text = format!("╸{} {}╺", hotkey, m.label());
+                    let s = if is_cur {
+                        Style::default().fg(t.accent).add_modifier(Modifier::BOLD)
+                    } else {
+                        dim
+                    };
+                    (text, s)
+                }
+                crate::config::DesignStyle::Cyber => {
+                    let text = format!("◢ {} {} ◣", hotkey, m.label().to_uppercase());
+                    let s = if is_cur {
+                        Style::default()
+                            .fg(t.bg)
+                            .bg(t.accent)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(t.secondary)
+                    };
+                    (text, s)
+                }
+                crate::config::DesignStyle::Material => {
+                    let text = format!(" ▰ {} {} ", hotkey, m.label());
+                    let s = if is_cur {
+                        Style::default()
+                            .fg(t.accent)
+                            .bg(crate::theme::blend(t.bg, t.surface, 0.4))
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        dim
+                    };
+                    (text, s)
+                }
+                crate::config::DesignStyle::Minimal => {
+                    let text = format!("{}:{} ", hotkey, m.label().to_lowercase());
+                    let s = if is_cur {
+                        Style::default().fg(t.accent).add_modifier(Modifier::BOLD)
+                    } else {
+                        dim
+                    };
+                    (text, s)
+                }
+                _ => {
+                    let text = format!(" {} {} ", hotkey, m.label());
+                    let s = if is_cur {
+                        Style::default().fg(t.bg).bg(t.accent)
+                    } else {
+                        dim
+                    };
+                    (text, s)
+                }
+            };
             let at: usize = right.iter().map(|s| s.content.chars().count()).sum();
             tabs.push((at, label.chars().count()));
             right.push(Span::styled(label, style));
             right.push(Span::styled(" ", base));
         }
+
+        // Notification center trigger button in title bar
+        let unread = crate::notify::unread_count();
+        let notif_label = if unread > 0 {
+            format!(" 🔔 {} ", unread)
+        } else {
+            " 🔔 0 ".to_string()
+        };
+        let notif_at: usize = right.iter().map(|s| s.content.chars().count()).sum();
+        let notif_w = notif_label.chars().count();
+        let notif_style = if unread > 0 {
+            Style::default()
+                .fg(t.bg)
+                .bg(t.yellow)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            dim
+        };
+        right.push(Span::styled(notif_label, notif_style));
+        right.push(Span::styled(" ", base));
+
         right.push(Span::styled("? help ", dim));
 
         let width = |v: &[Span]| -> usize { v.iter().map(|s| s.content.chars().count()).sum() };
@@ -2411,6 +2560,10 @@ impl App {
                     screens::Hit::Tab(i),
                 );
             }
+            screens::hit(
+                Rect::new(x0 + notif_at as u16, area.y, notif_w as u16, 1),
+                screens::Hit::Notifications,
+            );
         } else if lw < avail {
             spans.push(Span::styled(" ".repeat(avail - lw), base));
         }
@@ -2539,6 +2692,9 @@ impl App {
                             hint("n/p", "track");
                         }
                     }
+                    hint("esc", "menu");
+                    hint("L", "layout");
+                    hint("N", "alerts");
                     hint("T", "theme");
                     hint("S", "settings");
                 }

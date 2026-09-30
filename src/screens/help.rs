@@ -43,7 +43,10 @@ const SECTIONS: &[Section] = &[
     (
         "look",
         &[
-            ("T", "next theme"),
+            ("T", "next theme (30 palettes)"),
+            ("L", "cycle tab layout"),
+            ("N", "notifications center & alerts"),
+            ("M esc", "esc menu (styles, themes, layouts)"),
             ("v", "visualizer style"),
             ("g m G", "gauge · meter · graph style"),
             ("S ,", "settings"),

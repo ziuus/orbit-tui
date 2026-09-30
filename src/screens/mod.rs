@@ -4,6 +4,7 @@ pub mod debug_logs;
 pub mod help;
 pub mod menu;
 pub mod monitor;
+pub mod notifications;
 pub mod settings;
 pub mod workspace;
 
@@ -40,6 +41,8 @@ pub enum Hit {
     Overlay,
     /// The n-th Esc-menu item.
     MenuRow(usize),
+    /// The notification center trigger.
+    Notifications,
 }
 
 static HITS: std::sync::Mutex<Vec<(Rect, Hit)>> = std::sync::Mutex::new(Vec::new());
@@ -82,7 +85,8 @@ pub fn set_design(style: crate::config::DesignStyle) {
 }
 
 pub fn design() -> crate::config::DesignStyle {
-    crate::config::DesignStyle::ALL[DESIGN.load(std::sync::atomic::Ordering::Relaxed) as usize % 6]
+    let all = crate::config::DesignStyle::ALL;
+    all[DESIGN.load(std::sync::atomic::Ordering::Relaxed) as usize % all.len()]
 }
 
 /// Panel chrome shared by every page. Its shape follows the design style;
@@ -104,13 +108,16 @@ pub fn panel_full(
     let (border, text) = match (style, focused) {
         (_, true) => (theme.accent, theme.accent),
         (D::Neon, false) => (blend(theme.accent, theme.bg, 0.35), theme.secondary),
+        (D::Cyber, false) => (blend(theme.secondary, theme.bg, 0.45), theme.accent),
         (D::Glass, false) => (blend(theme.surface, theme.text, 0.28), theme.text),
+        (D::Material, false) => (blend(theme.surface, theme.accent, 0.25), theme.text),
         (D::Brutalist, false) => (theme.dim, theme.text),
         (D::Retro, false) => (theme.dim, theme.text),
         _ => (theme.border(), theme.dim),
     };
     let fill = match style {
         D::Glass => Some(blend(theme.bg, theme.text, 0.075)),
+        D::Material => Some(blend(theme.bg, theme.surface, 0.35)),
         _ => None,
     };
 
@@ -132,6 +139,14 @@ pub fn panel_full(
                 format!("╸{}╺", t),
                 Style::default().fg(color).add_modifier(Modifier::BOLD),
             ),
+            D::Cyber => Span::styled(
+                format!("◢ {} ◣", t.to_uppercase()),
+                Style::default().fg(color).add_modifier(Modifier::BOLD),
+            ),
+            D::Material => Span::styled(
+                format!(" ▰ {} ", t),
+                Style::default().fg(color).add_modifier(Modifier::BOLD),
+            ),
             D::Minimal => {
                 Span::styled(format!("{} ", t.to_lowercase()), Style::default().fg(color))
             }
@@ -141,6 +156,8 @@ pub fn panel_full(
 
     let (borders, border_type) = match style {
         D::Soft | D::Glass | D::Neon => (Borders::ALL, BorderType::Rounded),
+        D::Cyber => (Borders::ALL, BorderType::Rounded),
+        D::Material => (Borders::ALL, BorderType::Plain),
         D::Brutalist => (Borders::ALL, BorderType::Thick),
         D::Retro => (Borders::ALL, BorderType::Double),
         D::Minimal => (Borders::TOP, BorderType::Plain),
@@ -176,6 +193,13 @@ pub fn panel_full(
                     Style::default().fg(theme.bg).bg(theme.dim),
                 ),
                 D::Retro => Span::styled(format!("[ {} ]", shown), Style::default().fg(theme.dim)),
+                D::Cyber => Span::styled(
+                    format!("// {} //", shown),
+                    Style::default().fg(theme.secondary),
+                ),
+                D::Material => {
+                    Span::styled(format!("· {} ", shown), Style::default().fg(theme.dim))
+                }
                 _ => Span::styled(format!(" {} ", shown), Style::default().fg(theme.dim)),
             };
             block = block.title_top(Line::from(span).alignment(Alignment::Right));

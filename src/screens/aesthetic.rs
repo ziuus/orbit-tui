@@ -44,6 +44,10 @@ pub enum Scene {
     Aurora,
     /// A lava lamp of merging, splitting metaballs.
     Lava,
+    /// Rainy cyberpunk megacity skyline with neon reflections and glowing windows.
+    Cyberpunk,
+    /// Relativistic accretion disk swirling around a gravitational black hole horizon.
+    BlackHole,
     Creative,
 }
 
@@ -64,6 +68,8 @@ impl Scene {
             Scene::Synthwave => "synthwave",
             Scene::Aurora => "aurora",
             Scene::Lava => "lava lamp",
+            Scene::Cyberpunk => "cyberpunk",
+            Scene::BlackHole => "black hole",
             Scene::Creative => "creative",
         }
     }
@@ -124,6 +130,8 @@ pub fn scenes(app: &App) -> Vec<Scene> {
     v.push(Scene::Synthwave);
     v.push(Scene::Aurora);
     v.push(Scene::Lava);
+    v.push(Scene::Cyberpunk);
+    v.push(Scene::BlackHole);
     v.push(Scene::Starfield);
     v.push(Scene::Life);
     v.push(Scene::Snow);
@@ -178,10 +186,12 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
             snow(f, stage, app, theme);
             caption(f, stage, app, theme, t);
         }
-        Scene::Synthwave | Scene::Aurora | Scene::Lava => {
+        Scene::Synthwave | Scene::Aurora | Scene::Lava | Scene::Cyberpunk | Scene::BlackHole => {
             let paint = match scene {
                 Scene::Synthwave => crate::widgets::scenes::synthwave,
                 Scene::Aurora => crate::widgets::scenes::aurora,
+                Scene::Cyberpunk => crate::widgets::scenes::cyberpunk,
+                Scene::BlackHole => crate::widgets::scenes::blackhole,
                 _ => crate::widgets::scenes::lava,
             };
             let night = app.night == Some(true);
