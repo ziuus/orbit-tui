@@ -222,25 +222,64 @@ impl PanelId {
     }
 }
 
-/// Conditions worth interrupting a glance for, most severe first.
-/// Each entry is (short message, critical?).
-pub fn alerts(s: &Summary) -> Vec<(String, bool)> {
+/// A condition worth interrupting a glance for.
+pub struct Alert {
+    /// Stable identity, for notifying once per occurrence.
+    pub kind: &'static str,
+    /// Short form for the title-bar pill.
+    pub short: String,
+    /// Sentence for the desktop notification.
+    pub long: String,
+    pub critical: bool,
+}
+
+/// Active alerts, most severe first.
+pub fn alerts(s: &Summary) -> Vec<Alert> {
     let mut out = Vec::new();
+    let mut push = |kind, short: String, long: String, critical| {
+        out.push(Alert {
+            kind,
+            short,
+            long,
+            critical,
+        })
+    };
     if let Some((p, false)) = s.battery {
         if p <= 20 {
-            out.push((format!("bat {}%", p), p <= 10));
+            let long = if p <= 10 {
+                format!("Battery critical: {}%. Plug in now.", p)
+            } else {
+                format!("Battery low: {}%.", p)
+            };
+            push("bat", format!("bat {}%", p), long, p <= 10);
         }
     }
     if let Some(c) = s.temp_c.filter(|_| s.hot) {
-        out.push((format!("hot {:.0}°", c), s.temp_critical()));
+        let crit = s.temp_critical();
+        let long = if crit {
+            format!("CPU at {:.0}°, at its thermal limit. It will throttle.", c)
+        } else {
+            format!("CPU running hot: {:.0}°.", c)
+        };
+        push("hot", format!("hot {:.0}°", c), long, crit);
     }
     if let Some(d) = s.disk_pct.filter(|d| *d >= 90.0) {
-        out.push((format!("disk {:.0}%", d), d >= 97.0));
+        push(
+            "disk",
+            format!("disk {:.0}%", d),
+            format!("Root disk {:.0}% full.", d),
+            d >= 97.0,
+        );
     }
     if s.mem_pct >= 90.0 {
-        out.push((format!("mem {:.0}%", s.mem_pct), s.mem_pct >= 97.0));
+        push(
+            "mem",
+            format!("mem {:.0}%", s.mem_pct),
+            format!("Memory {:.0}% used.", s.mem_pct),
+            s.mem_pct >= 97.0,
+        );
     }
-    out.sort_by_key(|(_, crit)| !crit);
+    out.sort_by_key(|a| !a.critical);
     out
 }
 
@@ -362,6 +401,7 @@ pub struct App {
     pub last_input: Instant,
     /// Last left click (time, column, row), for double-click detection.
     last_click: Option<(Instant, u16, u16)>,
+    alert_latch: crate::notify::AlertLatch,
     /// Whether `theme` is currently the night-dimmed variant; `None` forces
     /// it to be rebuilt on the next frame (after a theme or setting change).
     pub night: Option<bool>,
@@ -446,6 +486,7 @@ impl App {
             summary: Summary::default(),
             last_input: Instant::now(),
             last_click: None,
+            alert_latch: Default::default(),
             night: None,
             toast: None,
             pending_signal: None,
@@ -1956,6 +1997,7 @@ impl App {
         // Advance custom widget history buffers before any rendering.
         self.custom_widgets.tick();
         crate::widgets::pomodoro::tick(&self.config.ui);
+        self.announce_alerts();
         self.apply_night();
 
         let area = f.area();
@@ -2027,6 +2069,28 @@ impl App {
             screens::setup_wizard::render(f, area, self);
         } else if self.show_settings {
             screens::settings::render(f, area, self);
+        }
+    }
+
+    /// Desktop-notify alerts as they appear or turn critical. Checked each
+    /// frame but only acts on changes, so it costs a comparison.
+    fn announce_alerts(&mut self) {
+        let active = alerts(&self.summary);
+        let keys: Vec<(&'static str, bool)> = active.iter().map(|a| (a.kind, a.critical)).collect();
+        let fire = self.alert_latch.update(&keys);
+        if !self.config.ui.notify {
+            return;
+        }
+        for (kind, _) in fire {
+            if let Some(a) = active.iter().find(|a| a.kind == kind) {
+                use crate::notify::{send, Urgency};
+                let urgency = if a.critical {
+                    Urgency::Critical
+                } else {
+                    Urgency::Normal
+                };
+                send("vanta", &a.long, urgency);
+            }
         }
     }
 
@@ -2137,10 +2201,10 @@ impl App {
         // The most severe active alert gets a coloured pill so it's visible
         // from across the room; extra alerts are summarised as "+N".
         let alerts = alerts(s);
-        if let Some((msg, crit)) = alerts.first() {
-            let bg = if *crit { t.red } else { t.yellow };
+        if let Some(a) = alerts.first() {
+            let bg = if a.critical { t.red } else { t.yellow };
             left.push(Span::styled(
-                format!(" ⚠ {} ", msg),
+                format!(" ⚠ {} ", a.short),
                 Style::default()
                     .fg(t.bg)
                     .bg(bg)

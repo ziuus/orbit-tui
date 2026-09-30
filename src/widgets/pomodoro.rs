@@ -186,14 +186,8 @@ pub fn tick(ui: &UiConfig) {
             Phase::Focus => "Focus session done. Take a break.",
             _ => "Break's over. Back to it.",
         };
-        // Desktop notification when available; the terminal bell otherwise.
-        if std::process::Command::new("notify-send")
-            .args(["-a", "vanta", "vanta", body])
-            .spawn()
-            .is_err()
-        {
-            use std::io::Write;
-            let _ = std::io::stdout().write_all(b"\x07");
+        if ui.notify {
+            crate::notify::send("vanta", body, crate::notify::Urgency::Normal);
         }
     }
 }

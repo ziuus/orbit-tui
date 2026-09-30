@@ -47,6 +47,7 @@ pub enum SettingType {
     FocusMinutes,
     BreakMinutes,
     Mouse,
+    Notify,
     WidgetCpu,
     WidgetMemory,
     WidgetDisk,
@@ -226,6 +227,12 @@ pub const SETTINGS_ITEMS: &[Item] = &[
         "Mouse",
         "Click, scroll and select. Off restores terminal text selection.",
     ),
+    item(
+        S::Notify,
+        "input",
+        "Desktop notifications",
+        "Low battery, overheating, full disk and focus-timer alerts.",
+    ),
     item(S::WidgetCpu, "panels", "CPU", "Show the CPU panel."),
     item(
         S::WidgetMemory,
@@ -360,6 +367,7 @@ fn value(app: &App, kind: SettingType) -> Value {
         S::FocusMinutes => format!("{} min", ui.focus_minutes),
         S::BreakMinutes => format!("{} min", ui.break_minutes),
         S::Mouse => return Value::Switch(ui.mouse),
+        S::Notify => return Value::Switch(ui.notify),
         S::ImageQuality => if app.panel_states.pixel_images {
             "braille"
         } else {
@@ -726,6 +734,7 @@ pub fn change_setting(app: &mut App, forward: bool) {
                 crate::mouse::disable();
             }
         }
+        S::Notify => ui.notify = !ui.notify,
         S::ImageQuality => app.panel_states.pixel_images = !app.panel_states.pixel_images,
         S::SystemLogo => app.panel_states.force_robot_logo = !app.panel_states.force_robot_logo,
         _ => {}

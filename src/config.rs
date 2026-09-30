@@ -198,6 +198,9 @@ pub struct UiConfig {
     /// own text selection alone.
     #[serde(default = "default_true")]
     pub mouse: bool,
+    /// Desktop notifications for alerts and the focus timer.
+    #[serde(default = "default_true")]
+    pub notify: bool,
     /// Dim every colour during these hours: "22:00-07:00", "always", or ""
     /// (off). Wraps past midnight.
     pub night_hours: String,
@@ -308,6 +311,7 @@ impl Default for UiConfig {
             long_break_minutes: default_long_break_minutes(),
             night_hours: String::new(),
             mouse: true,
+            notify: true,
         }
     }
 }

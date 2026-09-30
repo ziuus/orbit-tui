@@ -13,4 +13,5 @@ pub mod custom;
 pub mod mode;
 pub mod monitors;
 pub mod mouse;
+pub mod notify;
 pub mod widgets;
