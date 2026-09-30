@@ -5,6 +5,7 @@ use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use ratatui::Frame;
 
 use crate::app::{App, PanelId};
+use crate::config::WidgetConfig;
 use crate::monitors::files;
 use crate::monitors::obsidian;
 use crate::screens::{panel, panel_full};
@@ -16,51 +17,18 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
     let focused_panel = app.focused_panel;
     let focus = |id: PanelId| focused_panel == Some(id);
 
-    // The left column holds the timer's big digits and task text, so it
-    // never drops below what those need; the notes side keeps 40 too.
-    let half = area.width / 2;
-    let left_w = (area.width as u32 * app.panel_states.work_ratio as u32 / 100) as u16;
-    let left_w = left_w.clamp(40.min(half), area.width.saturating_sub(40).max(half));
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(left_w), Constraint::Min(0)])
-        .split(area);
-
-    let prod_area = chunks[0];
-    let right_area = chunks[1];
-
-    let right_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(right_area);
-
-    let notes_area = right_chunks[0];
-    let files_area = right_chunks[1];
-
-    // Left column: focus timer, agenda, tasks; news only when there's room
-    // to spare, since a feed is the opposite of focus.
-    let show_news = cfg.news && prod_area.height >= 44;
-    // 10 rows is the minimum that fits the 5-row big digits.
-    let timer_h = match prod_area.height {
-        36.. => 11,
-        30.. => 10,
-        _ => 7,
-    };
-    let [timer_area, agenda_area, tasks_area, news_area] = Layout::vertical([
-        Constraint::Length(timer_h),
-        Constraint::Length(if cfg.agenda { 9 } else { 0 }),
-        Constraint::Min(if cfg.tasks { 6 } else { 0 }),
-        Constraint::Length(if show_news { 10 } else { 0 }),
-    ])
-    .areas(prod_area);
+    let layout = app.config.ui.focus_layout.clone();
+    let [timer_area, agenda_area, tasks_area, news_area, notes_area, files_area] =
+        focus_areas(&layout, area, app.panel_states.work_ratio, &cfg);
     let rows = [agenda_area, tasks_area, news_area];
 
     let timer_focused = focus(PanelId::Timer);
+    let show_news = cfg.news && news_area.height > 2;
     crate::screens::hit(timer_area, crate::screens::Hit::Panel(PanelId::Timer));
     let inner = panel(f, timer_area, "focus timer", theme, timer_focused);
     crate::widgets::pomodoro::render(f, inner, theme, &app.config.ui, timer_focused);
 
-    if cfg.agenda {
+    if cfg.agenda && agenda_area.height > 2 {
         let snap = crate::monitors::agenda::snapshot();
         let count = snap.events.len();
         let agenda_rt = if count == 0 {
@@ -94,7 +62,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
         );
     }
 
-    if cfg.tasks {
+    if cfg.tasks && tasks_area.height > 2 {
         let snap = crate::monitors::tasks::snapshot();
         let open = snap.tasks.iter().filter(|t| !t.completed).count();
         let tasks_rt = format!(" {} open ", open);
@@ -144,8 +112,12 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
         crate::widgets::news::render(f, inner, theme);
     }
 
-    // Top Right: Notes
-    render_notes(f, notes_area, app);
+    if notes_area.height > 2 {
+        render_notes(f, notes_area, app);
+    }
+    if files_area.height < 3 {
+        return;
+    }
 
     // Bottom Right: Files
     let files_hint = if app.panel_states.files_show_hidden {
@@ -325,6 +297,74 @@ fn ago(secs: u64) -> String {
         3600..86_400 => format!("{}h ago", secs / 3600),
         86_400..1_209_600 => format!("{}d ago", secs / 86_400),
         _ => format!("{}w ago", secs / 604_800),
+    }
+}
+
+/// Focus layouts, cycled from the Esc menu (ui.focus_layout).
+pub const LAYOUTS: [&str; 4] = ["classic", "writer", "planner", "files"];
+
+/// Areas for [timer, agenda, tasks, news, notes, files]; a zero-height
+/// area means that panel isn't part of the layout.
+fn focus_areas(layout: &str, area: Rect, work_ratio: u16, cfg: &WidgetConfig) -> [Rect; 6] {
+    let none = Rect::new(area.x, area.y, 0, 0);
+    // The left column holds the timer's big digits and task text, so it
+    // never drops below what those need; the right side keeps 40 too.
+    let half = area.width / 2;
+    let left_w = (area.width as u32 * work_ratio as u32 / 100) as u16;
+    let left_w = left_w.clamp(40.min(half), area.width.saturating_sub(40).max(half));
+    let [left, right] =
+        Layout::horizontal([Constraint::Length(left_w), Constraint::Min(0)]).areas(area);
+    // 10 rows is the minimum that fits the 5-row big digits.
+    let timer_h = |h: u16| match h {
+        36.. => 11,
+        30.. => 10,
+        _ => 7,
+    };
+    let column = |col: Rect, agenda: bool| -> [Rect; 4] {
+        // News only when there's room to spare: a feed is the opposite of focus.
+        let news = cfg.news && col.height >= 44;
+        Layout::vertical([
+            Constraint::Length(timer_h(col.height)),
+            Constraint::Length(if agenda && cfg.agenda { 9 } else { 0 }),
+            Constraint::Min(if cfg.tasks { 6 } else { 0 }),
+            Constraint::Length(if news { 10 } else { 0 }),
+        ])
+        .areas(col)
+    };
+    match layout {
+        // A tall note preview; the timer and tasks beside it.
+        "writer" => {
+            let [t, a, k, n] = column(left, true);
+            [t, a, k, n, right, none]
+        }
+        // Plan the day: timer, agenda and tasks side by side over the notes
+        // and files.
+        "planner" => {
+            let [top, bottom] =
+                Layout::vertical([Constraint::Percentage(48), Constraint::Min(8)]).areas(area);
+            let [t, a, k] = Layout::horizontal([
+                Constraint::Percentage(34),
+                Constraint::Percentage(33),
+                Constraint::Percentage(33),
+            ])
+            .areas(top);
+            let [notes, files] =
+                Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .areas(bottom);
+            [t, a, k, none, notes, files]
+        }
+        // The file manager full height.
+        "files" => {
+            let [t, a, k, n] = column(left, true);
+            [t, a, k, n, none, right]
+        }
+        _ => {
+            let [t, a, k, n] = column(left, true);
+            let [notes, files] =
+                Layout::vertical([Constraint::Percentage(50), Constraint::Percentage(50)])
+                    .areas(right);
+            [t, a, k, n, notes, files]
+        }
     }
 }
 

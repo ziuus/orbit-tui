@@ -191,6 +191,10 @@ pub struct UiConfig {
     pub performance_mode: PerformanceMode,
     /// Design style (see DesignStyle).
     pub style: DesignStyle,
+    /// Monitor page layout: classic | processes | side | graphs.
+    pub monitor_layout: String,
+    /// Focus page layout: classic | writer | planner | files.
+    pub focus_layout: String,
     /// Seconds between data samples (CPU, memory, processes, ...).
     pub refresh_rate: f64,
     /// Render frames per second. Animations (visualizer, matrix, donut) run at this rate.
@@ -327,6 +331,8 @@ impl Default for UiConfig {
         Self {
             performance_mode: PerformanceMode::Normal,
             style: DesignStyle::Soft,
+            monitor_layout: "classic".to_string(),
+            focus_layout: "classic".to_string(),
             refresh_rate: 0.5,
             fps: 30,
             theme: "dark".to_string(),

@@ -607,29 +607,42 @@ impl App {
     pub fn layout_name(&self) -> String {
         match self.mode {
             DashboardMode::Dashboard => self.config.dashboard.preset.clone(),
-            _ => "default".to_string(),
+            DashboardMode::Monitor => self.config.ui.monitor_layout.clone(),
+            DashboardMode::Workspace => self.config.ui.focus_layout.clone(),
+            _ => "scenes".to_string(),
         }
     }
 
     /// Step the current page to its next/previous layout.
     pub fn cycle_layout(&mut self, forward: bool) {
-        if self.mode == DashboardMode::Dashboard {
-            const PRESETS: [&str; 5] =
-                ["cockpit", "monitoring", "minimal", "aesthetic", "workspace"];
-            let i = PRESETS
-                .iter()
-                .position(|p| *p == self.config.dashboard.preset)
-                .unwrap_or(0);
-            let n = PRESETS.len();
-            let next = PRESETS[if forward {
-                (i + 1) % n
-            } else {
-                (i + n - 1) % n
-            }];
-            self.config.dashboard.apply_preset(next);
-            self.config.save();
-            self.toast(format!("layout · {}", next));
+        const OVERVIEW: [&str; 5] = ["cockpit", "monitoring", "minimal", "aesthetic", "workspace"];
+        let (list, cur): (&[&str], String) = match self.mode {
+            DashboardMode::Dashboard => (&OVERVIEW, self.config.dashboard.preset.clone()),
+            DashboardMode::Monitor => (
+                &screens::monitor::LAYOUTS,
+                self.config.ui.monitor_layout.clone(),
+            ),
+            DashboardMode::Workspace => (
+                &screens::workspace::LAYOUTS,
+                self.config.ui.focus_layout.clone(),
+            ),
+            _ => return,
+        };
+        let n = list.len();
+        let i = list.iter().position(|p| *p == cur).unwrap_or(0);
+        let next = list[if forward {
+            (i + 1) % n
+        } else {
+            (i + n - 1) % n
+        }]
+        .to_string();
+        match self.mode {
+            DashboardMode::Dashboard => self.config.dashboard.apply_preset(&next),
+            DashboardMode::Monitor => self.config.ui.monitor_layout = next.clone(),
+            _ => self.config.ui.focus_layout = next.clone(),
         }
+        self.config.save();
+        self.toast(format!("layout · {}", next));
     }
 
     fn set_theme(&mut self, next: String) {

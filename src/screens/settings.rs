@@ -27,6 +27,8 @@ fn centered(area: Rect, w: u16, h: u16) -> Rect {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SettingType {
     DashboardPreset,
+    MonitorLayout,
+    FocusLayout,
     ClockFont,
     ClockStyle,
     Theme,
@@ -173,6 +175,18 @@ pub const SETTINGS_ITEMS: &[Item] = &[
         "layout",
         "Overview layout",
         "Which panels the Overview page shows, and where.",
+    ),
+    item(
+        S::MonitorLayout,
+        "layout",
+        "Monitor layout",
+        "classic, processes-first, side-by-side, or graphs-first.",
+    ),
+    item(
+        S::FocusLayout,
+        "layout",
+        "Focus layout",
+        "classic, writer (big notes), planner (day at a glance) or files.",
     ),
     item(
         S::AmbientRotate,
@@ -345,6 +359,8 @@ fn value(app: &App, kind: SettingType) -> Value {
     }
     Value::Text(match kind {
         S::DashboardPreset => app.config.dashboard.preset.clone(),
+        S::MonitorLayout => ui.monitor_layout.clone(),
+        S::FocusLayout => ui.focus_layout.clone(),
         S::Theme => ui.theme.clone(),
         S::DesignStyle => ui.style.label().to_string(),
         S::NightHours => match ui.night_hours.trim() {
@@ -652,6 +668,14 @@ pub fn change_setting(app: &mut App, forward: bool) {
             app.config.dashboard.apply_preset(&next);
         }
         S::Theme => app.cycle_theme(),
+        S::MonitorLayout => {
+            let opts = crate::screens::monitor::LAYOUTS.map(String::from);
+            ui.monitor_layout = cycle(&opts, &ui.monitor_layout, forward);
+        }
+        S::FocusLayout => {
+            let opts = crate::screens::workspace::LAYOUTS.map(String::from);
+            ui.focus_layout = cycle(&opts, &ui.focus_layout, forward);
+        }
         S::DesignStyle => return app.cycle_style(forward),
         S::NightHours => {
             let presets = crate::config::NIGHT_PRESETS.map(String::from);
