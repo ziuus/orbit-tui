@@ -638,7 +638,14 @@ impl App {
 
     /// Step the current page to its next/previous layout.
     pub fn cycle_layout(&mut self, forward: bool) {
-        const OVERVIEW: [&str; 5] = ["cockpit", "monitoring", "minimal", "aesthetic", "workspace"];
+        const OVERVIEW: [&str; 6] = [
+            "mirador",
+            "cockpit",
+            "monitoring",
+            "minimal",
+            "aesthetic",
+            "workspace",
+        ];
         let (list, cur): (&[&str], String) = match self.mode {
             DashboardMode::Dashboard => (&OVERVIEW, self.config.dashboard.preset.clone()),
             DashboardMode::Monitor => (

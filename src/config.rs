@@ -35,6 +35,15 @@ pub struct DashboardConfig {
 }
 
 impl DashboardConfig {
+    pub fn preset_mirador() -> Vec<Vec<String>> {
+        let col = |names: &[&str]| names.iter().map(|s| s.to_string()).collect();
+        vec![
+            col(&["clock", "weather", "calendar"]),
+            col(&["tasks", "agenda", "notes"]),
+            col(&["pomodoro", "cpu", "memory", "network"]),
+        ]
+    }
+
     pub fn preset_cockpit() -> Vec<Vec<String>> {
         let col = |names: &[&str]| names.iter().map(|s| s.to_string()).collect();
         vec![
@@ -93,14 +102,22 @@ impl DashboardConfig {
 
     /// Fill an empty layout and upgrade an untouched legacy cockpit.
     fn migrate(&mut self) {
-        if self.layout.is_empty() || self.layout == Self::legacy_cockpit() {
-            self.layout = Self::preset_cockpit();
+        if self.layout.is_empty()
+            || self.layout == Self::legacy_cockpit()
+            || (self.layout == Self::preset_cockpit() && self.preset != "cockpit")
+        {
+            if self.preset.is_empty() {
+                self.preset = "cockpit".to_string();
+            }
+            let p = self.preset.clone();
+            self.apply_preset(&p);
         }
     }
 
     pub fn apply_preset(&mut self, preset_name: &str) {
         self.preset = preset_name.to_string();
         match preset_name {
+            "mirador" => self.layout = Self::preset_mirador(),
             "cockpit" => self.layout = Self::preset_cockpit(),
             "minimal" => self.layout = Self::preset_minimal(),
             "monitoring" => self.layout = Self::preset_monitoring(),
