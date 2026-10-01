@@ -306,7 +306,7 @@ fn ago(secs: u64) -> String {
 }
 
 /// Focus layouts, cycled from the Esc menu (ui.focus_layout).
-pub const LAYOUTS: [&str; 5] = ["classic", "writer", "planner", "files", "zen"];
+pub const LAYOUTS: [&str; 6] = ["mirador", "classic", "writer", "planner", "files", "zen"];
 
 /// Areas for [timer, agenda, tasks, news, notes, files]; a zero-height
 /// area means that panel isn't part of the layout.
@@ -337,6 +337,35 @@ fn focus_areas(layout: &str, area: Rect, work_ratio: u16, cfg: &WidgetConfig) ->
         .areas(col)
     };
     match layout {
+        "mirador" => {
+            let [top, mid, bot] = if area.height >= 34 {
+                let [t, m, b] = Layout::vertical([
+                    Constraint::Length(10),
+                    Constraint::Min(10),
+                    Constraint::Length(8),
+                ])
+                .areas(area);
+                [t, m, b]
+            } else {
+                let [t, m] =
+                    Layout::vertical([Constraint::Length(9), Constraint::Min(8)]).areas(area);
+                [t, m, none]
+            };
+
+            let [t, a, n] = Layout::horizontal([
+                Constraint::Percentage(35),
+                Constraint::Percentage(35),
+                Constraint::Percentage(30),
+            ])
+            .areas(top);
+
+            let [k, notes] =
+                Layout::horizontal([Constraint::Percentage(38), Constraint::Percentage(62)])
+                    .areas(mid);
+
+            let files = bot;
+            [t, a, k, n, notes, files]
+        }
         // A tall note preview; the timer and tasks beside it.
         "writer" => {
             let [t, a, k, n] = column(left, true);

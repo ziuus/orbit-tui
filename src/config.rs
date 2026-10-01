@@ -35,13 +35,17 @@ pub struct DashboardConfig {
 }
 
 impl DashboardConfig {
-    pub fn preset_lookout() -> Vec<Vec<String>> {
+    pub fn preset_mirador() -> Vec<Vec<String>> {
         let col = |names: &[&str]| names.iter().map(|s| s.to_string()).collect();
         vec![
-            col(&["clock", "weather", "calendar"]),
-            col(&["tasks", "agenda", "notes"]),
-            col(&["pomodoro", "cpu", "memory", "network"]),
+            col(&["clock", "tasks", "news", "pomodoro"]),
+            col(&["calendar", "agenda", "media", "cpu", "memory"]),
+            col(&["weather", "notes", "network", "disk"]),
         ]
+    }
+
+    pub fn preset_lookout() -> Vec<Vec<String>> {
+        Self::preset_mirador()
     }
 
     pub fn preset_cockpit() -> Vec<Vec<String>> {
@@ -117,7 +121,7 @@ impl DashboardConfig {
     pub fn apply_preset(&mut self, preset_name: &str) {
         self.preset = preset_name.to_string();
         match preset_name {
-            "lookout" | "mirador" => self.layout = Self::preset_lookout(),
+            "mirador" | "lookout" => self.layout = Self::preset_mirador(),
             "cockpit" => self.layout = Self::preset_cockpit(),
             "minimal" => self.layout = Self::preset_minimal(),
             "monitoring" => self.layout = Self::preset_monitoring(),
@@ -131,8 +135,8 @@ impl DashboardConfig {
 impl Default for DashboardConfig {
     fn default() -> Self {
         Self {
-            preset: "cockpit".to_string(),
-            layout: Self::preset_cockpit(),
+            preset: "mirador".to_string(),
+            layout: Self::preset_mirador(),
         }
     }
 }
@@ -402,7 +406,7 @@ impl Default for UiConfig {
             performance_mode: PerformanceMode::Normal,
             style: DesignStyle::Soft,
             monitor_layout: "classic".to_string(),
-            focus_layout: "classic".to_string(),
+            focus_layout: "mirador".to_string(),
             refresh_rate: 0.5,
             fps: 30,
             theme: "dark".to_string(),
@@ -883,10 +887,10 @@ mod tests {
             fps = 60
         "#;
         let cfg: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(cfg.dashboard.layout, DashboardConfig::preset_cockpit());
+        assert_eq!(cfg.dashboard.layout, DashboardConfig::preset_mirador());
         assert_eq!(
             cfg.dashboard.layout[2],
-            vec!["weather", "calendar", "upnext", "status"]
+            vec!["weather", "notes", "network", "disk"]
         );
     }
 

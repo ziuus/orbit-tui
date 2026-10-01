@@ -21,7 +21,10 @@ pub struct CryptoSnapshot {
 static SNAP: LazyLock<Mutex<CryptoSnapshot>> =
     LazyLock::new(|| Mutex::new(CryptoSnapshot::default()));
 
+static DEMAND: super::Demand = super::Demand::new();
+
 pub fn snapshot() -> CryptoSnapshot {
+    DEMAND.touch();
     SNAP.lock().unwrap().clone()
 }
 
@@ -54,6 +57,10 @@ pub fn start() {
     std::thread::Builder::new()
         .name("vanta-crypto".into())
         .spawn(|| loop {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            if !DEMAND.due(std::time::Duration::from_secs(60)) {
+                continue;
+            }
             let mut snap = CryptoSnapshot {
                 ready: true,
                 assets: vec![],

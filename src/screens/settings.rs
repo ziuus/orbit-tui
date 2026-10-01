@@ -691,6 +691,9 @@ pub fn change_setting(app: &mut App, forward: bool) {
     };
     if let Some(flag) = widget_flag(&mut app.config.widgets, kind) {
         *flag = !*flag;
+        if kind == S::WidgetMusicViz {
+            crate::widgets::music_viz::set_enabled(*flag);
+        }
         app.config.save();
         return;
     }
@@ -698,7 +701,7 @@ pub fn change_setting(app: &mut App, forward: bool) {
     match kind {
         S::DashboardPreset => {
             let presets = [
-                "lookout",
+                "mirador",
                 "cockpit",
                 "monitoring",
                 "minimal",

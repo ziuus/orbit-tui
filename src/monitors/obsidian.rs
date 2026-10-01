@@ -32,7 +32,10 @@ pub struct ObsidianSnapshot {
 static SNAP: LazyLock<Mutex<ObsidianSnapshot>> =
     LazyLock::new(|| Mutex::new(ObsidianSnapshot::default()));
 
+static DEMAND: super::Demand = super::Demand::new();
+
 pub fn snapshot() -> ObsidianSnapshot {
+    DEMAND.touch();
     SNAP.lock().unwrap().clone()
 }
 
@@ -177,7 +180,10 @@ pub fn start(configured_vault: String) {
     *SNAP.lock().unwrap() = scan_vault(&vault_path);
 
     std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_secs(4));
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+        if !DEMAND.due(std::time::Duration::from_secs(4)) {
+            continue;
+        }
         let vault_path = detect_vault_path(&configured_vault);
         let fresh = scan_vault(&vault_path);
         *SNAP.lock().unwrap() = fresh;

@@ -14,8 +14,265 @@ const MIN: (u16, u16) = (80, 24);
 /// Data-driven dashboard layout: reads `dashboard.layout` from config,
 /// supporting user-defined column assignments, panel reordering, and custom widgets.
 pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
+    if app.config.dashboard.preset == "mirador" || app.config.dashboard.preset == "lookout" {
+        render_mirador(f, area, app);
+        return;
+    }
     let layout = app.config.dashboard.layout.clone();
     render_layout(f, area, app, &layout);
+}
+
+pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
+    if area.width < MIN.0 || area.height < MIN.1 {
+        too_small(f, area, &app.theme, MIN);
+        return;
+    }
+    let theme = app.theme.clone();
+    let focused_panel = app.focused_panel;
+    let focus = |id: PanelId| focused_panel == Some(id);
+
+    let has_tier3 = area.height >= 34;
+    let (t1_h, t3_h, t4_h) = if area.height >= 42 {
+        (12, 8, 7)
+    } else if area.height >= 34 {
+        (11, 7, 6)
+    } else {
+        (10, 0, 6)
+    };
+
+    let [tier1_area, tier2_area, tier3_area, tier4_area] = if has_tier3 {
+        let [t1, t2, t3, t4] = Layout::vertical([
+            Constraint::Length(t1_h),
+            Constraint::Min(10),
+            Constraint::Length(t3_h),
+            Constraint::Length(t4_h),
+        ])
+        .areas(area);
+        [t1, t2, t3, t4]
+    } else {
+        let [t1, t2, t4] = Layout::vertical([
+            Constraint::Length(t1_h),
+            Constraint::Min(8),
+            Constraint::Length(t4_h),
+        ])
+        .areas(area);
+        [t1, t2, Rect::default(), t4]
+    };
+
+    // ── Tier 1: Clock (42%), Calendar (28%), Weather (30%) ──
+    let [c_clock, c_cal, c_wea] = Layout::horizontal([
+        Constraint::Percentage(42),
+        Constraint::Percentage(28),
+        Constraint::Percentage(30),
+    ])
+    .areas(tier1_area);
+
+    // 1 Clock
+    crate::screens::hit(c_clock, crate::screens::Hit::Panel(PanelId::Clock));
+    let local_tz = chrono::Local::now().format("%Z").to_string();
+    let clock_inner = panel_full(
+        f,
+        c_clock,
+        "1 clock",
+        Some(&local_tz),
+        None,
+        &theme,
+        focus(PanelId::Clock),
+    );
+    clock::render_with_note(
+        f,
+        clock_inner,
+        &theme,
+        app.config.ui.clock_24h,
+        &app.config.ui.clock_font,
+        &app.config.ui.clock_style,
+        &app.config.ui.timezones,
+        None,
+    );
+
+    // 2 Calendar
+    crate::screens::hit(c_cal, crate::screens::Hit::Panel(PanelId::Calendar));
+    let cal_inner = panel_full(
+        f,
+        c_cal,
+        "2 calendar",
+        None,
+        None,
+        &theme,
+        focus(PanelId::Calendar),
+    );
+    if cal_inner.width >= 40 {
+        let [m1, m2] = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .areas(cal_inner);
+        calendar::render(f, m1, &theme, 0);
+        calendar::render(f, m2, &theme, 1);
+    } else {
+        calendar::render(f, cal_inner, &theme, 0);
+    }
+
+    // 3 Weather
+    crate::screens::hit(c_wea, crate::screens::Hit::Panel(PanelId::Weather));
+    let w_snap = crate::monitors::weather::snapshot();
+    let w_title = if w_snap.location.is_empty() {
+        "3 weather".to_string()
+    } else {
+        format!("3 weather — {}", w_snap.location)
+    };
+    let wea_inner = panel_full(
+        f,
+        c_wea,
+        &w_title,
+        None,
+        None,
+        &theme,
+        focus(PanelId::Weather),
+    );
+    crate::widgets::weather::render(f, wea_inner, &theme);
+
+    // ── Tier 2: Tasks (33%), Agenda (33%), Notes (34%) ──
+    let [c_tasks, c_agenda, c_notes] = Layout::horizontal([
+        Constraint::Percentage(33),
+        Constraint::Percentage(33),
+        Constraint::Percentage(34),
+    ])
+    .areas(tier2_area);
+
+    // 4 Tasks
+    crate::screens::hit(c_tasks, crate::screens::Hit::Panel(PanelId::Tasks));
+    let t_snap = crate::monitors::tasks::snapshot();
+    let t_total = t_snap.tasks.len();
+    let t_done = t_snap.tasks.iter().filter(|t| t.completed).count();
+    let t_badge = format!("{}/{} done", t_done, t_total);
+    let t_hint = if app.panel_states.task_input_active {
+        "Enter submit · Esc cancel"
+    } else {
+        "a add · Space toggle · d del"
+    };
+    let tasks_inner = panel_full(
+        f,
+        c_tasks,
+        "4 tasks",
+        Some(&t_badge),
+        Some(t_hint),
+        &theme,
+        focus(PanelId::Tasks),
+    );
+    crate::widgets::tasks::render(
+        f,
+        tasks_inner,
+        &theme,
+        focus(PanelId::Tasks),
+        app.panel_states.tasks_selected,
+        app.panel_states.task_input_active,
+        &app.panel_states.task_input,
+    );
+
+    // 5 Agenda
+    crate::screens::hit(c_agenda, crate::screens::Hit::Panel(PanelId::Agenda));
+    let a_snap = crate::monitors::agenda::snapshot();
+    let a_badge = format!("{} upcoming", a_snap.events.len());
+    let a_hint = if app.panel_states.agenda_input_active {
+        "Enter submit · Esc cancel"
+    } else {
+        "a add · r edit · d del"
+    };
+    let agenda_inner = panel_full(
+        f,
+        c_agenda,
+        "5 agenda",
+        Some(&a_badge),
+        Some(a_hint),
+        &theme,
+        focus(PanelId::Agenda),
+    );
+    crate::widgets::agenda::render(
+        f,
+        agenda_inner,
+        &theme,
+        focus(PanelId::Agenda),
+        app.panel_states.agenda_selected,
+        app.panel_states.agenda_input_active,
+        &app.panel_states.agenda_input,
+    );
+
+    // 6 Notes
+    crate::screens::hit(c_notes, crate::screens::Hit::Panel(PanelId::WriterNotes));
+    crate::screens::workspace::render_notes(f, c_notes, app);
+
+    // ── Tier 3 (if room): News (50%) & Media (50%) ──
+    if has_tier3 && tier3_area.height > 2 {
+        let [c_news, c_media] =
+            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .areas(tier3_area);
+
+        crate::screens::hit(c_news, crate::screens::Hit::Panel(PanelId::News));
+        let n_snap = crate::monitors::news::snapshot();
+        let n_badge = if n_snap.channel_title.is_empty() {
+            None
+        } else {
+            Some(n_snap.channel_title.as_str())
+        };
+        let news_inner = panel_full(
+            f,
+            c_news,
+            "6 news",
+            n_badge,
+            None,
+            &theme,
+            focus(PanelId::News),
+        );
+        crate::widgets::news::render(f, news_inner, &theme);
+
+        crate::screens::hit(c_media, crate::screens::Hit::Panel(PanelId::Media));
+        let media_inner = panel_full(
+            f,
+            c_media,
+            "7 media",
+            None,
+            None,
+            &theme,
+            focus(PanelId::Media),
+        );
+        crate::widgets::media::render(f, media_inner, app);
+    }
+
+    // ── Tier 4: Hardware Metrics & Focus (Pomodoro, CPU, Memory, Network, Storage) ──
+    if tier4_area.height > 2 {
+        let [b_pom, b_cpu, b_mem, b_net, b_disk] = Layout::horizontal([
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+        ])
+        .areas(tier4_area);
+
+        crate::screens::hit(b_pom, crate::screens::Hit::Panel(PanelId::Timer));
+        let pom_inner = panel(f, b_pom, "pomodoro", &theme, focus(PanelId::Timer));
+        crate::widgets::pomodoro::render(
+            f,
+            pom_inner,
+            &theme,
+            &app.config.ui,
+            focus(PanelId::Timer),
+        );
+
+        crate::screens::hit(b_cpu, crate::screens::Hit::Panel(PanelId::Cpu));
+        let cpu_inner = panel(f, b_cpu, "cpu", &theme, focus(PanelId::Cpu));
+        cpu::render(f, cpu_inner, &theme, false);
+
+        crate::screens::hit(b_mem, crate::screens::Hit::Panel(PanelId::Memory));
+        let mem_inner = panel(f, b_mem, "memory", &theme, focus(PanelId::Memory));
+        memory::render(f, mem_inner, &theme, false);
+
+        crate::screens::hit(b_net, crate::screens::Hit::Panel(PanelId::Network));
+        let net_inner = panel(f, b_net, "network", &theme, focus(PanelId::Network));
+        network::render(f, net_inner, &theme, false);
+
+        crate::screens::hit(b_disk, crate::screens::Hit::Panel(PanelId::Disk));
+        let disk_inner = panel(f, b_disk, "storage", &theme, focus(PanelId::Disk));
+        disk::render(f, disk_inner, &theme, false);
+    }
 }
 
 pub fn render_layout(f: &mut Frame, area: Rect, app: &mut App, layout: &[Vec<String>]) {
@@ -70,19 +327,21 @@ pub fn render_layout(f: &mut Frame, area: Rect, app: &mut App, layout: &[Vec<Str
     let cols = Layout::horizontal(col_constraints).split(main_area);
 
     let mounts = disk::mounts().len().clamp(1, 4) as u16;
-    // The media panel hosts the visualizer itself unless the layout also has a
-    // standalone visualizer panel.
-    let embed_viz = !layout
-        .iter()
-        .flatten()
-        .any(|n| matches!(n.to_lowercase().as_str(), "visualizer" | "viz"));
+    let embed_viz = app.config.widgets.music_viz
+        && !layout
+            .iter()
+            .flatten()
+            .any(|n| matches!(n.to_lowercase().as_str(), "visualizer" | "viz"));
     let ctx = SizeCtx {
         mounts,
         total_height: main_area.height,
         media_active: media::current_player().is_some() || music_viz::audio_active(),
         embed_viz,
     };
-    if embed_viz && layout.iter().flatten().any(|n| is_media_name(n)) {
+    if embed_viz
+        && app.config.widgets.music_viz
+        && layout.iter().flatten().any(|n| is_media_name(n))
+    {
         // Keep cava alive so audio from MPRIS-less players can expand the panel.
         music_viz::ensure_running();
     }

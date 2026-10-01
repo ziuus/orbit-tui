@@ -81,6 +81,23 @@ impl PanelId {
     /// Tab order for a page, honouring widget toggles and custom dashboard layout.
     pub fn for_mode(mode: &DashboardMode, cfg: &Config) -> Vec<PanelId> {
         if *mode == DashboardMode::Dashboard {
+            if cfg.dashboard.preset == "mirador" || cfg.dashboard.preset == "lookout" {
+                return vec![
+                    PanelId::Clock,
+                    PanelId::Calendar,
+                    PanelId::Weather,
+                    PanelId::Tasks,
+                    PanelId::Agenda,
+                    PanelId::WriterNotes,
+                    PanelId::News,
+                    PanelId::Media,
+                    PanelId::Timer,
+                    PanelId::Cpu,
+                    PanelId::Memory,
+                    PanelId::Network,
+                    PanelId::Disk,
+                ];
+            }
             let mut list = Vec::new();
             for col in &cfg.dashboard.layout {
                 for name in col {
@@ -477,6 +494,7 @@ impl App {
         };
         let mode = DashboardMode::from_str(&config.ui.startup_mode);
         let sampler_interval = monitors::start(Duration::from_secs_f64(config.ui.refresh_rate));
+        music_viz::set_enabled(config.widgets.music_viz);
         music_viz::set_style(&config.ui.visualizer);
         crate::widgets::gauge::set_style(&config.ui.gauge_style);
         crate::widgets::meter::set_style(&config.ui.meter_style);

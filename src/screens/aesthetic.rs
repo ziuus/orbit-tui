@@ -495,7 +495,9 @@ fn studio(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
         Rect::new(info.x + pad, info.y, info.width - 2 * pad, info.height),
         app,
     );
-    music_viz::render(f, viz, theme, app.frame);
+    if app.config.widgets.music_viz {
+        music_viz::render(f, viz, theme, app.frame);
+    }
 }
 
 fn gallery(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme, _t: u64) {

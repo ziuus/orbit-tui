@@ -17,6 +17,21 @@ const CAVA_N_BARS: usize = 64;
 static CAVA_BARS: Mutex<Vec<f32>> = Mutex::new(Vec::new());
 static CAVA_RUNNING: AtomicBool = AtomicBool::new(false);
 static CAVA_CHILD: Mutex<Option<u32>> = Mutex::new(None);
+static ENABLED: AtomicBool = AtomicBool::new(true);
+
+/// Enable or disable the audio visualizer. When disabled, terminates cava
+/// and suppresses any background spawn/polling.
+pub fn set_enabled(enabled: bool) {
+    let was = ENABLED.swap(enabled, Ordering::Relaxed);
+    if was && !enabled {
+        shutdown();
+    }
+}
+
+pub fn is_enabled() -> bool {
+    ENABLED.load(Ordering::Relaxed)
+}
+
 /// Last spawn attempt, so a missing `cava` binary is retried every few
 /// seconds instead of on every frame (the old path slept 100ms per frame).
 static LAST_SPAWN: Mutex<Option<std::time::Instant>> = Mutex::new(None);
@@ -48,6 +63,9 @@ pub fn set_style(name: &str) {
 }
 
 fn ensure_cava() {
+    if !is_enabled() {
+        return;
+    }
     if CAVA_RUNNING.load(Ordering::Relaxed) {
         return;
     }
@@ -178,30 +196,42 @@ gravity = 30
 /// Start cava if it isn't running, so `audio_active` works even while the
 /// visualizer itself is collapsed off screen. Cheap: retries are rate-limited.
 pub fn ensure_running() {
+    if !is_enabled() {
+        return;
+    }
     ensure_cava();
 }
 
 /// True while cava is delivering non-silent audio.
 pub fn audio_active() -> bool {
-    CAVA_RUNNING.load(Ordering::Relaxed) && SILENCE_FRAMES.lock().is_ok_and(|sf| *sf <= 8)
+    is_enabled()
+        && CAVA_RUNNING.load(Ordering::Relaxed)
+        && SILENCE_FRAMES.lock().is_ok_and(|sf| *sf <= 8)
 }
 
 /// Overall loudness right now, 0..1 (mean of cava's bars); 0 when silent
 /// or when cava isn't running.
 pub fn energy() -> f32 {
-    if !audio_active() {
+    if !is_enabled() || !audio_active() {
         return 0.0;
     }
     let bars = read_cava_bars();
     (bars.iter().sum::<f32>() / bars.len().max(1) as f32).clamp(0.0, 1.0)
 }
 
-/// Terminate the cava we spawned. Called on shutdown.
+/// Terminate the cava we spawned. Called on shutdown or when disabled.
 pub fn shutdown() {
     CAVA_RUNNING.store(false, Ordering::Relaxed);
     if let Ok(mut child) = CAVA_CHILD.lock() {
         if let Some(pid) = child.take() {
-            let _ = Command::new("kill").arg(pid.to_string()).status();
+            let _ = Command::new("kill")
+                .args(["-TERM", &pid.to_string()])
+                .status();
+            // Force reap if it doesn't shut down gracefully within 50ms:
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            let _ = Command::new("kill")
+                .args(["-KILL", &pid.to_string()])
+                .status();
         }
     }
     let _ = std::fs::remove_file(format!("/tmp/vanta-cava-{}.conf", std::process::id()));
@@ -377,6 +407,9 @@ static SILENCE_FRAMES: Mutex<u32> = Mutex::new(0);
 
 // ── Public entry ──
 pub fn render(f: &mut Frame, area: Rect, theme: &Theme, _tick: u64) {
+    if !is_enabled() {
+        return;
+    }
     let term_cols = area.width as usize;
     let term_rows = area.height as usize;
     if term_cols < 4 || term_rows < 2 {
