@@ -306,7 +306,7 @@ fn ago(secs: u64) -> String {
 }
 
 /// Focus layouts, cycled from the Esc menu (ui.focus_layout).
-pub const LAYOUTS: [&str; 6] = ["mirador", "classic", "writer", "planner", "files", "zen"];
+pub const LAYOUTS: [&str; 6] = ["lookout", "classic", "writer", "planner", "files", "zen"];
 
 /// Areas for [timer, agenda, tasks, news, notes, files]; a zero-height
 /// area means that panel isn't part of the layout.
@@ -337,7 +337,7 @@ fn focus_areas(layout: &str, area: Rect, work_ratio: u16, cfg: &WidgetConfig) ->
         .areas(col)
     };
     match layout {
-        "mirador" => {
+        "lookout" | "panoramic" => {
             let [top, mid, bot] = if area.height >= 34 {
                 let [t, m, b] = Layout::vertical([
                     Constraint::Length(10),

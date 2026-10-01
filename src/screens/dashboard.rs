@@ -14,15 +14,15 @@ const MIN: (u16, u16) = (80, 24);
 /// Data-driven dashboard layout: reads `dashboard.layout` from config,
 /// supporting user-defined column assignments, panel reordering, and custom widgets.
 pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
-    if app.config.dashboard.preset == "mirador" || app.config.dashboard.preset == "lookout" {
-        render_mirador(f, area, app);
+    if app.config.dashboard.preset == "lookout" || app.config.dashboard.preset == "panoramic" {
+        render_lookout(f, area, app);
         return;
     }
     let layout = app.config.dashboard.layout.clone();
     render_layout(f, area, app, &layout);
 }
 
-pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
+pub fn render_lookout(f: &mut Frame, area: Rect, app: &mut App) {
     if area.width < MIN.0 || area.height < MIN.1 {
         too_small(f, area, &app.theme, MIN);
         return;
@@ -67,13 +67,13 @@ pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
     ])
     .areas(tier1_area);
 
-    // 1 Clock
+    // Clock
     crate::screens::hit(c_clock, crate::screens::Hit::Panel(PanelId::Clock));
     let local_tz = chrono::Local::now().format("%Z").to_string();
     let clock_inner = panel_full(
         f,
         c_clock,
-        "1 clock",
+        "clock",
         Some(&local_tz),
         None,
         &theme,
@@ -90,12 +90,12 @@ pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
         None,
     );
 
-    // 2 Calendar
+    // Calendar
     crate::screens::hit(c_cal, crate::screens::Hit::Panel(PanelId::Calendar));
     let cal_inner = panel_full(
         f,
         c_cal,
-        "2 calendar",
+        "calendar",
         None,
         None,
         &theme,
@@ -110,13 +110,13 @@ pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
         calendar::render(f, cal_inner, &theme, 0);
     }
 
-    // 3 Weather
+    // Weather
     crate::screens::hit(c_wea, crate::screens::Hit::Panel(PanelId::Weather));
     let w_snap = crate::monitors::weather::snapshot();
     let w_title = if w_snap.location.is_empty() {
-        "3 weather".to_string()
+        "weather".to_string()
     } else {
-        format!("3 weather — {}", w_snap.location)
+        format!("weather — {}", w_snap.location)
     };
     let wea_inner = panel_full(
         f,
@@ -137,7 +137,7 @@ pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
     ])
     .areas(tier2_area);
 
-    // 4 Tasks
+    // Tasks
     crate::screens::hit(c_tasks, crate::screens::Hit::Panel(PanelId::Tasks));
     let t_snap = crate::monitors::tasks::snapshot();
     let t_total = t_snap.tasks.len();
@@ -151,7 +151,7 @@ pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
     let tasks_inner = panel_full(
         f,
         c_tasks,
-        "4 tasks",
+        "tasks",
         Some(&t_badge),
         Some(t_hint),
         &theme,
@@ -167,7 +167,7 @@ pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
         &app.panel_states.task_input,
     );
 
-    // 5 Agenda
+    // Agenda
     crate::screens::hit(c_agenda, crate::screens::Hit::Panel(PanelId::Agenda));
     let a_snap = crate::monitors::agenda::snapshot();
     let a_badge = format!("{} upcoming", a_snap.events.len());
@@ -179,7 +179,7 @@ pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
     let agenda_inner = panel_full(
         f,
         c_agenda,
-        "5 agenda",
+        "agenda",
         Some(&a_badge),
         Some(a_hint),
         &theme,
@@ -195,7 +195,7 @@ pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
         &app.panel_states.agenda_input,
     );
 
-    // 6 Notes
+    // Notes
     crate::screens::hit(c_notes, crate::screens::Hit::Panel(PanelId::WriterNotes));
     crate::screens::workspace::render_notes(f, c_notes, app);
 
@@ -215,7 +215,7 @@ pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
         let news_inner = panel_full(
             f,
             c_news,
-            "6 news",
+            "news",
             n_badge,
             None,
             &theme,
@@ -227,7 +227,7 @@ pub fn render_mirador(f: &mut Frame, area: Rect, app: &mut App) {
         let media_inner = panel_full(
             f,
             c_media,
-            "7 media",
+            "media",
             None,
             None,
             &theme,

@@ -81,7 +81,7 @@ impl PanelId {
     /// Tab order for a page, honouring widget toggles and custom dashboard layout.
     pub fn for_mode(mode: &DashboardMode, cfg: &Config) -> Vec<PanelId> {
         if *mode == DashboardMode::Dashboard {
-            if cfg.dashboard.preset == "mirador" || cfg.dashboard.preset == "lookout" {
+            if cfg.dashboard.preset == "lookout" || cfg.dashboard.preset == "panoramic" {
                 return vec![
                     PanelId::Clock,
                     PanelId::Calendar,
