@@ -35,7 +35,7 @@ pub struct DashboardConfig {
 }
 
 impl DashboardConfig {
-    pub fn preset_mirador() -> Vec<Vec<String>> {
+    pub fn preset_lookout() -> Vec<Vec<String>> {
         let col = |names: &[&str]| names.iter().map(|s| s.to_string()).collect();
         vec![
             col(&["clock", "weather", "calendar"]),
@@ -117,7 +117,7 @@ impl DashboardConfig {
     pub fn apply_preset(&mut self, preset_name: &str) {
         self.preset = preset_name.to_string();
         match preset_name {
-            "mirador" => self.layout = Self::preset_mirador(),
+            "lookout" | "mirador" => self.layout = Self::preset_lookout(),
             "cockpit" => self.layout = Self::preset_cockpit(),
             "minimal" => self.layout = Self::preset_minimal(),
             "monitoring" => self.layout = Self::preset_monitoring(),

@@ -698,7 +698,7 @@ pub fn change_setting(app: &mut App, forward: bool) {
     match kind {
         S::DashboardPreset => {
             let presets = [
-                "mirador",
+                "lookout",
                 "cockpit",
                 "monitoring",
                 "minimal",

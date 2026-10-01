@@ -639,7 +639,7 @@ impl App {
     /// Step the current page to its next/previous layout.
     pub fn cycle_layout(&mut self, forward: bool) {
         const OVERVIEW: [&str; 6] = [
-            "mirador",
+            "lookout",
             "cockpit",
             "monitoring",
             "minimal",
