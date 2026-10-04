@@ -2343,14 +2343,56 @@ impl App {
             && self.zoomed.is_none()
             && self.toast.is_none()
             && !self.panel_states.pinned_media_input_active;
-        let [title_bar, main, status_bar] = Layout::vertical([
+        let ad_snap = crate::monitors::ad::snapshot();
+        let ad_h = if ad_snap.ready { 5 } else { 0 };
+
+        let [title_bar, main, ad_bar, status_bar] = Layout::vertical([
             Constraint::Length(1),
             Constraint::Min(0),
+            Constraint::Length(ad_h),
             Constraint::Length(u16::from(!quiet)),
         ])
         .areas(area);
 
         self.render_title(f, title_bar);
+
+        if ad_snap.ready {
+            use ratatui::{
+                style::{Color, Modifier, Style},
+                text::{Line, Span},
+                widgets::{Block, Borders, Paragraph},
+                layout::Alignment,
+            };
+            let ad_block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Rgb(100, 200, 100)));
+            
+            // Replicate Freebuff style exactly:
+            // GPT-6.1 Sol (Green)                                  Ad (Gray, right)
+            // Included in every plan.
+            // [See plans] freebuff.com
+            
+            // ratatui Paragraph doesn't support left/right alignment on the same line easily, 
+            // so we do title_top for "Ad" right aligned.
+            let ad_block = ad_block.title_top(Line::from("Ad").style(Style::default().fg(Color::DarkGray)).alignment(Alignment::Right));
+
+            let ad_text = vec![
+                Line::from(vec![
+                    Span::styled("GPT-6.1 Sol", Style::default().fg(Color::Rgb(150, 255, 150)).add_modifier(Modifier::BOLD)),
+                ]),
+                Line::from(vec![
+                    Span::raw("Included in every plan."),
+                ]),
+                Line::from(vec![
+                    Span::styled(" See plans ", Style::default().fg(Color::Black).bg(Color::Rgb(150, 255, 150))),
+                    Span::raw(" "),
+                    Span::styled(ad_snap.url, Style::default().fg(Color::Gray).add_modifier(Modifier::UNDERLINED)),
+                ])
+            ];
+            
+            let p = Paragraph::new(ad_text).block(ad_block);
+            f.render_widget(p, ad_bar);
+        }
 
         match (self.zoomed, self.mode.clone()) {
             (Some(p), _) => screens::render_panel(f, main, self, p),
