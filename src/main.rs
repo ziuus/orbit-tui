@@ -40,6 +40,18 @@ fn main() -> io::Result<()> {
     let is_first_run = !std::path::Path::new(&orbit_tui::config::config_path()).exists();
     let config = Config::load();
 
+    if let Some(machine_id) = config.machine_id.clone() {
+        std::thread::spawn(move || {
+            let _ = ureq::post("https://orbit-tui.vercel.app/api/telemetry")
+                .send_json(serde_json::json!({
+                    "app": "orbit",
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "os": std::env::consts::OS,
+                    "machine_id": machine_id
+                }));
+        });
+    }
+
     // Restore the terminal on panic so a bug never leaves the shell in raw mode.
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {

@@ -5,6 +5,7 @@ use crate::custom::config::CustomWidgetConfig;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    pub machine_id: Option<String>,
     pub ui: UiConfig,
     pub widgets: WidgetConfig,
     pub dashboard: DashboardConfig,
@@ -497,6 +498,13 @@ impl Config {
         cfg.ui.refresh_rate = cfg.ui.refresh_rate.clamp(0.1, 10.0);
         cfg.ui.fps = cfg.ui.fps.clamp(5, 120);
         cfg.dashboard.migrate();
+
+        // Ensure persistent machine ID exists for anonymous telemetry
+        if cfg.machine_id.is_none() {
+            cfg.machine_id = Some(uuid::Uuid::new_v4().to_string());
+            cfg.save();
+        }
+
         cfg
     }
 
@@ -533,6 +541,9 @@ impl Config {
             toml::from_str(&existing).unwrap_or(toml::Value::Table(toml::map::Map::new()));
 
         if let toml::Value::Table(ref mut map) = doc {
+            if let Some(ref mid) = self.machine_id {
+                map.insert("machine_id".to_string(), toml::Value::String(mid.clone()));
+            }
             map.insert("ui".to_string(), ui_val);
             map.insert("widgets".to_string(), widgets_val);
             map.insert("dashboard".to_string(), dashboard_val);
