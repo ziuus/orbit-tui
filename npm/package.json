@@ -1,6 +1,6 @@
 {
   "name": "@ziuus/orbit",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Aesthetic Rust TUI system dashboard — CPU, memory, disk, network, GPU, processes, now-playing, clock, file manager, notes and visualizer in one terminal pane",
   "bin": {
     "orbit": "bin/orbit.js"
