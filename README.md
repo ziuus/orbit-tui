@@ -142,6 +142,23 @@ Orbit goes beyond a generic terminal dashboard by serving as a highly extensible
   - *Bring Your Own Key (BYOK):* Export `ORBIT_OPENAI_KEY` to unlock this instantly.
   - *Orbit Pro:* Don't have an OpenAI key? Upgrade to **[Orbit Pro](https://orbit-tui.com/pro)** to get unlimited cloud diagnostics, layout syncing across devices, and premium plugins!
 
+
+## 🔄 Migrating from Vanta (v0.10.x and below)
+
+The project has been officially rebranded from **Vanta** to **Orbit** starting in v0.11.0. To transition smoothly without losing your custom configurations, layouts, and themes:
+
+```bash
+# 1. Uninstall the old version
+npm uninstall -g @ziuus/vanta
+
+# 2. Migrate your configuration directory
+mv ~/.config/vanta ~/.config/orbit
+
+# 3. Install the new Orbit CLI
+npm install -g @ziuus/orbit
+```
+*(If you installed via cargo, replace the npm commands with `cargo uninstall vanta` and `cargo install --git https://github.com/ziuus/orbit-tui.git`).*
+
 ## Pages
 
 | Key | Page | What's on it |
