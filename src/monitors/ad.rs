@@ -42,7 +42,7 @@ pub fn start() {
                 url: String::new(),
             };
 
-            let fetch_url = "https://raw.githubusercontent.com/ziuus/orbit-tui/main/sponsor.json";
+            let fetch_url = "https://orbit-tui.vercel.app/api/ad";
 
             if let Ok(res) = ureq::get(fetch_url).call() {
                 if let Ok(payload) = res.into_body().read_json::<AdPayload>() {
