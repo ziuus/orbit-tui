@@ -115,7 +115,9 @@ fn main() -> io::Result<()> {
             let loaded: Vec<orbit_tui::extension::wasm::WasmExtension> = std::thread::scope(|s| {
                 let handles: Vec<_> = paths_to_load
                     .into_iter()
-                    .map(|path| s.spawn(move || orbit_tui::extension::wasm::WasmExtension::new(path)))
+                    .map(|path| {
+                        s.spawn(move || orbit_tui::extension::wasm::WasmExtension::new(path))
+                    })
                     .collect();
                 handles
                     .into_iter()

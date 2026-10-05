@@ -908,9 +908,10 @@ pub fn run_menu_installer() -> io::Result<()> {
                                                     }
                                                 }
                                             } else {
-                                                let _ = orbit_tui::config::remove_component_from_config(
-                                                    &ext.id,
-                                                );
+                                                let _ =
+                                                    orbit_tui::config::remove_component_from_config(
+                                                        &ext.id,
+                                                    );
                                                 status_msg = format!(
                                                     "✓ Cleaned '{}' from config.toml",
                                                     ext.id

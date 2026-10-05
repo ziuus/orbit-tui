@@ -1,10 +1,10 @@
 pub mod ad;
 pub mod agenda;
 pub mod connections;
-pub mod doctor;
 pub mod cpu;
 pub mod crypto;
 pub mod disk;
+pub mod doctor;
 pub mod files;
 pub mod fs_tasks;
 pub mod gpu;

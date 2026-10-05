@@ -1,7 +1,7 @@
 pub mod aesthetic;
 pub mod dashboard;
-pub mod doctor;
 pub mod debug_logs;
+pub mod doctor;
 pub mod help;
 pub mod menu;
 pub mod monitor;

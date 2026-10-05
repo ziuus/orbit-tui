@@ -31,10 +31,10 @@ pub fn start() {
         .name("orbit-ad".into())
         .spawn(|| loop {
             std::thread::sleep(std::time::Duration::from_secs(2));
-            if !DEMAND.due(std::time::Duration::from_secs(3600)) { 
+            if !DEMAND.due(std::time::Duration::from_secs(3600)) {
                 continue;
             }
-            
+
             let mut snap = SponsorSnapshot {
                 ready: false,
                 message: String::new(),
@@ -43,7 +43,7 @@ pub fn start() {
             };
 
             let fetch_url = "https://raw.githubusercontent.com/ziuus/orbit-tui/main/sponsor.json";
-            
+
             if let Ok(res) = ureq::get(fetch_url).call() {
                 if let Ok(payload) = res.into_body().read_json::<AdPayload>() {
                     snap.ready = true;
@@ -61,7 +61,7 @@ pub fn start() {
             }
 
             *SNAP.lock().unwrap() = snap;
-            std::thread::sleep(std::time::Duration::from_secs(3600)); 
+            std::thread::sleep(std::time::Duration::from_secs(3600));
         })
         .expect("spawn ad thread");
 }

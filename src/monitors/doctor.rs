@@ -1,5 +1,5 @@
-use std::sync::{LazyLock, Mutex};
 use serde_json::json;
+use std::sync::{LazyLock, Mutex};
 
 #[derive(Clone, Debug)]
 pub enum DoctorStatus {
@@ -37,7 +37,7 @@ pub fn trigger_diagnosis() {
         .spawn(move || {
             // Simulated delay for UI feel
             std::thread::sleep(std::time::Duration::from_millis(500));
-            
+
             // 1. Gather context
             let procs = crate::monitors::processes::top_by_cpu(5);
             let mut top_procs = String::new();

@@ -11,7 +11,7 @@ use crate::monitors::doctor::{state, DoctorStatus};
 
 pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
     let _theme = &app.theme;
-    
+
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray))
@@ -44,41 +44,61 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Yellow))
             .title(" Premium Feature ");
-            
+
         let text = vec![
             Line::from(""),
             Line::from(vec![
-                Span::styled("Orbit Doctor ", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
-                Span::raw("requires an API key to diagnose system issues.")
-            ]).alignment(Alignment::Center),
+                Span::styled(
+                    "Orbit Doctor ",
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw("requires an API key to diagnose system issues."),
+            ])
+            .alignment(Alignment::Center),
             Line::from(""),
             Line::from("Export ORBIT_OPENAI_KEY in your shell,").alignment(Alignment::Center),
             Line::from(vec![
                 Span::raw("or upgrade to "),
-                Span::styled("Orbit Pro", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::raw(" for unlimited cloud access.")
-            ]).alignment(Alignment::Center),
+                Span::styled(
+                    "Orbit Pro",
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(" for unlimited cloud access."),
+            ])
+            .alignment(Alignment::Center),
             Line::from(""),
-            Line::from(Span::styled("orbit-tui.com/pro", Style::default().fg(Color::Blue).add_modifier(Modifier::UNDERLINED))).alignment(Alignment::Center),
+            Line::from(Span::styled(
+                "orbit-tui.com/pro",
+                Style::default()
+                    .fg(Color::Blue)
+                    .add_modifier(Modifier::UNDERLINED),
+            ))
+            .alignment(Alignment::Center),
         ];
-        
+
         let p = Paragraph::new(text)
             .block(lock_box)
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true });
-            
+
         // Smaller box for the lock
         let [_, small_center_y, _] = Layout::vertical([
             Constraint::Length(4),
             Constraint::Length(10),
             Constraint::Min(0),
-        ]).areas(center);
-        
+        ])
+        .areas(center);
+
         let [_, small_center_x, _] = Layout::horizontal([
             Constraint::Percentage(20),
             Constraint::Percentage(60),
             Constraint::Percentage(20),
-        ]).areas(small_center_y);
+        ])
+        .areas(small_center_y);
 
         f.render_widget(p, small_center_x);
     } else {
@@ -97,7 +117,12 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
                 let text = vec![
                     Line::from(""),
                     Line::from(vec![
-                        Span::styled("⠼ ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            "⠼ ",
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        ),
                         Span::styled(msg, Style::default().fg(Color::Cyan)),
                     ]),
                 ];
@@ -106,14 +131,24 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
             }
             DoctorStatus::Done(diagnosis) => {
                 let mut text = vec![
-                    Line::from(Span::styled("Diagnostic Report:", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))),
+                    Line::from(Span::styled(
+                        "Diagnostic Report:",
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD),
+                    )),
                     Line::from(""),
                 ];
-                
+
                 // Split by newline so it formats nicely
                 for line in diagnosis.lines() {
                     if line.starts_with("Diagnosis:") || line.starts_with("Action:") {
-                        text.push(Line::from(Span::styled(line, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))));
+                        text.push(Line::from(Span::styled(
+                            line,
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        )));
                     } else {
                         text.push(Line::from(line));
                     }
@@ -125,13 +160,21 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
             DoctorStatus::Error(e) => {
                 let text = vec![
                     Line::from(""),
-                    Line::from(Span::styled("Analysis Failed", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))),
+                    Line::from(Span::styled(
+                        "Analysis Failed",
+                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    )),
                     Line::from(""),
                     Line::from(Span::styled(e, Style::default().fg(Color::White))),
                     Line::from(""),
-                    Line::from(Span::styled("Press [Enter] to try again", Style::default().fg(Color::DarkGray))),
+                    Line::from(Span::styled(
+                        "Press [Enter] to try again",
+                        Style::default().fg(Color::DarkGray),
+                    )),
                 ];
-                let p = Paragraph::new(text).alignment(Alignment::Center).wrap(Wrap { trim: true });
+                let p = Paragraph::new(text)
+                    .alignment(Alignment::Center)
+                    .wrap(Wrap { trim: true });
                 f.render_widget(p, center);
             }
         }

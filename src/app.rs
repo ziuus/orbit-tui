@@ -2367,38 +2367,53 @@ impl App {
 
         if ad_snap.ready {
             use ratatui::{
+                layout::Alignment,
                 style::{Color, Modifier, Style},
                 text::{Line, Span},
                 widgets::{Block, Borders, Paragraph},
-                layout::Alignment,
             };
             let ad_block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Rgb(100, 200, 100)));
-            
+
             // Replicate Freebuff style exactly:
             // GPT-6.1 Sol (Green)                                  Ad (Gray, right)
             // Included in every plan.
             // [See plans] freebuff.com
-            
-            // ratatui Paragraph doesn't support left/right alignment on the same line easily, 
+
+            // ratatui Paragraph doesn't support left/right alignment on the same line easily,
             // so we do title_top for "Ad" right aligned.
-            let ad_block = ad_block.title_top(Line::from("Ad").style(Style::default().fg(Color::DarkGray)).alignment(Alignment::Right));
+            let ad_block = ad_block.title_top(
+                Line::from("Ad")
+                    .style(Style::default().fg(Color::DarkGray))
+                    .alignment(Alignment::Right),
+            );
 
             let ad_text = vec![
+                Line::from(vec![Span::styled(
+                    ad_snap.message,
+                    Style::default()
+                        .fg(Color::Rgb(150, 255, 150))
+                        .add_modifier(Modifier::BOLD),
+                )]),
+                Line::from(vec![Span::raw(ad_snap.subtext)]),
                 Line::from(vec![
-                    Span::styled(ad_snap.message, Style::default().fg(Color::Rgb(150, 255, 150)).add_modifier(Modifier::BOLD)),
-                ]),
-                Line::from(vec![
-                    Span::raw(ad_snap.subtext),
-                ]),
-                Line::from(vec![
-                    Span::styled(" See plans ", Style::default().fg(Color::Black).bg(Color::Rgb(150, 255, 150))),
+                    Span::styled(
+                        " See plans ",
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(Color::Rgb(150, 255, 150)),
+                    ),
                     Span::raw(" "),
-                    Span::styled(ad_snap.url, Style::default().fg(Color::Gray).add_modifier(Modifier::UNDERLINED)),
-                ])
+                    Span::styled(
+                        ad_snap.url,
+                        Style::default()
+                            .fg(Color::Gray)
+                            .add_modifier(Modifier::UNDERLINED),
+                    ),
+                ]),
             ];
-            
+
             let p = Paragraph::new(ad_text).block(ad_block);
             f.render_widget(p, ad_bar);
         }
