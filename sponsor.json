@@ -1,7 +1,5 @@
 {
-  "active": true,
-  "sponsor_name": "Vercel",
-  "message": "Deploy Next.js apps globally in seconds.",
-  "url": "https://vercel.com",
-  "cta": "Sign up for free"
+  "message": "Sponsored by Vercel",
+  "subtext": "Deploy Next.js apps globally in seconds. Zero configuration.",
+  "url": "vercel.com"
 }
