@@ -46,18 +46,14 @@ pub fn start() {
 
             if let Ok(res) = ureq::get(fetch_url).call() {
                 if let Ok(payload) = res.into_body().read_json::<AdPayload>() {
-                    snap.ready = true;
-                    snap.message = payload.message;
-                    snap.subtext = payload.subtext;
-                    snap.url = payload.url;
+                    // Only show the ad if the message isn't empty/placeholder
+                    if !payload.message.is_empty() && payload.message != "Ad Space Available" {
+                        snap.ready = true;
+                        snap.message = payload.message;
+                        snap.subtext = payload.subtext;
+                        snap.url = payload.url;
+                    }
                 }
-            }
-
-            if !snap.ready {
-                snap.ready = true;
-                snap.message = "Orbit Pro".to_string();
-                snap.subtext = "Sync your layouts across all your devices.".to_string();
-                snap.url = "orbit-tui.com/pro".to_string();
             }
 
             *SNAP.lock().unwrap() = snap;
