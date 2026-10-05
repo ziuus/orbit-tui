@@ -1,6 +1,6 @@
 {
   "name": "@ziuus/orbit",
-  "version": "0.11.3",
+  "version": "0.11.4",
   "description": "Aesthetic Rust TUI system dashboard — CPU, memory, disk, network, GPU, processes, now-playing, clock, file manager, notes and visualizer in one terminal pane",
   "bin": {
     "orbit": "bin/orbit.js"
@@ -43,11 +43,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ziuus/orbit.git"
+    "url": "git+https://github.com/ziuus/orbit-tui.git"
   },
-  "homepage": "https://github.com/ziuus/orbit#readme",
+  "homepage": "https://github.com/ziuus/orbit-tui#readme",
   "bugs": {
-    "url": "https://github.com/ziuus/orbit/issues"
+    "url": "https://github.com/ziuus/orbit-tui/issues"
   },
   "license": "MIT",
   "author": "zius"

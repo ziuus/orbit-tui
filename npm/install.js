@@ -19,7 +19,7 @@ const TARGET_MAP = {
 };
 
 const TARGET = TARGET_MAP[process.platform]?.[process.arch];
-const FROM_SOURCE = 'cargo install --git https://github.com/ziuus/orbit';
+const FROM_SOURCE = 'cargo install --git https://github.com/ziuus/orbit-tui';
 
 if (!TARGET) {
   console.error(`orbit: no prebuilt binary for ${process.platform}-${process.arch}.`);
@@ -29,14 +29,14 @@ if (!TARGET) {
 
 const isWin = process.platform === 'win32';
 const ASSET = `orbit-${TARGET}.tar.gz`;
-const URL = `https://github.com/ziuus/orbit/releases/download/v${version}/${ASSET}`;
+const URL = `https://github.com/ziuus/orbit-tui/releases/download/v${version}/${ASSET}`;
 
 // GitHub redirects release downloads to a CDN host, so follow Location.
 function download(url, hops = 0, retries = 3) {
   return new Promise((resolve, reject) => {
     if (hops > 5) return reject(new Error('too many redirects'));
     const req = https
-      .get(url, { headers: { 'user-agent': `@ziuus/orbit/${version}` } }, (res) => {
+      .get(url, { headers: { 'user-agent': `@ziuus/orbit-tui/${version}` } }, (res) => {
         const { statusCode, headers } = res;
         if (statusCode >= 300 && statusCode < 400 && headers.location) {
           res.resume();
