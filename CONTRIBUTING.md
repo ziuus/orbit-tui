@@ -1,4 +1,4 @@
-# Contributing to vanta
+# Contributing to orbit
 
 ## Setup
 
@@ -7,7 +7,7 @@
 sudo pacman -S dbus            # Arch
 sudo apt install libdbus-1-dev # Debian/Ubuntu
 
-git clone https://github.com/ziuus/vanta && cd vanta
+git clone https://github.com/ziuus/orbit && cd orbit
 cargo run --release
 ```
 
@@ -97,13 +97,13 @@ One-time setup: add an npm automation token as the `NPM_TOKEN` repository
 secret. Without it the release still publishes the binary, and the npm job logs
 a warning and skips — which means every publish stays manual.
 
-The npm package is `@ziuus/vanta` — both `vanta` and `vanta-tui` were already
+The npm package is `@ziuus/orbit` — both `orbit` and `orbit-tui` were already
 taken, and a scope is the one namespace nobody can race us for. It ships only a
 Node shim plus `install.js`; the native binary is downloaded from the release on
 `postinstall`. Scoped packages default to restricted, so the publish needs
 `--access public`.
 
-The shim installs one command, `vanta`. A `vtui` alias was tried and reverted:
+The shim installs one command, `orbit`. A `vtui` alias was tried and reverted:
 `vtui` is already an npm package and already a pip console script, and when a
 stale copy of either shadows ours the user gets someone else's traceback and
 files the bug against us. Bin names are cheap to add and expensive to collide.

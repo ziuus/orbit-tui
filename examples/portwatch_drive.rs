@@ -24,7 +24,7 @@ fn text(b: &[u8]) -> String {
 fn main() {
     let path = std::env::args().nth(1).unwrap_or_else(|| {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-        format!("{home}/.config/vanta/extensions/portwatch.wasm")
+        format!("{home}/.config/orbit/extensions/portwatch.wasm")
     });
     let iters: u32 = std::env::args()
         .nth(2)
@@ -32,13 +32,13 @@ fn main() {
         .unwrap_or(6);
 
     println!("PortWatch drive — loading: {path}");
-    let _sampler = vanta::monitors::start(std::time::Duration::from_millis(500));
+    let _sampler = orbit_tui::monitors::start(std::time::Duration::from_millis(500));
     std::thread::sleep(std::time::Duration::from_millis(1100));
 
     let manifest =
         Manifest::new([Wasm::file(&path)]).with_timeout(std::time::Duration::from_millis(10));
     let mut plugin =
-        Plugin::new(&manifest, vanta::extension::host_api::functions(), true).expect("plugin");
+        Plugin::new(&manifest, orbit_tui::extension::host_api::functions(), true).expect("plugin");
 
     let render = |p: &mut Plugin, id: &str| -> (String, std::time::Duration) {
         let t = std::time::Instant::now();
@@ -84,7 +84,7 @@ fn main() {
     let avg = t.elapsed() / bench;
     println!("\nper-render avg ({bench}x portwatch): {avg:?}");
 
-    // The 10 ms budget is enforced by the real Vanta host at runtime.
+    // The 10 ms budget is enforced by the real Orbit host at runtime.
     // In release mode we assert < 10 ms; in debug builds the threshold is 50 ms
     // (unoptimised WASM + host is measurably slower).
     let budget_ms: u128 = if cfg!(debug_assertions) { 50 } else { 10 };

@@ -1,5 +1,6 @@
 pub mod aesthetic;
 pub mod dashboard;
+pub mod doctor;
 pub mod debug_logs;
 pub mod help;
 pub mod menu;

@@ -18,20 +18,20 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: vanta
-            asset_name: vanta-x86_64-unknown-linux-gnu.tar.gz
+            artifact_name: orbit
+            asset_name: orbit-x86_64-unknown-linux-gnu.tar.gz
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: vanta
-            asset_name: vanta-aarch64-apple-darwin.tar.gz
+            artifact_name: orbit
+            asset_name: orbit-aarch64-apple-darwin.tar.gz
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: vanta
-            asset_name: vanta-x86_64-apple-darwin.tar.gz
+            artifact_name: orbit
+            asset_name: orbit-x86_64-apple-darwin.tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: vanta.exe
-            asset_name: vanta-x86_64-pc-windows-msvc.tar.gz
+            artifact_name: orbit.exe
+            asset_name: orbit-x86_64-pc-windows-msvc.tar.gz
 
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +50,7 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vanta-${{ matrix.target }}
+          name: orbit-${{ matrix.target }}
           path: ${{ matrix.asset_name }}
 
       - name: Release

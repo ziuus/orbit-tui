@@ -190,9 +190,9 @@ fn logo_lines(id: &str, height: u16, width: u16, force_robot: bool) -> Vec<Strin
         .collect()
 }
 
-// ── Spectacular animated Vanta robot ───────────────────────────
+// ── Spectacular animated Orbit robot ───────────────────────────
 
-/// Returns a fully multi-coloured `Vec<Line>` for the Vanta robot mascot.
+/// Returns a fully multi-coloured `Vec<Line>` for the Orbit robot mascot.
 /// Each row has individually styled spans: glowing eyes, pulsing core,
 /// waving arms, circuitry, scanlines — all animated across 8 phases.
 pub fn robot_colored_lines<'a>(
@@ -789,8 +789,8 @@ pub fn render_neofetch(
         return;
     }
     let facts = &*FACTS;
-    // VANTA_LOGO forces a distro logo, for previewing art on any machine.
-    let os_id = std::env::var("VANTA_LOGO").unwrap_or_else(|_| facts.os_id.clone());
+    // ORBIT_LOGO forces a distro logo, for previewing art on any machine.
+    let os_id = std::env::var("ORBIT_LOGO").unwrap_or_else(|_| facts.os_id.clone());
 
     // ── Robot path: rich multi-color rendered lines ─────────────
     let known_distros = [

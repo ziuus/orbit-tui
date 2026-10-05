@@ -86,7 +86,7 @@ pub enum UiWidget {
 }
 
 impl UiWidget {
-    /// Validates the UI tree against safety limits to prevent malicious/buggy WASM from crashing Vanta.
+    /// Validates the UI tree against safety limits to prevent malicious/buggy WASM from crashing Orbit.
     pub fn validate(&self) -> Result<(), &'static str> {
         let mut spans = 0;
         self.check_limits(1, &mut spans, &mut 0)

@@ -1,5 +1,5 @@
-# Vanta Template Configuration
-# Copy this to ~/.config/vanta/config.toml to test the extension system!
+# Orbit Template Configuration
+# Copy this to ~/.config/orbit/config.toml to test the extension system!
 
 [ui]
 refresh_rate = 1.0

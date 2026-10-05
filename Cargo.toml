@@ -1,6 +1,6 @@
 [package]
-default-run = "vanta"
-name = "vanta"
+default-run = "orbit"
+name = "orbit-tui"
 version = "0.10.84"
 
 
@@ -8,7 +8,7 @@ edition = "2021"
 description = "Aesthetic Rust TUI system dashboard — monitoring meets flex widgets"
 authors = ["zius"]
 license = "MIT"
-repository = "https://github.com/ziuus/vanta"
+repository = "https://github.com/ziuus/orbit"
 readme = "README.md"
 keywords = ["tui", "dashboard", "monitor", "ratatui", "system"]
 categories = ["command-line-utilities"]
@@ -53,3 +53,7 @@ dbus = "0.9"
 [target.'cfg(any(target_os = "windows", target_os = "macos"))'.dependencies]
 nowplaying = "0.1.1"
 tokio = { version = "1.0", features = ["rt", "macros", "sync"] }
+
+[[bin]]
+name = "orbit"
+path = "src/main.rs"

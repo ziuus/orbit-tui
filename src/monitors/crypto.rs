@@ -55,7 +55,7 @@ struct FngResponse {
 
 pub fn start() {
     std::thread::Builder::new()
-        .name("vanta-crypto".into())
+        .name("orbit-crypto".into())
         .spawn(|| loop {
             std::thread::sleep(std::time::Duration::from_secs(2));
             if !DEMAND.due(std::time::Duration::from_secs(60)) {

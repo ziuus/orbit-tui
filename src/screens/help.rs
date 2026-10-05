@@ -220,7 +220,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, config: &Config, scroll:
         .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(theme.accent))
         .title(Span::styled(
-            " vanta · help ",
+            " orbit · help ",
             Style::default().fg(theme.accent),
         ))
         .style(base);

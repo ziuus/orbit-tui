@@ -6,11 +6,11 @@ use std::io::Read;
 use std::path::PathBuf;
 
 const REGISTRY_URL: &str =
-    "https://raw.githubusercontent.com/ziuus/vanta-integrations/main/registry.json";
+    "https://raw.githubusercontent.com/ziuus/orbit-integrations/main/registry.json";
 
 #[derive(Parser)]
 #[command(
-    name = "vanta",
+    name = "orbit",
     version = env!("CARGO_PKG_VERSION"),
     about = "Aesthetic Rust TUI system dashboard",
     disable_version_flag = true
@@ -53,11 +53,11 @@ pub enum Commands {
     Disable { id: String },
     /// List installed extensions
     List,
-    /// Update installed extensions from the registry, or update Vanta itself with --self
+    /// Update installed extensions from the registry, or update Orbit itself with --self
     Update {
-        /// Optional extension ID to update, or 'self' to update Vanta itself
+        /// Optional extension ID to update, or 'self' to update Orbit itself
         id: Option<String>,
-        /// Update Vanta host binary itself
+        /// Update Orbit host binary itself
         #[arg(long = "self")]
         self_update: bool,
     },
@@ -76,7 +76,7 @@ struct Registry {
 use crate::cli_menu::RegistryExtension;
 
 fn get_extensions_dir() -> PathBuf {
-    let mut dir = directories::ProjectDirs::from("", "", "vanta")
+    let mut dir = directories::ProjectDirs::from("", "", "orbit")
         .map(|p| p.config_dir().to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."));
     dir.push("extensions");
@@ -149,7 +149,7 @@ fn get_category(id: &str) -> &'static str {
 }
 
 fn browse(filter: Option<String>) {
-    println!("Fetching Vanta extensions registry...");
+    println!("Fetching Orbit extensions registry...");
     let registry = match fetch_registry() {
         Ok(r) => r,
         Err(e) => {
@@ -177,7 +177,7 @@ fn browse(filter: Option<String>) {
     let show_components = !matches!(&filter_lower, Some(f) if f == "page" || f == "pages");
 
     println!("\n╔════════════════════════════════════════════════════════════════════╗");
-    println!("║                   VANTA EXTENSION DIRECTORY                        ║");
+    println!("║                   ORBIT EXTENSION DIRECTORY                        ║");
     println!("╚════════════════════════════════════════════════════════════════════╝\n");
 
     let mut total_shown = 0;
@@ -220,7 +220,7 @@ fn browse(filter: Option<String>) {
                 println!("    Bundled components: {}", page.components.join(", "));
                 if !all_installed {
                     println!(
-                        "    \x1b[36m→ Install workspace: vanta install {}\x1b[0m",
+                        "    \x1b[36m→ Install workspace: orbit install {}\x1b[0m",
                         page.id
                     );
                 }
@@ -279,7 +279,7 @@ fn browse(filter: Option<String>) {
                 println!("  {:<24} {:<24} {}", ext.id, ext.name, status_badge);
                 println!("    {}", ext.description);
                 if !is_installed {
-                    println!("    \x1b[36m→ Install: vanta install {}\x1b[0m", ext.id);
+                    println!("    \x1b[36m→ Install: orbit install {}\x1b[0m", ext.id);
                 }
                 println!();
                 total_shown += 1;
@@ -291,15 +291,15 @@ fn browse(filter: Option<String>) {
         println!("No extensions found matching your filter.");
     } else {
         println!(
-            "Shown {} item(s). Use `vanta install <id>` to install any extension or workspace.",
+            "Shown {} item(s). Use `orbit install <id>` to install any extension or workspace.",
             total_shown
         );
-        println!("Tip: Run `vanta browse pages` or `vanta browse components` to view separately.");
+        println!("Tip: Run `orbit browse pages` or `orbit browse components` to view separately.");
     }
 }
 
 fn search(query: Option<String>) {
-    println!("Fetching Vanta extensions registry...");
+    println!("Fetching Orbit extensions registry...");
     let registry = match fetch_registry() {
         Ok(r) => r,
         Err(e) => {
@@ -308,7 +308,7 @@ fn search(query: Option<String>) {
         }
     };
 
-    println!("\nVanta Extensions (API v{})\n", registry.api_version);
+    println!("\nOrbit Extensions (API v{})\n", registry.api_version);
 
     let mut found = 0;
     for ext in registry.extensions {
@@ -369,8 +369,8 @@ fn install(id: String) {
         match crate::cli_menu::install_page_ext(&ext, &registry.extensions) {
             Ok(msg) => {
                 println!("✓ {}", msg);
-                println!("✓ Configured '{}' in ~/.config/vanta/config.toml", ext.name);
-                println!("\nLaunch Vanta and press Tab to navigate to the new workspace!");
+                println!("✓ Configured '{}' in ~/.config/orbit/config.toml", ext.name);
+                println!("\nLaunch Orbit and press Tab to navigate to the new workspace!");
             }
             Err(e) => eprintln!("✗ Failed to install page workspace: {}", e),
         }
@@ -400,7 +400,7 @@ fn install(id: String) {
 fn download_and_install(ext: &RegistryExtension) -> Result<PathBuf, String> {
     if !ext.api_version.starts_with("0.9") && !ext.api_version.starts_with("0.10") {
         return Err(format!(
-            "'{}' requires Vanta UI API {}, but your Vanta supports API 0.10",
+            "'{}' requires Orbit UI API {}, but your Orbit supports API 0.10",
             ext.id, ext.api_version
         ));
     }
@@ -452,30 +452,30 @@ fn download_and_install(ext: &RegistryExtension) -> Result<PathBuf, String> {
 
 fn update_self() {
     let current_version = env!("CARGO_PKG_VERSION");
-    println!("Updating Vanta host (current: v{})...", current_version);
+    println!("Updating Orbit host (current: v{})...", current_version);
 
     let status = std::process::Command::new("npm")
-        .args(["install", "-g", "@ziuus/vanta@latest"])
+        .args(["install", "-g", "@ziuus/orbit@latest"])
         .status();
 
     match status {
         Ok(s) if s.success() => {
-            println!("✓ Vanta successfully updated via npm!");
+            println!("✓ Orbit successfully updated via npm!");
         }
         Ok(s) => {
             eprintln!("npm update exited with status {}. To update manually:", s);
-            println!("  npm:   npm install -g @ziuus/vanta");
-            println!("  cargo: cargo install --git https://github.com/ziuus/vanta");
+            println!("  npm:   npm install -g @ziuus/orbit");
+            println!("  cargo: cargo install --git https://github.com/ziuus/orbit");
         }
         Err(_) => {
             println!("npm command not found. To update manually:");
-            println!("  cargo install --git https://github.com/ziuus/vanta");
+            println!("  cargo install --git https://github.com/ziuus/orbit");
         }
     }
 }
 
 fn update(id: Option<String>, self_update: bool) {
-    if self_update || id.as_deref() == Some("self") || id.as_deref() == Some("vanta") {
+    if self_update || id.as_deref() == Some("self") || id.as_deref() == Some("orbit") {
         update_self();
         return;
     }
@@ -594,7 +594,7 @@ fn remove(id: String) {
                 removed_count += 1;
             }
         }
-        let _ = vanta::config::remove_page_from_config(&page.name, &page.components);
+        let _ = orbit_tui::config::remove_page_from_config(&page.name, &page.components);
         println!(
             "✓ Removed page workspace '{}' (deleted {} component files, pruned config.toml)",
             page.name, removed_count
@@ -603,7 +603,7 @@ fn remove(id: String) {
     }
 
     // 2. Check if `id` corresponds to a page defined in config.toml directly
-    let config = vanta::config::Config::load();
+    let config = orbit_tui::config::Config::load();
     if let Some(cfg_page) = config
         .pages
         .iter()
@@ -617,7 +617,7 @@ fn remove(id: String) {
                 removed_count += 1;
             }
         }
-        let _ = vanta::config::remove_page_from_config(&cfg_page.name, &comps);
+        let _ = orbit_tui::config::remove_page_from_config(&cfg_page.name, &comps);
         println!(
             "✓ Removed page workspace '{}' from config.toml (deleted {} component files)",
             cfg_page.name, removed_count
@@ -636,7 +636,7 @@ fn remove(id: String) {
         }
     }
 
-    let _ = vanta::config::remove_component_from_config(&id);
+    let _ = orbit_tui::config::remove_component_from_config(&id);
     if existed_on_disk {
         println!("✓ Uninstalled extension '{}' and pruned config.toml", id);
     } else {
@@ -645,7 +645,7 @@ fn remove(id: String) {
 }
 
 fn get_config_path() -> PathBuf {
-    directories::ProjectDirs::from("", "", "vanta")
+    directories::ProjectDirs::from("", "", "orbit")
         .map(|p| p.config_dir().join("config.toml"))
         .unwrap_or_else(|| PathBuf::from("config.toml"))
 }
@@ -694,7 +694,7 @@ fn enable(id: String) {
 }
 
 fn disable(id: String) {
-    match vanta::config::remove_component_from_config(&id) {
+    match orbit_tui::config::remove_component_from_config(&id) {
         Ok(_) => println!("✓ Disabled '{}' in config.toml", id),
         Err(e) => eprintln!("Failed to disable extension: {}", e),
     }
@@ -714,7 +714,7 @@ fn link(path: PathBuf) {
 
     let stem = path.file_stem().unwrap().to_string_lossy().to_string();
     let ext_dir = if path.extension().and_then(|s| s.to_str()) == Some("toml") {
-        let mut dir = directories::ProjectDirs::from("", "", "vanta")
+        let mut dir = directories::ProjectDirs::from("", "", "orbit")
             .map(|p| p.config_dir().to_path_buf())
             .unwrap_or_else(|| PathBuf::from("."));
         dir.push("themes");
@@ -741,11 +741,11 @@ fn link(path: PathBuf) {
             if ext_str == "wasm" {
                 enable(stem.clone());
                 println!(
-                    "✓ Enabled '{}' in config.toml. You can now test it in Vanta!",
+                    "✓ Enabled '{}' in config.toml. You can now test it in Orbit!",
                     stem
                 );
             } else {
-                println!("✓ Theme '{}' linked. It is now available in Vanta!", stem);
+                println!("✓ Theme '{}' linked. It is now available in Orbit!", stem);
             }
         }
         Err(e) => eprintln!("✗ Failed to link: {}", e),

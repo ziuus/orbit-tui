@@ -12,19 +12,19 @@ use crossterm::terminal::{
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 
-use vanta::app::App;
-use vanta::config::Config;
+use orbit_tui::app::App;
+use orbit_tui::config::Config;
 
 fn restore_terminal() {
-    vanta::mouse::disable();
+    orbit_tui::mouse::disable();
     let _ = disable_raw_mode();
     let _ = execute!(io::stdout(), LeaveAlternateScreen, crossterm::cursor::Show);
     let _ = io::stdout().flush();
 }
 
 fn main() -> io::Result<()> {
-    vanta::logger::init();
-    log::info!(target: "core", "Vanta started (v{})", env!("CARGO_PKG_VERSION"));
+    orbit_tui::logger::init();
+    log::info!(target: "core", "Orbit started (v{})", env!("CARGO_PKG_VERSION"));
     use clap::Parser;
     let cli_args = cli::Cli::parse();
     let run_mode = cli::handle_cli(cli_args);
@@ -33,11 +33,11 @@ fn main() -> io::Result<()> {
     }
 
     if !io::stdout().is_terminal() {
-        eprintln!("error: vanta needs a terminal (stdout is not a tty)");
+        eprintln!("error: orbit needs a terminal (stdout is not a tty)");
         std::process::exit(1);
     }
 
-    let is_first_run = !std::path::Path::new(&vanta::config::config_path()).exists();
+    let is_first_run = !std::path::Path::new(&orbit_tui::config::config_path()).exists();
     let config = Config::load();
 
     // Restore the terminal on panic so a bug never leaves the shell in raw mode.
@@ -57,7 +57,7 @@ fn main() -> io::Result<()> {
     let mouse = config.ui.mouse;
     let mut app = App::new(config);
     if mouse {
-        vanta::mouse::enable();
+        orbit_tui::mouse::enable();
     }
     if let cli::RunMode::Config = run_mode {
         app.show_settings = true;
@@ -69,13 +69,13 @@ fn main() -> io::Result<()> {
         app.show_setup_wizard = true;
     }
     app.ext_manager.register(
-        Box::new(vanta::extension::template::TemplateExtension),
+        Box::new(orbit_tui::extension::template::TemplateExtension),
         app.config.extensions.as_ref(),
     );
 
     // Load WASM extensions
     if let Some(mut ext_dir) =
-        directories::ProjectDirs::from("", "", "vanta").map(|p| p.config_dir().to_path_buf())
+        directories::ProjectDirs::from("", "", "orbit").map(|p| p.config_dir().to_path_buf())
     {
         ext_dir.push("extensions");
         if let Ok(entries) = std::fs::read_dir(&ext_dir) {
@@ -112,10 +112,10 @@ fn main() -> io::Result<()> {
                 }
             }
 
-            let loaded: Vec<vanta::extension::wasm::WasmExtension> = std::thread::scope(|s| {
+            let loaded: Vec<orbit_tui::extension::wasm::WasmExtension> = std::thread::scope(|s| {
                 let handles: Vec<_> = paths_to_load
                     .into_iter()
-                    .map(|path| s.spawn(move || vanta::extension::wasm::WasmExtension::new(path)))
+                    .map(|path| s.spawn(move || orbit_tui::extension::wasm::WasmExtension::new(path)))
                     .collect();
                 handles
                     .into_iter()
@@ -131,12 +131,12 @@ fn main() -> io::Result<()> {
     }
 
     if !app.available_modes().contains(&app.mode) {
-        app.set_mode(vanta::mode::DashboardMode::Dashboard);
+        app.set_mode(orbit_tui::mode::DashboardMode::Dashboard);
     }
 
     let res = run(&mut terminal, &mut app);
 
-    vanta::widgets::music_viz::shutdown();
+    orbit_tui::widgets::music_viz::shutdown();
     app.ext_manager.shutdown_all();
     restore_terminal();
     res
@@ -145,12 +145,12 @@ fn main() -> io::Result<()> {
 fn run<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
     let fps_for = |fps: u32| Duration::from_secs_f64(1.0 / fps as f64);
     let mut last_frame = Instant::now();
-    // VANTA_PROFILE=1: log frame-time percentiles every 60 frames.
-    let profiling = std::env::var_os("VANTA_PROFILE").is_some();
+    // ORBIT_PROFILE=1: log frame-time percentiles every 60 frames.
+    let profiling = std::env::var_os("ORBIT_PROFILE").is_some();
     let mut frame_us: Vec<u128> = Vec::with_capacity(60);
 
     terminal.draw(|f| app.render(f))?;
-    let mut frame_time = fps_for(vanta::anim::take(app.config.ui.fps));
+    let mut frame_time = fps_for(orbit_tui::anim::take(app.config.ui.fps));
     while app.running {
         // Coalesce all pending input, then draw once. Input and resizes
         // redraw immediately so the UI stays responsive at idle frame rates.
@@ -183,7 +183,7 @@ fn run<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>, app: &mut App) 
                     if let Ok(mut f) = std::fs::OpenOptions::new()
                         .append(true)
                         .create(true)
-                        .open("/tmp/vanta-profile.log")
+                        .open("/tmp/orbit-profile.log")
                     {
                         let _ = writeln!(
                             f,
@@ -197,7 +197,7 @@ fn run<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>, app: &mut App) 
                 }
             }
             last_frame = Instant::now();
-            frame_time = fps_for(vanta::anim::take(app.config.ui.fps));
+            frame_time = fps_for(orbit_tui::anim::take(app.config.ui.fps));
         }
     }
     Ok(())

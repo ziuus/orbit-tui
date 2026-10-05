@@ -187,7 +187,7 @@ pub fn tick(ui: &UiConfig) {
             _ => "Break's over. Back to it.",
         };
         if ui.notify {
-            crate::notify::send("vanta", body, crate::notify::Urgency::Normal);
+            crate::notify::send("orbit", body, crate::notify::Urgency::Normal);
         }
     }
 }

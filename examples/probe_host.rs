@@ -10,11 +10,11 @@ fn main() {
         Manifest::new([Wasm::file(&path)]).with_timeout(std::time::Duration::from_millis(250));
     // Start the real sampler so telemetry queries return live values, exactly
     // as they do inside the running app.
-    let _sampler = vanta::monitors::start(std::time::Duration::from_millis(250));
+    let _sampler = orbit_tui::monitors::start(std::time::Duration::from_millis(250));
     std::thread::sleep(std::time::Duration::from_millis(900));
 
     let mut plugin =
-        Plugin::new(&manifest, vanta::extension::host_api::functions(), true).expect("plugin");
+        Plugin::new(&manifest, orbit_tui::extension::host_api::functions(), true).expect("plugin");
     let meta = plugin
         .call::<(), Vec<u8>>("metadata", ())
         .expect("metadata");

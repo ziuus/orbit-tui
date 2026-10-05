@@ -1,9 +1,9 @@
 {
-  "name": "@ziuus/vanta",
+  "name": "@ziuus/orbit",
   "version": "0.10.84",
   "description": "Aesthetic Rust TUI system dashboard — CPU, memory, disk, network, GPU, processes, now-playing, clock, file manager, notes and visualizer in one terminal pane",
   "bin": {
-    "vanta": "bin/vanta.js"
+    "orbit": "bin/orbit.js"
   },
   "scripts": {
     "postinstall": "node install.js"
@@ -13,7 +13,7 @@
     "provenance": true
   },
   "files": [
-    "bin/vanta.js",
+    "bin/orbit.js",
     "install.js",
     "README.md",
     "LICENSE"
@@ -43,11 +43,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ziuus/vanta.git"
+    "url": "git+https://github.com/ziuus/orbit.git"
   },
-  "homepage": "https://github.com/ziuus/vanta#readme",
+  "homepage": "https://github.com/ziuus/orbit#readme",
   "bugs": {
-    "url": "https://github.com/ziuus/vanta/issues"
+    "url": "https://github.com/ziuus/orbit/issues"
   },
   "license": "MIT",
   "author": "zius"

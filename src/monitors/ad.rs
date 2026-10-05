@@ -4,7 +4,7 @@ use std::sync::{LazyLock, Mutex};
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct SponsorSnapshot {
     pub message: String,
-    pub sponsor_name: String,
+    pub subtext: String,
     pub url: String,
     pub ready: bool,
 }
@@ -19,27 +19,49 @@ pub fn snapshot() -> SponsorSnapshot {
     SNAP.lock().unwrap().clone()
 }
 
+#[derive(Deserialize)]
+struct AdPayload {
+    message: String,
+    subtext: String,
+    url: String,
+}
+
 pub fn start() {
     std::thread::Builder::new()
-        .name("vanta-ad".into())
+        .name("orbit-ad".into())
         .spawn(|| loop {
             std::thread::sleep(std::time::Duration::from_secs(2));
-            if !DEMAND.due(std::time::Duration::from_secs(3600)) { // Don't hit API more than once per hour if idle
+            if !DEMAND.due(std::time::Duration::from_secs(3600)) { 
                 continue;
             }
-            let snap = SponsorSnapshot {
-                ready: true,
-                message: "GPT-6.1 Sol | Included in every plan.".to_string(),
-                sponsor_name: "Freebuff".to_string(),
-                url: "freebuff.com".to_string(),
+            
+            let mut snap = SponsorSnapshot {
+                ready: false,
+                message: String::new(),
+                subtext: String::new(),
+                url: String::new(),
             };
 
-            // For now, we mock the fetch or attempt a silent dummy fetch.
-            // In a real implementation, you'd fetch from a raw GitHub Gist or edge function:
-            // if let Ok(res) = ureq::get("https://your-ad-server.com/sponsor.json").call() { ... }
+            let fetch_url = "https://raw.githubusercontent.com/ziuus/orbit-tui/main/sponsor.json";
+            
+            if let Ok(res) = ureq::get(fetch_url).call() {
+                if let Ok(payload) = res.into_body().read_json::<AdPayload>() {
+                    snap.ready = true;
+                    snap.message = payload.message;
+                    snap.subtext = payload.subtext;
+                    snap.url = payload.url;
+                }
+            }
+
+            if !snap.ready {
+                snap.ready = true;
+                snap.message = "Orbit Pro".to_string();
+                snap.subtext = "Sync your layouts across all your devices.".to_string();
+                snap.url = "orbit-tui.com/pro".to_string();
+            }
 
             *SNAP.lock().unwrap() = snap;
-            std::thread::sleep(std::time::Duration::from_secs(3600)); // Update hourly
+            std::thread::sleep(std::time::Duration::from_secs(3600)); 
         })
         .expect("spawn ad thread");
 }

@@ -1,5 +1,5 @@
-// Downloads the prebuilt vanta binary for this platform from the matching
-// GitHub release. ponytail: linux-x64 only — vanta reads /proc and /sys and
+// Downloads the prebuilt orbit binary for this platform from the matching
+// GitHub release. ponytail: linux-x64 only — orbit reads /proc and /sys and
 // links libdbus, so there is nothing to ship for other platforms. Add targets
 // here and in .github/workflows/release.yml when someone asks for them.
 const fs = require('fs');
@@ -19,24 +19,24 @@ const TARGET_MAP = {
 };
 
 const TARGET = TARGET_MAP[process.platform]?.[process.arch];
-const FROM_SOURCE = 'cargo install --git https://github.com/ziuus/vanta';
+const FROM_SOURCE = 'cargo install --git https://github.com/ziuus/orbit';
 
 if (!TARGET) {
-  console.error(`vanta: no prebuilt binary for ${process.platform}-${process.arch}.`);
-  console.error(`vanta: build it yourself with:  ${FROM_SOURCE}`);
+  console.error(`orbit: no prebuilt binary for ${process.platform}-${process.arch}.`);
+  console.error(`orbit: build it yourself with:  ${FROM_SOURCE}`);
   process.exit(1);
 }
 
 const isWin = process.platform === 'win32';
-const ASSET = `vanta-${TARGET}.tar.gz`;
-const URL = `https://github.com/ziuus/vanta/releases/download/v${version}/${ASSET}`;
+const ASSET = `orbit-${TARGET}.tar.gz`;
+const URL = `https://github.com/ziuus/orbit/releases/download/v${version}/${ASSET}`;
 
 // GitHub redirects release downloads to a CDN host, so follow Location.
 function download(url, hops = 0, retries = 3) {
   return new Promise((resolve, reject) => {
     if (hops > 5) return reject(new Error('too many redirects'));
     const req = https
-      .get(url, { headers: { 'user-agent': `@ziuus/vanta/${version}` } }, (res) => {
+      .get(url, { headers: { 'user-agent': `@ziuus/orbit/${version}` } }, (res) => {
         const { statusCode, headers } = res;
         if (statusCode >= 300 && statusCode < 400 && headers.location) {
           res.resume();
@@ -56,7 +56,7 @@ function download(url, hops = 0, retries = 3) {
             const pct = Math.round((downloaded / total) * 100);
             const mb = (downloaded / (1024 * 1024)).toFixed(1);
             const totMb = (total / (1024 * 1024)).toFixed(1);
-            process.stderr.write(`\rvanta: downloading... ${pct}% (${mb}/${totMb} MB)`);
+            process.stderr.write(`\rorbit: downloading... ${pct}% (${mb}/${totMb} MB)`);
           }
         });
         res.on('end', () => {
@@ -65,7 +65,7 @@ function download(url, hops = 0, retries = 3) {
         });
         res.on('error', (err) => {
           if (retries > 0) {
-            process.stderr.write(`\nvanta: download error (${err.message}), retrying...\n`);
+            process.stderr.write(`\norbit: download error (${err.message}), retrying...\n`);
             resolve(download(url, hops, retries - 1));
           } else {
             reject(err);
@@ -74,7 +74,7 @@ function download(url, hops = 0, retries = 3) {
       })
       .on('error', (err) => {
         if (retries > 0) {
-          process.stderr.write(`\nvanta: download error (${err.message}), retrying...\n`);
+          process.stderr.write(`\norbit: download error (${err.message}), retrying...\n`);
           resolve(download(url, hops, retries - 1));
         } else {
           reject(err);
@@ -85,15 +85,15 @@ function download(url, hops = 0, retries = 3) {
 
 (async () => {
   const binDir = path.join(__dirname, 'bin');
-  const dest = path.join(binDir, isWin ? 'vanta-bin.exe' : 'vanta-bin');
-  const tgz = path.join(os.tmpdir(), `vanta-${version}-${process.pid}.tar.gz`);
+  const dest = path.join(binDir, isWin ? 'orbit-bin.exe' : 'orbit-bin');
+  const tgz = path.join(os.tmpdir(), `orbit-${version}-${process.pid}.tar.gz`);
 
   fs.mkdirSync(binDir, { recursive: true });
-  process.stderr.write(`vanta: fetching ${ASSET}\n`);
+  process.stderr.write(`orbit: fetching ${ASSET}\n`);
   fs.writeFileSync(tgz, await download(URL));
 
   try {
-    const binName = isWin ? 'vanta.exe' : 'vanta';
+    const binName = isWin ? 'orbit.exe' : 'orbit';
     execFileSync('tar', ['-xzf', tgz, '-C', binDir, binName]);
     fs.renameSync(path.join(binDir, binName), dest);
     fs.chmodSync(dest, 0o755);
@@ -103,9 +103,9 @@ function download(url, hops = 0, retries = 3) {
 
   // Fail the install rather than leave a bin shim pointing at nothing.
   execFileSync(dest, ['--version'], { stdio: 'ignore' });
-  process.stderr.write('vanta: installed — run `vanta`\n');
+  process.stderr.write('orbit: installed — run `orbit`\n');
 })().catch((err) => {
-  console.error(`vanta: install failed — ${err.message}`);
-  console.error(`vanta: build from source instead:  ${FROM_SOURCE}`);
+  console.error(`orbit: install failed — ${err.message}`);
+  console.error(`orbit: build from source instead:  ${FROM_SOURCE}`);
   process.exit(1);
 });

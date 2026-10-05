@@ -5,14 +5,14 @@
 //! only render pure computation, which is why telemetry-driven extensions
 //! previously had to ship mock data.
 //!
-//! This module exposes the telemetry Vanta **already samples** on its sampler
+//! This module exposes the telemetry Orbit **already samples** on its sampler
 //! thread, so extensions read real numbers at no additional collection cost.
 //! The wire format is deliberately decoupled from the internal monitor structs:
 //! internals stay free to change, the extension API does not.
 //!
 //! # Protocol
 //!
-//! One host function, `vanta_query(request_json) -> response_json`.
+//! One host function, `orbit_query(request_json) -> response_json`.
 //!
 //! Request: `{"topic": "cpu"}`, with optional per-topic arguments, e.g.
 //! `{"topic": "processes", "limit": 20}`.
@@ -67,7 +67,7 @@ const UNAVAILABLE: &[(&str, &str)] = &[
 /// Build the host function list handed to every plugin.
 pub fn functions() -> Vec<Function> {
     vec![Function::new(
-        "vanta_query",
+        "orbit_query",
         [PTR],
         [PTR],
         extism::UserData::new(()),

@@ -1,6 +1,7 @@
 pub mod ad;
 pub mod agenda;
 pub mod connections;
+pub mod doctor;
 pub mod cpu;
 pub mod crypto;
 pub mod disk;
@@ -138,7 +139,7 @@ fn collect_summary(prev: &Summary, dt: f64) -> Summary {
         tx_kbps: net.tx_kbps,
         battery: system_info::read_battery(),
         uptime: system_info::fmt_uptime(sysinfo::System::uptime()),
-        // Vanta's own startup burst heats the CPU for a few seconds; don't
+        // Orbit's own startup burst heats the CPU for a few seconds; don't
         // greet the user with an alert it caused.
         hot: STARTED.elapsed() > WARMUP && hot_latch(prev.hot, temp_c, *cpu::TEMP_CRIT),
         temp_crit: *cpu::TEMP_CRIT,
@@ -148,10 +149,10 @@ fn collect_summary(prev: &Summary, dt: f64) -> Summary {
 
 /// Take one full sample of every monitor.
 ///
-/// Set `VANTA_PROFILE=1` to append per-step timings to /tmp/vanta-profile.log
+/// Set `ORBIT_PROFILE=1` to append per-step timings to /tmp/orbit-profile.log
 /// — the only way to see where sampler time goes without a profiler.
 fn sample_all(sys: &mut sysinfo::System) {
-    let profiling = std::env::var_os("VANTA_PROFILE").is_some();
+    let profiling = std::env::var_os("ORBIT_PROFILE").is_some();
     let mut marks: Vec<(&str, u128)> = Vec::new();
     let mut t = Instant::now();
     let mut step = |name: &'static str, marks: &mut Vec<(&str, u128)>| {
@@ -196,7 +197,7 @@ fn sample_all(sys: &mut sysinfo::System) {
         if let Ok(mut f) = std::fs::OpenOptions::new()
             .append(true)
             .create(true)
-            .open("/tmp/vanta-profile.log")
+            .open("/tmp/orbit-profile.log")
         {
             let total: u128 = marks.iter().map(|m| m.1).sum();
             let line = marks
@@ -216,7 +217,7 @@ pub fn start(interval: Duration) -> Arc<AtomicU64> {
     let handle = Arc::new(AtomicU64::new(interval.as_millis() as u64));
     let h = Arc::clone(&handle);
     std::thread::Builder::new()
-        .name("vanta-sampler".into())
+        .name("orbit-sampler".into())
         .spawn(move || {
             let mut sys = sysinfo::System::new();
             // Two quick CPU refreshes so the first visible sample has real
@@ -258,7 +259,7 @@ pub fn start(interval: Duration) -> Arc<AtomicU64> {
 /// already `Mutex`-guarded and TTL-gated, so it just needs a thread of its own.
 fn facts_thread() {
     std::thread::Builder::new()
-        .name("vanta-facts".into())
+        .name("orbit-facts".into())
         .spawn(|| loop {
             crate::widgets::status::sample();
             // sample() early-returns on a lock check until its TTL expires, so

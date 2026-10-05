@@ -22,7 +22,7 @@ fn text(b: &[u8]) -> String {
 fn main() {
     let path = std::env::args().nth(1).unwrap_or_else(|| {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-        format!("{home}/.config/vanta/extensions/netscope.wasm")
+        format!("{home}/.config/orbit/extensions/netscope.wasm")
     });
     let iters: u32 = std::env::args()
         .nth(2)
@@ -30,13 +30,13 @@ fn main() {
         .unwrap_or(6);
 
     println!("NetScope drive — loading: {path}");
-    let _sampler = vanta::monitors::start(std::time::Duration::from_millis(500));
+    let _sampler = orbit_tui::monitors::start(std::time::Duration::from_millis(500));
     std::thread::sleep(std::time::Duration::from_millis(1100));
 
     let manifest =
         Manifest::new([Wasm::file(&path)]).with_timeout(std::time::Duration::from_millis(10));
     let mut plugin =
-        Plugin::new(&manifest, vanta::extension::host_api::functions(), true).expect("plugin");
+        Plugin::new(&manifest, orbit_tui::extension::host_api::functions(), true).expect("plugin");
 
     let render = |p: &mut Plugin, id: &str| -> (String, std::time::Duration) {
         let t = std::time::Instant::now();

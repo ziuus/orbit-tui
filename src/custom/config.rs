@@ -1,7 +1,7 @@
 //! Configuration types for custom widgets.
 //!
 //! These map 1-to-1 onto the `[[custom_widgets]]` TOML array entries in
-//! `~/.config/vanta/config.toml`.  Every optional field has a serde default
+//! `~/.config/orbit/config.toml`.  Every optional field has a serde default
 //! so existing configs that predate this feature continue to load without error.
 
 use serde::{Deserialize, Serialize};

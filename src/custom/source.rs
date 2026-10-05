@@ -76,7 +76,7 @@ impl DataWorker {
         let cfg = cfg.clone();
 
         std::thread::Builder::new()
-            .name(format!("vanta-custom-{}", cfg.id))
+            .name(format!("orbit-custom-{}", cfg.id))
             .spawn(move || {
                 let interval = Duration::from_secs_f64(cfg.clamped_refresh());
                 loop {
@@ -209,7 +209,7 @@ fn fetch_command_with_timeout(cmd: &str, timeout: Duration) -> FetchResult {
                     let _ = child.kill();
                     // kill() only sends the signal. Without a wait() the child
                     // stays a zombie for the life of the process — Rust's
-                    // Child::drop does not reap. vanta runs all day, so a
+                    // Child::drop does not reap. orbit runs all day, so a
                     // widget whose command hangs would leak one PID per poll.
                     let _ = child.wait();
                     log_debug(&format!("custom widget: {:?} timed out", exe));
@@ -245,11 +245,11 @@ fn fetch_file(path: &str) -> FetchResult {
 
 // ── Debug logging ─────────────────────────────────────────────────────────────
 
-/// Write a line to stderr when `VANTA_DEBUG=1` is set.  The UI is never
+/// Write a line to stderr when `ORBIT_DEBUG=1` is set.  The UI is never
 /// cluttered with raw error messages.
 fn log_debug(msg: &str) {
-    if std::env::var("VANTA_DEBUG").as_deref() == Ok("1") {
-        eprintln!("[vanta-custom] {}", msg);
+    if std::env::var("ORBIT_DEBUG").as_deref() == Ok("1") {
+        eprintln!("[orbit-custom] {}", msg);
     }
 }
 
@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn nonexistent_command_fails_gracefully() {
-        let result = fetch_command("__vanta_no_such_binary_xyz__");
+        let result = fetch_command("__orbit_no_such_binary_xyz__");
         assert!(
             matches!(result, FetchResult::CommandFailed(_)),
             "expected CommandFailed, got {:?}",
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn existing_file_is_read() {
-        let path = std::env::temp_dir().join("vanta_test_existing.txt");
+        let path = std::env::temp_dir().join("orbit_test_existing.txt");
         std::fs::write(&path, "  42  \n").unwrap();
         let result = fetch_file(path.to_str().unwrap());
         let _ = std::fs::remove_file(&path);
@@ -384,7 +384,7 @@ mod tests {
 
     #[test]
     fn empty_file_returns_unavailable() {
-        let path = std::env::temp_dir().join("vanta_test_empty.txt");
+        let path = std::env::temp_dir().join("orbit_test_empty.txt");
         std::fs::write(&path, "").unwrap();
         let result = fetch_file(path.to_str().unwrap());
         let _ = std::fs::remove_file(&path);
@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     fn worker_reads_file_source() {
-        let path = std::env::temp_dir().join("vanta_test_worker.txt");
+        let path = std::env::temp_dir().join("orbit_test_worker.txt");
         std::fs::write(&path, "77\n").unwrap();
         let cfg = file_cfg("bat_test", path.to_str().unwrap());
         let worker = DataWorker::spawn(&cfg).unwrap();

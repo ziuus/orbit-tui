@@ -2,7 +2,7 @@
 //!
 //! `CustomWidget` couples a config, a live data-source worker, and its own
 //! history buffer.  The history is a bounded `VecDeque` so memory usage is
-//! always capped regardless of how long Vanta runs.
+//! always capped regardless of how long Orbit runs.
 
 use std::collections::VecDeque;
 

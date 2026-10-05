@@ -253,7 +253,7 @@ fn read_docker() -> Option<(usize, usize)> {
     Some((running, total))
 }
 
-/// Refresh slow facts if stale. Runs on the dedicated vanta-facts background thread.
+/// Refresh slow facts if stale. Runs on the dedicated orbit-facts background thread.
 pub fn sample() {
     let (stale, updates_stale) = {
         let c = CACHE.lock().unwrap();
@@ -269,7 +269,7 @@ pub fn sample() {
             .is_ok()
     {
         std::thread::Builder::new()
-            .name("vanta-checkupdates".into())
+            .name("orbit-checkupdates".into())
             .spawn(move || {
                 let n = count_updates();
                 if let Ok(mut c) = CACHE.lock() {

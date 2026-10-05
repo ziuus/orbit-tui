@@ -19,7 +19,7 @@ use ratatui::{
 use sha2::{Digest, Sha256};
 
 const REGISTRY_URL: &str =
-    "https://raw.githubusercontent.com/ziuus/vanta-integrations/main/registry.json";
+    "https://raw.githubusercontent.com/ziuus/orbit-integrations/main/registry.json";
 
 fn default_ext_type() -> String {
     "component".to_string()
@@ -68,9 +68,9 @@ fn get_category(id: &str) -> &'static str {
 
 fn get_themes_dir() -> PathBuf {
     let base = if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
-        PathBuf::from(xdg).join("vanta")
+        PathBuf::from(xdg).join("orbit")
     } else if let Ok(home) = std::env::var("HOME") {
-        PathBuf::from(home).join(".config").join("vanta")
+        PathBuf::from(home).join(".config").join("orbit")
     } else {
         PathBuf::from(".")
     };
@@ -79,7 +79,7 @@ fn get_themes_dir() -> PathBuf {
     dir
 }
 fn get_extensions_dir() -> PathBuf {
-    let mut dir = directories::ProjectDirs::from("", "", "vanta")
+    let mut dir = directories::ProjectDirs::from("", "", "orbit")
         .map(|p| p.config_dir().to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."));
     dir.push("extensions");
@@ -88,7 +88,7 @@ fn get_extensions_dir() -> PathBuf {
 }
 
 fn get_config_path() -> PathBuf {
-    directories::ProjectDirs::from("", "", "vanta")
+    directories::ProjectDirs::from("", "", "orbit")
         .map(|p| p.config_dir().join("config.toml"))
         .unwrap_or_else(|| PathBuf::from("config.toml"))
 }
@@ -150,7 +150,7 @@ pub fn add_page_to_config(
 fn download_and_install_ext(ext: &RegistryExtension) -> Result<PathBuf, String> {
     if !ext.api_version.starts_with("0.9") && !ext.api_version.starts_with("0.10") {
         return Err(format!(
-            "'{}' requires Vanta UI API {}, but your Vanta supports API 0.10",
+            "'{}' requires Orbit UI API {}, but your Orbit supports API 0.10",
             ext.id, ext.api_version
         ));
     }
@@ -223,8 +223,8 @@ pub fn install_page_ext(
 }
 
 pub fn run_menu_installer() -> io::Result<()> {
-    vanta::config::clean_orphaned_extensions();
-    println!("Fetching Vanta extensions registry...");
+    orbit_tui::config::clean_orphaned_extensions();
+    println!("Fetching Orbit extensions registry...");
     let res = match ureq::get(REGISTRY_URL).call() {
         Ok(r) => r,
         Err(e) => {
@@ -347,7 +347,7 @@ pub fn run_menu_installer() -> io::Result<()> {
                         .borders(Borders::ALL)
                         .border_type(BorderType::Rounded)
                         .border_style(Style::default().fg(Color::Cyan))
-                        .title(" 🧩 VANTA EXTENSION & WORKSPACE INSTALLER "),
+                        .title(" 🧩 ORBIT EXTENSION & WORKSPACE INSTALLER "),
                 )
                 .select(active_cat_idx)
                 .style(Style::default().fg(Color::DarkGray))
@@ -536,7 +536,7 @@ pub fn run_menu_installer() -> io::Result<()> {
                                 .add_modifier(Modifier::BOLD),
                         ),
                         Span::styled(
-                            format!(" (~/.config/vanta/extensions/{}.wasm)", ext.id),
+                            format!(" (~/.config/orbit/extensions/{}.wasm)", ext.id),
                             Style::default().fg(Color::DarkGray),
                         ),
                     ])
@@ -873,7 +873,7 @@ pub fn run_menu_installer() -> io::Result<()> {
                                                     removed_count += 1;
                                                 }
                                             }
-                                            let _ = vanta::config::remove_page_from_config(
+                                            let _ = orbit_tui::config::remove_page_from_config(
                                                 &ext.name,
                                                 &ext.components,
                                             );
@@ -889,7 +889,7 @@ pub fn run_menu_installer() -> io::Result<()> {
                                                 match fs::remove_file(&ext_file) {
                                                     Ok(_) => {
                                                         let _ =
-                                                        vanta::config::remove_component_from_config(
+                                                        orbit_tui::config::remove_component_from_config(
                                                             &ext.id,
                                                         );
                                                         status_msg = format!(
@@ -908,7 +908,7 @@ pub fn run_menu_installer() -> io::Result<()> {
                                                     }
                                                 }
                                             } else {
-                                                let _ = vanta::config::remove_component_from_config(
+                                                let _ = orbit_tui::config::remove_component_from_config(
                                                     &ext.id,
                                                 );
                                                 status_msg = format!(

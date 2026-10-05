@@ -2577,6 +2577,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
+name = "orbit-tui"
+version = "0.10.84"
+dependencies = [
+ "arboard",
+ "base64 0.23.1",
+ "chrono",
+ "chrono-tz",
+ "clap",
+ "crossterm",
+ "dbus",
+ "directories",
+ "extism",
+ "ical",
+ "image",
+ "log",
+ "nowplaying",
+ "open",
+ "ratatui",
+ "ratatui-image",
+ "rss",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "sysinfo",
+ "tokio",
+ "toml 0.8.23",
+ "trash",
+ "unicode-width 0.2.0",
+ "ureq",
+ "walkdir",
+]
+
+[[package]]
 name = "ordered-stream"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4148,39 +4181,6 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
-
-[[package]]
-name = "vanta"
-version = "0.10.84"
-dependencies = [
- "arboard",
- "base64 0.23.1",
- "chrono",
- "chrono-tz",
- "clap",
- "crossterm",
- "dbus",
- "directories",
- "extism",
- "ical",
- "image",
- "log",
- "nowplaying",
- "open",
- "ratatui",
- "ratatui-image",
- "rss",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "sysinfo",
- "tokio",
- "toml 0.8.23",
- "trash",
- "unicode-width 0.2.0",
- "ureq",
- "walkdir",
-]
 
 [[package]]
 name = "version_check"

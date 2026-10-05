@@ -5,19 +5,19 @@ const fs = require('fs');
 const { spawnSync } = require('child_process');
 
 const isWin = process.platform === 'win32';
-const bin = path.join(__dirname, isWin ? 'vanta-bin.exe' : 'vanta-bin');
+const bin = path.join(__dirname, isWin ? 'orbit-bin.exe' : 'orbit-bin');
 
 if (!fs.existsSync(bin)) {
   const installer = path.join(__dirname, '..', 'install.js');
   if (fs.existsSync(installer)) {
-    process.stderr.write('vanta: downloading release binary...\n');
+    process.stderr.write('orbit: downloading release binary...\n');
     const res = spawnSync(process.execPath, [installer], { stdio: 'inherit' });
     if (res.status !== 0 || !fs.existsSync(bin)) {
       process.exit(1);
     }
   } else {
-    console.error('vanta: binary missing — reinstall with `npm install -g @ziuus/vanta`');
-    console.error('vanta: or build from source:  cargo install --git https://github.com/ziuus/vanta');
+    console.error('orbit: binary missing — reinstall with `npm install -g @ziuus/orbit`');
+    console.error('orbit: or build from source:  cargo install --git https://github.com/ziuus/orbit');
     process.exit(1);
   }
 }

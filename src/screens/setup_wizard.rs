@@ -31,7 +31,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(Clear, popup_area);
 
     let block = Block::default()
-        .title(" Vanta First-Time Setup ")
+        .title(" Orbit First-Time Setup ")
         .title_alignment(Alignment::Center)
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -51,14 +51,14 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         0 => {
             text.push(Line::from(""));
             text.push(Line::from(Span::styled(
-                "Welcome to Vanta!",
+                "Welcome to Orbit!",
                 Style::default()
                     .fg(theme.green)
                     .add_modifier(Modifier::BOLD),
             )));
             text.push(Line::from(""));
             text.push(Line::from(
-                "Vanta is a high-performance, aesthetic dashboard.",
+                "Orbit is a high-performance, aesthetic dashboard.",
             ));
             text.push(Line::from("Let's quickly get your system configured."));
             text.push(Line::from(""));
@@ -77,7 +77,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
             )));
             text.push(Line::from(""));
             text.push(Line::from(
-                "Vanta uses 'cava' for its live audio visualizer.",
+                "Orbit uses 'cava' for its live audio visualizer.",
             ));
 
             if is_cava_installed() {
@@ -116,7 +116,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
                         Style::default().fg(theme.dim),
                     )));
                     text.push(Line::from(
-                        "Vanta will automatically use a simulated fallback animation.",
+                        "Orbit will automatically use a simulated fallback animation.",
                     ));
                 }
             }
@@ -137,7 +137,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
             )));
             text.push(Line::from(""));
             text.push(Line::from(
-                "Vanta renders meters, graphs, and images in Braille by default.",
+                "Orbit renders meters, graphs, and images in Braille by default.",
             ));
             text.push(Line::from("Choose your image rendering mode:"));
             text.push(Line::from(""));
@@ -188,11 +188,11 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
             text.push(Line::from(""));
             text.push(Line::from("Your configuration has been saved."));
             text.push(Line::from(
-                "You can change these later by pressing 'S' or running 'vanta config'.",
+                "You can change these later by pressing 'S' or running 'orbit config'.",
             ));
             text.push(Line::from(""));
             text.push(Line::from(Span::styled(
-                "Press [Enter] to launch Vanta",
+                "Press [Enter] to launch Orbit",
                 Style::default().fg(theme.dim),
             )));
         }

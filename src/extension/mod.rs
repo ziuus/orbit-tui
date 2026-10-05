@@ -7,7 +7,7 @@ use toml::Value;
 
 use crate::theme::Theme;
 
-/// Metadata for a Vanta Extension.
+/// Metadata for a Orbit Extension.
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -136,7 +136,7 @@ pub const SETTINGS_ITEMS: &[Item] = &[
         S::SystemLogo,
         "appearance",
         "System logo",
-        "Your distro's logo or the Vanta robot in the system panel.",
+        "Your distro's logo or the Orbit robot in the system panel.",
     ),
     item(
         S::ClockFont,
@@ -434,7 +434,7 @@ fn value(app: &App, kind: SettingType) -> Value {
         }
         .to_string(),
         S::SystemLogo => if app.panel_states.force_robot_logo {
-            "vanta robot"
+            "orbit robot"
         } else {
             "distro logo"
         }

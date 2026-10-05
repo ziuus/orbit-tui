@@ -1,8 +1,8 @@
-# Vanta Configuration & Customization
+# Orbit Configuration & Customization
 
 ## Configuration
 
-`~/.config/vanta/config.toml`. Every key is optional; delete the file to reset.
+`~/.config/orbit/config.toml`. Every key is optional; delete the file to reset.
 
 ```toml
 [ui]
@@ -69,37 +69,37 @@ layout = [
 
 ## WASM Extensions (v0.10+)
 
-Vanta is extensible through runtime WASM extensions. You can install completely new UI panels and capabilities created by the community *without* recompiling Vanta.
+Orbit is extensible through runtime WASM extensions. You can install completely new UI panels and capabilities created by the community *without* recompiling Orbit.
 
 ### 1. Discover Extensions
-Search the community registry (hosted via the [vanta-integrations](https://github.com/ziuus/vanta-integrations) repo):
+Search the community registry (hosted via the [orbit-integrations](https://github.com/ziuus/orbit-integrations) repo):
 ```bash
-vanta search
+orbit search
 ```
 ```text
-Vanta Extensions (API v0.9.1)
+Orbit Extensions (API v0.9.1)
 
-  security     Vanta Security
+  security     Orbit Security
                Live CVE security feeds and threat monitoring.
                v0.1.0 (API v0.9.0) by Community
 ```
 
 ### 2. Install & Verify
-Install an extension. Vanta will securely download the `.wasm` artifact, verify its **SHA-256 checksum**, check API compatibility, and place it in your local extensions folder:
+Install an extension. Orbit will securely download the `.wasm` artifact, verify its **SHA-256 checksum**, check API compatibility, and place it in your local extensions folder:
 ```bash
-vanta install security
+orbit install security
 ```
 
 > 🔒 **Security Notice**: Extensions are sandboxed by default. Currently, extensions are granted UI and Configuration access, but are denied Network, Filesystem, and Process execution capabilities.
 
 ### 3. Enable in Config
-Enable the extension so Vanta loads it on startup:
+Enable the extension so Orbit loads it on startup:
 ```bash
-vanta enable security
+orbit enable security
 ```
-It will automatically append to the `enabled` array in your `~/.config/vanta/config.toml`. 
+It will automatically append to the `enabled` array in your `~/.config/orbit/config.toml`. 
 
-Start Vanta (`vanta`) and the new panel will appear in your dashboard! 
+Start Orbit (`orbit`) and the new panel will appear in your dashboard! 
 
 ### Custom Pages (No Code Required)
 You can still build custom views natively with flexible grid layouts by defining `[[pages]]` in your config:
@@ -115,7 +115,7 @@ layout = [
 
 ## Custom Widgets
 
-Add your own data panels to the Dashboard without recompiling Vanta.  
+Add your own data panels to the Dashboard without recompiling Orbit.  
 Each `[[custom_widgets]]` entry in `config.toml` runs a command or reads a file in the background and displays the result.
 
 ### Quick examples
@@ -209,13 +209,13 @@ refresh = 5.0
 | `text` | Raw text output, word-wrapped. |
 | `gauge` | Horizontal bar `████░░ 82%` normalised to `min`/`max`. |
 | `bar` | Horizontal bar without percentage label. |
-| `graph` | Scrolling history graph using Vanta's block-character primitives. |
+| `graph` | Scrolling history graph using Orbit's block-character primitives. |
 
 ### How it works
 
 - Each widget runs on its own background thread at its own `refresh` interval. The render loop (30 fps) only reads a cached result — it never blocks on I/O.
 - Commands are executed directly (no `sh -c`). Arguments with spaces can be quoted: `command = 'grep -r "error" /var/log'`.
-- Commands that hang are killed after 10 seconds. Crashed commands, missing files, and parse errors are shown as status messages (`Command failed`, `Unavailable`, `Invalid value`, `Timeout`, `Loading…`) — they never crash Vanta.
+- Commands that hang are killed after 10 seconds. Crashed commands, missing files, and parse errors are shown as status messages (`Command failed`, `Unavailable`, `Invalid value`, `Timeout`, `Loading…`) — they never crash Orbit.
 - Custom widgets appear as a horizontal row at the bottom of the Dashboard page. They participate in normal Tab focus and Enter zoom like any built-in panel.
-- Set `VANTA_DEBUG=1` before running Vanta to see per-widget error messages on stderr.
+- Set `ORBIT_DEBUG=1` before running Orbit to see per-widget error messages on stderr.
 

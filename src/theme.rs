@@ -138,7 +138,7 @@ static CUSTOM_THEMES: LazyLock<HashMap<String, Theme>> = LazyLock::new(|| {
     } else {
         PathBuf::from(".config")
     };
-    dir.push("vanta");
+    dir.push("orbit");
     dir.push("themes");
 
     if let Ok(entries) = fs::read_dir(dir) {

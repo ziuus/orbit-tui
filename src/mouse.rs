@@ -2,7 +2,7 @@
 //!
 //! crossterm's `EnableMouseCapture` also turns on any-motion tracking
 //! (mode 1003), which makes the terminal report every pixel of pointer
-//! movement and would wake the 2 fps idle loop constantly. Vanta only needs
+//! movement and would wake the 2 fps idle loop constantly. Orbit only needs
 //! presses, drags and the wheel, so it asks for exactly those: 1000 (press/
 //! release + wheel), 1002 (motion only while a button is held) and 1006 (SGR
 //! coordinates, so columns past 223 work).

@@ -119,7 +119,7 @@ gravity = 30
         cava_n = CAVA_N_BARS,
         source = source,
     );
-    let config_path = format!("/tmp/vanta-cava-{}.conf", std::process::id());
+    let config_path = format!("/tmp/orbit-cava-{}.conf", std::process::id());
     if std::fs::write(&config_path, &config).is_err() {
         return;
     }
@@ -234,7 +234,7 @@ pub fn shutdown() {
                 .status();
         }
     }
-    let _ = std::fs::remove_file(format!("/tmp/vanta-cava-{}.conf", std::process::id()));
+    let _ = std::fs::remove_file(format!("/tmp/orbit-cava-{}.conf", std::process::id()));
 }
 
 /// Human label for the active style, for the status bar.
@@ -358,7 +358,7 @@ fn ease_step(state: &mut [f32], target: &[f32]) {
 }
 
 /// Ease each column toward its target: rise fast, fall slow. cava eases every
-/// bar at its own 120fps; vanta only samples it at ~30fps, so without this the
+/// bar at its own 120fps; orbit only samples it at ~30fps, so without this the
 /// bars snap between frames. The asymmetry is the classic cava "liquid" drip —
 /// a spike jumps up, then drains.
 ///

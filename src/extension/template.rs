@@ -125,11 +125,11 @@ impl Extension for TemplateExtension {
     fn metadata(&self) -> ExtensionMetadata {
         ExtensionMetadata {
             id: "template".to_string(),
-            name: "Vanta Template Extension".to_string(),
-            author: "Vanta Core".to_string(),
+            name: "Orbit Template Extension".to_string(),
+            author: "Orbit Core".to_string(),
             version: "1.0.0".to_string(),
             api_version: "0.9.0".to_string(),
-            description: "A reference implementation of a Vanta Extension.".to_string(),
+            description: "A reference implementation of a Orbit Extension.".to_string(),
         }
     }
 

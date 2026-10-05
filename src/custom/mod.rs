@@ -114,7 +114,7 @@ impl CustomWidgetManager {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn log_skip(cfg: &CustomWidgetConfig, reason: &str) {
-    if std::env::var("VANTA_DEBUG").as_deref() == Ok("1") {
-        eprintln!("[vanta-custom] skipping widget {:?}: {}", cfg.id, reason);
+    if std::env::var("ORBIT_DEBUG").as_deref() == Ok("1") {
+        eprintln!("[orbit-custom] skipping widget {:?}: {}", cfg.id, reason);
     }
 }

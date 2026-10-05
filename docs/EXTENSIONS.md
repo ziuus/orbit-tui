@@ -1,31 +1,31 @@
-# Vanta Extensions & Customization Guide
+# Orbit Extensions & Customization Guide
 
-Vanta supports two ways to extend its UI:
-1. **WASM Extensions (Recommended for Community Plugins):** No need to clone or rebuild Vanta. Build a standalone WebAssembly plugin, drop the `.wasm` file into `~/.config/vanta/extensions/`, and run `vanta`.
+Orbit supports two ways to extend its UI:
+1. **WASM Extensions (Recommended for Community Plugins):** No need to clone or rebuild Orbit. Build a standalone WebAssembly plugin, drop the `.wasm` file into `~/.config/orbit/extensions/`, and run `orbit`.
 2. **Native Widgets (For Core Development):** Clone the repo and develop internal widgets directly in Rust with `cargo run`.
 
 ---
 
 ## 1. WASM Extensions (Zero-Rebuild Workflow)
 
-WASM extensions run safely inside Vanta's sandboxed WebAssembly runtime (Extism / Wasmtime).
+WASM extensions run safely inside Orbit's sandboxed WebAssembly runtime (Extism / Wasmtime).
 
 ### How to Test / Develop a WASM Extension Locally
 
 1. **Build the WASM binary:**
-   Inside your plugin crate (e.g., `vanta-integrations/crypto_coin`):
+   Inside your plugin crate (e.g., `orbit-integrations/crypto_coin`):
    ```bash
    cargo build --target wasm32-wasip1 --release
    ```
 
-2. **Place in the Vanta extensions directory:**
-   Copy the output `.wasm` file into `~/.config/vanta/extensions/`:
+2. **Place in the Orbit extensions directory:**
+   Copy the output `.wasm` file into `~/.config/orbit/extensions/`:
    ```bash
-   mkdir -p ~/.config/vanta/extensions/
-   cp target/wasm32-wasip1/release/my_widget.wasm ~/.config/vanta/extensions/
+   mkdir -p ~/.config/orbit/extensions/
+   cp target/wasm32-wasip1/release/my_widget.wasm ~/.config/orbit/extensions/
    ```
 
-3. **Enable it in `~/.config/vanta/config.toml`:**
+3. **Enable it in `~/.config/orbit/config.toml`:**
    ```toml
    [extensions]
    enabled = ["my_widget"]
@@ -37,11 +37,11 @@ WASM extensions run safely inside Vanta's sandboxed WebAssembly runtime (Extism 
    ]
    ```
 
-4. **Run Vanta:**
+4. **Run Orbit:**
    ```bash
-   vanta
+   orbit
    ```
-   Vanta scans `~/.config/vanta/extensions/` at startup and mounts the extension. When you make code changes to your plugin, just re-run step 1 & 2 and restart Vanta.
+   Orbit scans `~/.config/orbit/extensions/` at startup and mounts the extension. When you make code changes to your plugin, just re-run step 1 & 2 and restart Orbit.
 
 ---
 
@@ -50,20 +50,20 @@ WASM extensions run safely inside Vanta's sandboxed WebAssembly runtime (Extism 
 Published community extensions can be installed directly with the CLI:
 
 ```bash
-vanta ext search
-vanta ext install crypto_coin
+orbit ext search
+orbit ext install crypto_coin
 ```
 
 ---
 
 ## 3. Native Widget Development (Core Contributors)
 
-If you are developing a built-in monitor or widget for Vanta itself:
+If you are developing a built-in monitor or widget for Orbit itself:
 
 1. **Clone the repo:**
    ```bash
-   git clone https://github.com/ziuus/vanta.git
-   cd vanta
+   git clone https://github.com/ziuus/orbit.git
+   cd orbit
    ```
 2. **Add your widget:**
    Create `src/widgets/my_widget.rs` and expose `render(f: &mut Frame, area: Rect, theme: &Theme)`.
@@ -71,7 +71,7 @@ If you are developing a built-in monitor or widget for Vanta itself:
    Add your widget identifier to the layout dispatcher.
 4. **Test immediately:**
    ```bash
-   cargo run --bin vanta
+   cargo run --bin orbit
    ```
    Or with release optimizations:
    ```bash
@@ -80,7 +80,7 @@ If you are developing a built-in monitor or widget for Vanta itself:
 
 ---
 
-## 4. Host Telemetry API (`vanta_query`)
+## 4. Host Telemetry API (`orbit_query`)
 
 Extensions run sandboxed: **no filesystem, no network, no environment
 variables, no host config**. A plugin that calls `std::fs::read_to_string
@@ -95,10 +95,10 @@ use extism_pdk::*;
 
 #[host_fn]
 extern "ExtismHost" {
-    fn vanta_query(request: String) -> String;
+    fn orbit_query(request: String) -> String;
 }
 
-let json = unsafe { vanta_query(r#"{"topic":"cpu"}"#.to_string()) }?;
+let json = unsafe { orbit_query(r#"{"topic":"cpu"}"#.to_string()) }?;
 ```
 
 Request: `{"topic": "<name>"}` plus optional per-topic arguments
@@ -128,7 +128,7 @@ Response: `{"ok":true,"data":{…}}` or `{"ok":false,"error":"…","topics":[…
    explicit unavailable state. `capabilities.unavailable` documents known gaps
    (per-interface network, connection tables, containers, git, journal) —
    these are genuinely not collected, so do not fake them.
-3. **Compatibility.** A plugin that imports `vanta_query` will **fail to load
+3. **Compatibility.** A plugin that imports `orbit_query` will **fail to load
    on hosts older than 0.10.26** (unknown import). Plugins that need telemetry
    should declare `api_version = "0.9.2"` in their metadata and registry entry;
    plugins that do not import the host function keep working everywhere.

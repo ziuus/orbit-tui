@@ -32,7 +32,7 @@ pub fn get_agenda_file() -> PathBuf {
     if let Ok(home) = std::env::var("HOME") {
         let mut path = PathBuf::from(home);
         path.push(".config");
-        path.push("vanta");
+        path.push("orbit");
         let _ = fs::create_dir_all(&path);
         path.push("agenda.ics");
         path
@@ -52,7 +52,7 @@ pub fn ensure_agenda_file() {
             .format("%Y%m%dT%H%M00")
             .to_string();
         let default_content = format!(
-            "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Vanta//EN\nBEGIN:VEVENT\nSUMMARY:Team Standup & Review\nDTSTART:{}\nDTEND:{}\nEND:VEVENT\nEND:VCALENDAR\n",
+            "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Orbit//EN\nBEGIN:VEVENT\nSUMMARY:Team Standup & Review\nDTSTART:{}\nDTEND:{}\nEND:VEVENT\nEND:VCALENDAR\n",
             dtstart, dtend
         );
         let _ = fs::write(&file_path, default_content);
@@ -397,7 +397,7 @@ fn insert_block(content: &str, block: &str) -> String {
         s
     } else {
         format!(
-            "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Vanta//EN\n{}{}END:VCALENDAR\n",
+            "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Orbit//EN\n{}{}END:VCALENDAR\n",
             content, block
         )
     }
@@ -426,7 +426,7 @@ pub fn replace_event_in_content(content: &str, target: &Event, input: &str) -> O
         .filter(|e| *e > start)
         .unwrap_or(default_end);
     let uid = if target.uid.is_empty() {
-        format!("vanta-{}@localhost", start.timestamp_millis())
+        format!("orbit-{}@localhost", start.timestamp_millis())
     } else {
         target.uid.clone()
     };
@@ -439,7 +439,7 @@ pub fn replace_event_in_content(content: &str, target: &Event, input: &str) -> O
 pub fn add_event_to_content(content: &str, input: &str) -> (String, Event) {
     let (summary, start_time, end_time) = parse_event_input(input);
     let uid = format!(
-        "vanta-{}@localhost",
+        "orbit-{}@localhost",
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_millis())
@@ -680,7 +680,7 @@ mod tests {
 
     #[test]
     fn test_add_and_delete_event_from_content() {
-        let initial = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Vanta//EN\nEND:VCALENDAR\n";
+        let initial = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Orbit//EN\nEND:VCALENDAR\n";
         let (with_event, ev) = add_event_to_content(initial, "14:00 Sprint Review");
         assert_eq!(ev.summary, "Sprint Review");
         assert!(with_event.contains("SUMMARY:Sprint Review"));

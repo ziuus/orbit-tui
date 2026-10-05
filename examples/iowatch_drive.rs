@@ -3,7 +3,7 @@
 //! Usage:
 //!   cargo run --example iowatch_drive [<wasm_path>] [<iters>]
 //!
-//! Defaults: ~/.config/vanta/extensions/iowatch.wasm, 8 iterations.
+//! Defaults: ~/.config/orbit/extensions/iowatch.wasm, 8 iterations.
 //!
 //! What this verifies:
 //! - Plugin loads with host functions wired
@@ -34,7 +34,7 @@ fn text(b: &[u8]) -> String {
 fn main() {
     let path = std::env::args().nth(1).unwrap_or_else(|| {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-        format!("{home}/.config/vanta/extensions/iowatch.wasm")
+        format!("{home}/.config/orbit/extensions/iowatch.wasm")
     });
 
     let iters: u32 = std::env::args()
@@ -45,14 +45,14 @@ fn main() {
     println!("IOWatch drive — loading: {path}");
     println!("Starting monitors…");
 
-    let _sampler = vanta::monitors::start(std::time::Duration::from_millis(500));
+    let _sampler = orbit_tui::monitors::start(std::time::Duration::from_millis(500));
     // Two sample windows so the io topic has rate data before the first render.
     std::thread::sleep(std::time::Duration::from_millis(1100));
 
     let manifest =
         Manifest::new([Wasm::file(&path)]).with_timeout(std::time::Duration::from_millis(10));
     let mut plugin =
-        Plugin::new(&manifest, vanta::extension::host_api::functions(), true).expect("plugin");
+        Plugin::new(&manifest, orbit_tui::extension::host_api::functions(), true).expect("plugin");
 
     let render = |p: &mut Plugin, id: &str| -> (String, std::time::Duration) {
         let t = std::time::Instant::now();

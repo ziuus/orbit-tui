@@ -154,6 +154,7 @@ impl PanelId {
                 return list;
             }
             DashboardMode::DebugLogs => vec![],
+            DashboardMode::Doctor => vec![],
         };
         list.into_iter()
             .filter(|(_, on)| *on)
@@ -554,7 +555,7 @@ impl App {
                 std::sync::mpsc::channel::<ratatui_image::thread::ResizeRequest>();
             let (tx_done, rx_done) = std::sync::mpsc::channel();
             std::thread::Builder::new()
-                .name("vanta-image-encoder".into())
+                .name("orbit-image-encoder".into())
                 .spawn(move || {
                     while let Ok(req) = rx_worker.recv() {
                         let _ = tx_done.send(req.resize_encode());
@@ -591,6 +592,7 @@ impl App {
             DashboardMode::Monitor,
             DashboardMode::Aesthetic,
             DashboardMode::Workspace,
+            DashboardMode::Doctor,
         ];
         for ext in &self.ext_manager.extensions {
             for page in ext.pages() {
@@ -1228,6 +1230,13 @@ impl App {
             return;
         }
 
+        if self.mode == DashboardMode::Doctor {
+            if let KeyCode::Enter = key.code {
+                crate::monitors::doctor::trigger_diagnosis();
+                return;
+            }
+        }
+
         if self.mode == DashboardMode::DebugLogs {
             match key.code {
                 KeyCode::Char('t') => {
@@ -1390,7 +1399,7 @@ impl App {
             KeyCode::Char('B') => {
                 self.panel_states.force_robot_logo = !self.panel_states.force_robot_logo;
                 let status = if self.panel_states.force_robot_logo {
-                    "Vanta Robot"
+                    "Orbit Robot"
                 } else {
                     "OS Logo"
                 };
@@ -2378,10 +2387,10 @@ impl App {
 
             let ad_text = vec![
                 Line::from(vec![
-                    Span::styled("GPT-6.1 Sol", Style::default().fg(Color::Rgb(150, 255, 150)).add_modifier(Modifier::BOLD)),
+                    Span::styled(ad_snap.message, Style::default().fg(Color::Rgb(150, 255, 150)).add_modifier(Modifier::BOLD)),
                 ]),
                 Line::from(vec![
-                    Span::raw("Included in every plan."),
+                    Span::raw(ad_snap.subtext),
                 ]),
                 Line::from(vec![
                     Span::styled(" See plans ", Style::default().fg(Color::Black).bg(Color::Rgb(150, 255, 150))),
@@ -2400,6 +2409,7 @@ impl App {
             (None, DashboardMode::Monitor) => screens::monitor::render(f, main, self),
             (None, DashboardMode::Aesthetic) => screens::aesthetic::render(f, main, self),
             (None, DashboardMode::Workspace) => screens::workspace::render(f, main, self),
+            (None, DashboardMode::Doctor) => screens::doctor::render(f, main, self),
             (None, DashboardMode::DebugLogs) => screens::debug_logs::render(f, main, self),
             (None, DashboardMode::Extension(name)) => {
                 let mut rendered = false;
@@ -2587,7 +2597,7 @@ impl App {
             _ => t.green,
         };
         let mut left: Vec<Span> = vec![
-            Span::styled(" vanta", base.fg(t.accent)),
+            Span::styled(" orbit", base.fg(t.accent)),
             Span::styled(" ● ", base.fg(dot)),
         ];
         if self.night == Some(true) {

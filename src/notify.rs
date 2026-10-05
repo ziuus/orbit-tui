@@ -94,7 +94,7 @@ pub fn dismiss(id: u64) {
 /// Emit a test notification for user preview.
 pub fn test_notification() {
     record(
-        "Vanta System Alert",
+        "Orbit System Alert",
         "Test alert: Notifications previewer is active and operational.",
         Urgency::Normal,
     );
@@ -107,10 +107,10 @@ pub fn send(title: &str, body: &str, urgency: Urgency) {
         Urgency::Critical => "critical",
     };
     let _ = std::thread::Builder::new()
-        .name("vanta-notify".into())
+        .name("orbit-notify".into())
         .spawn(move || {
             let ok = std::process::Command::new("notify-send")
-                .args(["-a", "vanta", "-u", level, &title, &body])
+                .args(["-a", "orbit", "-u", level, &title, &body])
                 .status()
                 .is_ok_and(|s| s.success());
             if !ok {

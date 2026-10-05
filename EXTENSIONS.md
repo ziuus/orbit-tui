@@ -1,32 +1,32 @@
-# Vanta Extension Developer Guide
+# Orbit Extension Developer Guide
 
-Vanta is built to be highly extensible. Any developer can build custom widgets, data fetchers, and UI components using **WebAssembly (WASM)** and the **Extism** plugin system. 
+Orbit is built to be highly extensible. Any developer can build custom widgets, data fetchers, and UI components using **WebAssembly (WASM)** and the **Extism** plugin system. 
 
-This guide explains how to create your own Vanta plugin out of the box, compile it, and publish it to the community.
+This guide explains how to create your own Orbit plugin out of the box, compile it, and publish it to the community.
 
 ## 1. Extension Architecture
 
-Vanta uses micro-extensions. Every individual widget (e.g., a Crypto tracker, a World Clock, a File Browser) is compiled as its own independent `.wasm` plugin.
+Orbit uses micro-extensions. Every individual widget (e.g., a Crypto tracker, a World Clock, a File Browser) is compiled as its own independent `.wasm` plugin.
 
 Because the plugins run in an Extism sandbox:
 - **They are secure:** They cannot randomly access your filesystem unless permitted by the host.
 - **They can be written in many languages:** While we use Rust for first-party plugins, Extism supports Go, Zig, C, JS, and more.
-- **They fetch data via the Host:** WASM plugins cannot perform native blocking I/O directly. They use `extism:host/env::http_request` for network requests, or query the Vanta host for system data via a Key-Value mailbox (`vanta_query`).
+- **They fetch data via the Host:** WASM plugins cannot perform native blocking I/O directly. They use `extism:host/env::http_request` for network requests, or query the Orbit host for system data via a Key-Value mailbox (`orbit_query`).
 
 ## 2. Setting Up a New Plugin (Rust)
 
-Currently, the most supported way to build a Vanta plugin is using Rust.
+Currently, the most supported way to build a Orbit plugin is using Rust.
 
 1. Create a new Rust library crate:
    ```bash
-   cargo new my_vanta_widget --lib
-   cd my_vanta_widget
+   cargo new my_orbit_widget --lib
+   cd my_orbit_widget
    ```
 
-2. Update your `Cargo.toml` to include the Extism PDK (Plugin Development Kit) and Vanta's required types (if any):
+2. Update your `Cargo.toml` to include the Extism PDK (Plugin Development Kit) and Orbit's required types (if any):
    ```toml
    [package]
-   name = "my_vanta_widget"
+   name = "my_orbit_widget"
    version = "0.1.0"
    edition = "2021"
 
@@ -41,9 +41,9 @@ Currently, the most supported way to build a Vanta plugin is using Rust.
 
 ## 3. Plugin Structure
 
-Every Vanta widget needs to export a `render` function that Vanta's rendering engine will call every frame.
+Every Orbit widget needs to export a `render` function that Orbit's rendering engine will call every frame.
 
-Here is a minimal example of a Vanta widget (`src/lib.rs`):
+Here is a minimal example of a Orbit widget (`src/lib.rs`):
 
 ```rust
 use extism_pdk::*;
@@ -60,7 +60,7 @@ pub fn init() -> FnResult<()> {
 #[plugin_fn]
 pub fn render() -> FnResult<String> {
     // Return a JSON representation of a Ratatui Paragraph/Block
-    // Vanta's host engine will parse this JSON and render it in the terminal.
+    // Orbit's host engine will parse this JSON and render it in the terminal.
     
     let ui_json = json!({
         "type": "paragraph",
@@ -88,20 +88,20 @@ rustup target add wasm32-unknown-unknown
 cargo build --target wasm32-unknown-unknown --release
 ```
 
-This will produce a `.wasm` file at `target/wasm32-unknown-unknown/release/my_vanta_widget.wasm`.
+This will produce a `.wasm` file at `target/wasm32-unknown-unknown/release/my_orbit_widget.wasm`.
 
 ## 5. Local Testing
 
-You don't need to publish your plugin to test it. You can instantly link it to your local Vanta installation.
+You don't need to publish your plugin to test it. You can instantly link it to your local Orbit installation.
 
 1. **Link the plugin:**
-   Vanta has a built-in CLI command to symlink your compiled WASM file into the extensions folder (`~/.config/vanta/extensions/`).
+   Orbit has a built-in CLI command to symlink your compiled WASM file into the extensions folder (`~/.config/orbit/extensions/`).
    ```bash
-   vanta link ./target/wasm32-unknown-unknown/release/my_vanta_widget.wasm
+   orbit link ./target/wasm32-unknown-unknown/release/my_orbit_widget.wasm
    ```
 
-2. **Add it to your Vanta configuration:**
-   Open your `~/.config/vanta/config.toml` (or run `vanta config`) and add your widget to a layout page:
+2. **Add it to your Orbit configuration:**
+   Open your `~/.config/orbit/config.toml` (or run `orbit config`) and add your widget to a layout page:
 
    ```toml
    [extensions]
@@ -111,19 +111,19 @@ You don't need to publish your plugin to test it. You can instantly link it to y
    [[pages]]
    name = "My Custom Page"
    layout = [
-       ["my_vanta_widget", "system_info"],
+       ["my_orbit_widget", "system_info"],
        ["cpu_chart", "memory_chart"]
    ]
    ```
 
-3. **Run Vanta:**
-   Start Vanta, and you should see your custom widget running!
+3. **Run Orbit:**
+   Start Orbit, and you should see your custom widget running!
 
 ## 6. Publishing to the Community
 
-Once your plugin is polished and ready for the world, you can publish it to the official Vanta community registry.
+Once your plugin is polished and ready for the world, you can publish it to the official Orbit community registry.
 
-1. Fork the [vanta-integrations](https://github.com/vanta-ui/vanta-integrations) repository.
+1. Fork the [orbit-integrations](https://github.com/orbit-ui/orbit-integrations) repository.
 2. Copy your plugin's source code folder into the `components/` directory.
 3. Add your crate to the workspace `Cargo.toml`.
 4. Create a Pull Request against the main repository.

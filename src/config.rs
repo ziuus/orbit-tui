@@ -547,9 +547,9 @@ impl Config {
 
 pub fn config_path() -> String {
     if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
-        format!("{}/vanta/config.toml", xdg)
+        format!("{}/orbit/config.toml", xdg)
     } else if let Ok(home) = std::env::var("HOME") {
-        format!("{}/.config/vanta/config.toml", home)
+        format!("{}/.config/orbit/config.toml", home)
     } else {
         "config.toml".to_string()
     }
@@ -765,7 +765,7 @@ pub fn clean_orphaned_extensions() {
         Err(_) => return,
     };
 
-    let ext_dir = match directories::ProjectDirs::from("", "", "vanta") {
+    let ext_dir = match directories::ProjectDirs::from("", "", "orbit") {
         Some(p) => p.config_dir().join("extensions"),
         None => return,
     };

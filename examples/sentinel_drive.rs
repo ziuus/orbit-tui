@@ -26,13 +26,13 @@ fn main() {
         .nth(2)
         .and_then(|s| s.parse().ok())
         .unwrap_or(12);
-    let _sampler = vanta::monitors::start(std::time::Duration::from_millis(400));
+    let _sampler = orbit_tui::monitors::start(std::time::Duration::from_millis(400));
     std::thread::sleep(std::time::Duration::from_millis(900));
 
     let manifest =
         Manifest::new([Wasm::file(&path)]).with_timeout(std::time::Duration::from_millis(10));
     let mut plugin =
-        Plugin::new(&manifest, vanta::extension::host_api::functions(), true).expect("plugin");
+        Plugin::new(&manifest, orbit_tui::extension::host_api::functions(), true).expect("plugin");
 
     // Saturate every core so the cpu/load thresholds are genuinely crossed.
     let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
