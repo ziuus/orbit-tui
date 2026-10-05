@@ -7,7 +7,7 @@
 sudo pacman -S dbus            # Arch
 sudo apt install libdbus-1-dev # Debian/Ubuntu
 
-git clone https://github.com/ziuus/orbit && cd orbit
+git clone https://github.com/ziuus/orbit-tui.git && cd orbit-tui
 cargo run --release
 ```
 

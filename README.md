@@ -7,20 +7,20 @@
 A fast, aesthetic terminal system dashboard in Rust. The most complete keyboard-driven terminal dashboard — one pane, four modes, zero mouse.
 
 [![npm](https://img.shields.io/npm/v/@ziuus/orbit?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@ziuus/orbit)
-[![CI](https://img.shields.io/github/actions/workflow/status/ziuus/orbit/ci.yml?style=for-the-badge&label=CI)](https://github.com/ziuus/orbit/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/ziuus/orbit?style=for-the-badge&color=4A9E8E)](https://github.com/ziuus/orbit/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/ziuus/orbit-tui/ci.yml?style=for-the-badge&label=CI)](https://github.com/ziuus/orbit-tui/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/ziuus/orbit-tui?style=for-the-badge&color=4A9E8E)](https://github.com/ziuus/orbit-tui/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
-[![Integrations](https://img.shields.io/badge/Community-Integrations-052e16?style=for-the-badge&logo=github&logoColor=white)](https://github.com/ziuus/orbit-integrations)
+[![Integrations](https://img.shields.io/badge/Community_Extensions-27-052e16?style=for-the-badge&logo=github&logoColor=white)](https://github.com/ziuus/vanta-integrations)
 [![Landing page](https://img.shields.io/badge/Landing_Page-030712?style=for-the-badge&logo=vercel&logoColor=white)](https://orbit-website-omega.vercel.app)
 
 <br />
 
 <a href="https://orbit-website-omega.vercel.app">
-  <video src="https://raw.githubusercontent.com/ziuus/orbit/main/docs/orbit-demo.mp4" autoplay loop muted playsinline width="900"></video>
+  <video src="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/vanta-demo.mp4" autoplay loop muted playsinline width="900"></video>
 </a>
 
 <p align="center">
-  <em>Live terminal dashboard in action. <a href="https://github.com/ziuus/orbit/releases/download/v0.10.38/orbit-demo.mp4">Watch 1080p 60FPS video</a> • <a href="https://orbit-website-omega.vercel.app">Visit Website</a></em>
+  <em>Live terminal dashboard in action. <a href="https://github.com/ziuus/orbit-tui/releases/download/v0.11.8/vanta-demo.mp4">Watch 1080p 60FPS video</a> • <a href="https://orbit-website-omega.vercel.app">Visit Website</a></em>
 </p>
 
 </div>
@@ -46,17 +46,17 @@ npm install -g @ziuus/orbit && orbit
 </tr>
 <tr>
   <td><strong>Prebuilt binary</strong></td>
-  <td><a href="https://github.com/ziuus/orbit/releases/latest">Releases</a></td>
+  <td><a href="https://github.com/ziuus/orbit-tui/releases/latest">Releases</a></td>
   <td>Download the <code>tar.gz</code>, drop <code>orbit</code> on your <code>PATH</code>.</td>
 </tr>
 <tr>
   <td><strong>cargo</strong></td>
-  <td><code>cargo install --git https://github.com/ziuus/orbit</code></td>
+  <td><code>cargo install --git https://github.com/ziuus/orbit-tui</code></td>
   <td>Any architecture. Needs a Rust toolchain.</td>
 </tr>
 <tr>
   <td><strong>From source</strong></td>
-  <td><code>git clone https://github.com/ziuus/orbit &amp;&amp; cd orbit &amp;&amp; cargo run --release</code></td>
+  <td><code>git clone https://github.com/ziuus/orbit-tui.git &amp;&amp; cd orbit-tui &amp;&amp; cargo run --release</code></td>
   <td>For hacking on it.</td>
 </tr>
 </table>
@@ -100,7 +100,7 @@ orbit --help                    # usage + keys
 npm update -g @ziuus/orbit      # update  (npm)
 npm uninstall -g @ziuus/orbit   # remove  (npm)
 
-cargo install --git https://github.com/ziuus/orbit --force   # update  (cargo)
+cargo install --git https://github.com/ziuus/orbit-tui --force   # update  (cargo)
 cargo uninstall orbit                                        # remove  (cargo)
 
 rm -rf ~/.config/orbit          # drop config + persisted theme/page
@@ -263,7 +263,7 @@ Orbit is fully extensible via WebAssembly (WASM). You can install community widg
 - **Install via Menu:** Run `orbit menu` to browse and install extensions interactively.
 - **Local Dev:** Use `orbit link /path/to/my_widget.wasm` to instantly test your custom plugin locally without publishing it.
 
-Read more about building plugins at the [orbit-integrations](https://github.com/ziuus/orbit-integrations) repository.
+Read more about building plugins at the [orbit-integrations](https://github.com/ziuus/vanta-integrations) repository.
 
 ## Configuration & Customization
 
@@ -305,13 +305,32 @@ Orbit is explicitly designed to be modified and configured by AI agents (like Cu
 - **For End Users (Configuration):** Provide the **[ORBIT_CONFIG_SKILL.md](ORBIT_CONFIG_SKILL.md)** file to your AI. It teaches the agent how to build gorgeous 2D dashboard grids, customize themes, set up performance profiles, and write your `config.toml`.
 - **For Developers (WASM Plugins):** Provide the **[AGENTS.md](AGENTS.md)** file to your AI. It acts as a complete architecture and API guide, teaching the agent how to write Extism WASM widgets, hook into the host Key-Value mailbox, and compile plugins for Orbit.
 
+## 📣 Sponsors
+
+Orbit is MIT licensed and maintained by [zius](https://github.com/ziuus) and
+[naborajs](https://github.com/naborajs). It is free, has no paid tier gating the core
+dashboard, and always will.
+
+**Orbit ships with a sponsor slot.** A two-line, non-intrusive banner anchored to the
+bottom of the TUI — shown on every page, rendered only when a sponsor is configured.
+There are no ad blockers in the CLI, so it is never filtered, but it is also plainly
+visible to you in the source and in this README. I do not track who looks at it.
+
+If your product is used by terminal users, operators, or SREs, the slot is available.
+Reach out at **sponsor@orbit-tui.com** — full media kit, pricing, and past sponsors in
+**[SPONSORS.md](SPONSORS.md)**.
+
+Currently sponsoring: **Vercel** (in-UI slot) · **Railway** (README)
+
+You can also support the project directly through [GitHub Sponsors](https://github.com/sponsors/ziuus).
+
 ## Contributing
 
 Issues and PRs welcome — bug reports, new themes, new panels, or a GPU vendor
 that isn't covered yet.
 
 ```bash
-git clone https://github.com/ziuus/orbit && cd orbit
+git clone https://github.com/ziuus/orbit-tui.git && cd orbit-tui
 cargo run --release
 
 # CI runs exactly this — make it pass first

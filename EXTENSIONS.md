@@ -123,7 +123,7 @@ You don't need to publish your plugin to test it. You can instantly link it to y
 
 Once your plugin is polished and ready for the world, you can publish it to the official Orbit community registry.
 
-1. Fork the [orbit-integrations](https://github.com/orbit-ui/orbit-integrations) repository.
+1. Fork the [orbit-integrations](https://github.com/ziuus/vanta-integrations) repository.
 2. Copy your plugin's source code folder into the `components/` directory.
 3. Add your crate to the workspace `Cargo.toml`.
 4. Create a Pull Request against the main repository.
