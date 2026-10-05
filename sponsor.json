@@ -1,5 +1,7 @@
 {
-  "message": "GPT-6.1 Sol",
-  "subtext": "Included in every plan.",
-  "url": "freebuff.com"
+  "active": true,
+  "sponsor_name": "Vercel",
+  "message": "Deploy Next.js apps globally in seconds.",
+  "url": "https://vercel.com",
+  "cta": "Sign up for free"
 }
