@@ -16,8 +16,8 @@ if (!fs.existsSync(bin)) {
       process.exit(1);
     }
   } else {
-    console.error('orbit: binary missing — reinstall with `npm install -g @ziuus/orbit`');
-    console.error('orbit: or build from source:  cargo install --git https://github.com/ziuus/orbit');
+    console.error('orbit: binary missing — reinstall with `npm install -g @ziuus/orbit-tui`');
+    console.error('orbit: or build from source:  cargo install --git https://github.com/ziuus/orbit-tui');
     process.exit(1);
   }
 }
