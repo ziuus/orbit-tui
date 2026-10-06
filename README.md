@@ -7,6 +7,7 @@
 A fast, aesthetic terminal system dashboard in Rust. The most complete keyboard-driven terminal dashboard — one pane, four modes, zero mouse.
 
 [![npm version](https://img.shields.io/npm/v/@ziuus/orbit?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@ziuus/orbit)
+[![npm weekly](https://img.shields.io/npm/dw/@ziuus/orbit?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@ziuus/orbit)
 [![CI](https://img.shields.io/github/actions/workflow/status/ziuus/orbit-tui/ci.yml?style=for-the-badge&label=CI)](https://github.com/ziuus/orbit-tui/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/ziuus/orbit-tui?style=for-the-badge&color=4A9E8E)](https://github.com/ziuus/orbit-tui/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
@@ -21,6 +22,16 @@ A fast, aesthetic terminal system dashboard in Rust. The most complete keyboard-
 
 <p align="center">
   <em>Live terminal dashboard in action. <a href="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/vanta-demo.mp4">Watch 1080p 60FPS video</a> • <a href="https://orbit-website-omega.vercel.app">Visit Website</a></em>
+</p>
+
+<p align="center">
+  <a href="https://star-history.com/#ziuus/orbit-tui&Date">
+   <picture>
+     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ziuus/orbit-tui&type=Date&theme=dark" />
+     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=ziuus/orbit-tui&type=Date" />
+     <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=ziuus/orbit-tui&type=Date" width="800" />
+   </picture>
+  </a>
 </p>
 
 ## Overview
@@ -61,13 +72,6 @@ npm install -g @ziuus/orbit
 ```
 *(If you installed via cargo, replace the npm commands with `cargo uninstall vanta` and `cargo install --git https://github.com/ziuus/orbit-tui.git`).*
 
-## 📈 NPM Analytics
-
-<div align="center">
-  <a href="https://nodei.co/npm/@ziuus/orbit/">
-    <img src="https://nodei.co/npm/@ziuus/orbit.svg?downloads=true&downloadRank=true&stars=true" alt="NPM Stats Graphic">
-  </a>
-</div>
 
 ## Pages
 
@@ -260,15 +264,6 @@ Good first contributions:
 - NVMe / extra `hwmon` temperature sources
 - Mouse click-to-focus
 
-## 🌟 Star History
-
-<a href="https://star-history.com/#ziuus/orbit-tui&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ziuus/orbit-tui&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=ziuus/orbit-tui&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=ziuus/orbit-tui&type=Date" />
- </picture>
-</a>
 
 ## License
 
