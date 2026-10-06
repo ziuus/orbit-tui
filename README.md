@@ -254,6 +254,16 @@ Good first contributions:
 - NVMe / extra `hwmon` temperature sources
 - Mouse click-to-focus
 
+## 🌟 Star History
+
+<a href="https://star-history.com/#ziuus/orbit-tui&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ziuus/orbit-tui&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=ziuus/orbit-tui&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=ziuus/orbit-tui&type=Date" />
+ </picture>
+</a>
+
 ## License
 
 [MIT](LICENSE) — do what you like, keep the notice.
