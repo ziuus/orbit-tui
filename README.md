@@ -61,6 +61,14 @@ npm install -g @ziuus/orbit
 ```
 *(If you installed via cargo, replace the npm commands with `cargo uninstall vanta` and `cargo install --git https://github.com/ziuus/orbit-tui.git`).*
 
+## 📈 NPM Analytics
+
+<div align="center">
+  <a href="https://nodei.co/npm/@ziuus/orbit/">
+    <img src="https://nodei.co/npm/@ziuus/orbit.svg?downloads=true&downloadRank=true&stars=true" alt="NPM Stats Graphic">
+  </a>
+</div>
+
 ## Pages
 
 | Key | Page | What's on it |
