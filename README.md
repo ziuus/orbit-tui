@@ -18,11 +18,11 @@ A fast, aesthetic terminal system dashboard in Rust. The most complete keyboard-
 <br />
 
 <a href="https://orbit-website-omega.vercel.app">
-  <video src="https://raw.githubusercontent.com/ziuus/orbit/main/docs/orbit-demo.mp4" autoplay loop muted playsinline width="900"></video>
+  <video src="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/vanta-demo.mp4" autoplay loop muted playsinline width="900"></video>
 </a>
 
 <p align="center">
-  <em>Live terminal dashboard in action. <a href="https://github.com/ziuus/orbit/releases/download/v0.10.38/orbit-demo.mp4">Watch 1080p 60FPS video</a> • <a href="https://orbit-website-omega.vercel.app">Visit Website</a></em>
+  <em>Live terminal dashboard in action. <a href="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/vanta-demo.mp4">Watch 1080p 60FPS video</a> • <a href="https://orbit-website-omega.vercel.app">Visit Website</a></em>
 </p>
 
 ## Overview
@@ -77,7 +77,7 @@ npm install -g @ziuus/orbit
 
 Every graph on top, every process below. Sort it, filter it, tree it, kill it.
 
-<img src="docs/monitor.png" alt="orbit monitor page" width="900" />
+<img src="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/monitor.png" alt="orbit monitor page" width="900" />
 
 ### `3` — Aesthetic
 
@@ -92,7 +92,7 @@ For when the build is running and you want something to look at. Includes suppor
 - Conway's Game of Life (auto-seeding)
 - Terminal Snowfall (piles up and melts dynamically)
 
-<img src="docs/aesthetic.png" alt="orbit aesthetic page" width="900" />
+<img src="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/aesthetic.png" alt="orbit aesthetic page" width="900" />
 
 ### `4` — Workspace
 
@@ -103,7 +103,7 @@ Turn your terminal into a productivity hub with a built-in file manager (with im
 
 Every key, on screen, on any page.
 
-<img src="docs/help.png" alt="orbit help overlay" width="900" />
+<img src="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/help.png" alt="orbit help overlay" width="900" />
 
 ## Keys
 
