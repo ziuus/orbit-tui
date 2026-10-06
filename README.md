@@ -7,8 +7,6 @@
 A fast, aesthetic terminal system dashboard in Rust. The most complete keyboard-driven terminal dashboard — one pane, four modes, zero mouse.
 
 [![npm version](https://img.shields.io/npm/v/@ziuus/orbit?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@ziuus/orbit)
-[![npm downloads](https://img.shields.io/npm/dm/@ziuus/orbit?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@ziuus/orbit)
-[![npm total downloads](https://img.shields.io/npm/dt/@ziuus/orbit?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@ziuus/orbit)
 [![CI](https://img.shields.io/github/actions/workflow/status/ziuus/orbit-tui/ci.yml?style=for-the-badge&label=CI)](https://github.com/ziuus/orbit-tui/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/ziuus/orbit-tui?style=for-the-badge&color=4A9E8E)](https://github.com/ziuus/orbit-tui/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
@@ -18,7 +16,7 @@ A fast, aesthetic terminal system dashboard in Rust. The most complete keyboard-
 <br />
 
 <a href="https://orbit-website-omega.vercel.app">
-  <video src="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/vanta-demo.mp4" autoplay loop muted playsinline width="900"></video>
+  <img src="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/vanta-demo.gif" alt="Orbit Live Demo" width="900" style="border-radius: 8px;" />
 </a>
 
 <p align="center">
