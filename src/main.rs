@@ -42,13 +42,14 @@ fn main() -> io::Result<()> {
 
     if let Some(machine_id) = config.machine_id.clone() {
         std::thread::spawn(move || {
-            let _ = ureq::post("https://orbit-tui.vercel.app/api/telemetry")
-                .send_json(serde_json::json!({
+            let _ = ureq::post("https://orbit-tui.vercel.app/api/telemetry").send_json(
+                serde_json::json!({
                     "app": "orbit",
                     "version": env!("CARGO_PKG_VERSION"),
                     "os": std::env::consts::OS,
                     "machine_id": machine_id
-                }));
+                }),
+            );
         });
     }
 
