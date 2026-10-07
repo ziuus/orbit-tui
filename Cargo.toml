@@ -1,7 +1,7 @@
 [package]
 default-run = "orbit"
 name = "orbit-tui"
-version = "0.11.14"
+version = "0.11.15"
 
 
 edition = "2021"
