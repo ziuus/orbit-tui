@@ -42,8 +42,8 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
     if !has_key {
         let lock_box = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Yellow))
-            .title(" Premium Feature ");
+            .border_style(Style::default().fg(Color::DarkGray))
+            .title(" API Key Required ");
 
         let text = vec![
             Line::from(""),
@@ -54,30 +54,13 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
                         .fg(Color::White)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::raw("requires an API key to diagnose system issues."),
+                Span::raw("requires an API key to diagnose system health."),
             ])
             .alignment(Alignment::Center),
             Line::from(""),
-            Line::from("Export ORBIT_OPENAI_KEY in your shell,").alignment(Alignment::Center),
-            Line::from(vec![
-                Span::raw("or upgrade to "),
-                Span::styled(
-                    "Orbit Pro",
-                    Style::default()
-                        .fg(Color::Yellow)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(" for unlimited cloud access."),
-            ])
-            .alignment(Alignment::Center),
+            Line::from("Export ORBIT_OPENAI_KEY in your shell to enable diagnostics.")
+                .alignment(Alignment::Center),
             Line::from(""),
-            Line::from(Span::styled(
-                "orbit-tui.com/pro",
-                Style::default()
-                    .fg(Color::Blue)
-                    .add_modifier(Modifier::UNDERLINED),
-            ))
-            .alignment(Alignment::Center),
         ];
 
         let p = Paragraph::new(text)
@@ -88,7 +71,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
         // Smaller box for the lock
         let [_, small_center_y, _] = Layout::vertical([
             Constraint::Length(4),
-            Constraint::Length(10),
+            Constraint::Length(8),
             Constraint::Min(0),
         ])
         .areas(center);
