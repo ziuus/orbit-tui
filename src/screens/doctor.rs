@@ -1,6 +1,6 @@
 use ratatui::{
     layout::{Alignment, Constraint, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
@@ -8,13 +8,14 @@ use ratatui::{
 
 use crate::app::App;
 use crate::monitors::doctor::{state, DoctorStatus};
+use crate::screens::{hit, Hit};
 
 pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
-    let _theme = &app.theme;
+    let theme = &app.theme;
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray))
+        .border_style(Style::default().fg(theme.dim))
         .title(" Orbit AI Diagnostics ")
         .title_alignment(Alignment::Center);
 
@@ -42,24 +43,39 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
     if !has_key {
         let lock_box = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::DarkGray))
+            .border_style(Style::default().fg(theme.dim))
             .title(" API Key Required ");
 
         let text = vec![
             Line::from(""),
-            Line::from(vec![
-                Span::styled(
-                    "Orbit Doctor ",
-                    Style::default()
-                        .fg(Color::White)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::raw("requires an API key to diagnose system health."),
-            ])
+            Line::from(vec![Span::styled(
+                "Orbit Doctor",
+                Style::default()
+                    .fg(theme.accent)
+                    .add_modifier(Modifier::BOLD),
+            )])
             .alignment(Alignment::Center),
             Line::from(""),
-            Line::from("Export ORBIT_OPENAI_KEY in your shell to enable diagnostics.")
-                .alignment(Alignment::Center),
+            Line::from(vec![Span::styled(
+                "requires an API key to diagnose system health.",
+                Style::default().fg(theme.text),
+            )])
+            .alignment(Alignment::Center),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("Export ", Style::default().fg(theme.text)),
+                Span::styled(
+                    "ORBIT_OPENAI_KEY",
+                    Style::default()
+                        .fg(theme.secondary)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    " in your shell to enable diagnostics.",
+                    Style::default().fg(theme.text),
+                ),
+            ])
+            .alignment(Alignment::Center),
             Line::from(""),
         ];
 
@@ -89,11 +105,14 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
             DoctorStatus::Idle => {
                 let text = vec![
                     Line::from(""),
-                    Line::from("Ready to analyze your system health, top processes, and resource utilization."),
+                    Line::from(vec![
+                        Span::styled("Ready to analyze your system health, top processes, and resource utilization.", Style::default().fg(theme.text)),
+                    ]),
                     Line::from(""),
-                    Line::from(Span::styled("Press [Enter] to run Orbit AI Diagnostics", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))),
+                    Line::from(Span::styled("Press [Enter] to run Orbit AI Diagnostics", Style::default().fg(theme.green).add_modifier(Modifier::BOLD))),
                 ];
                 let p = Paragraph::new(text).alignment(Alignment::Center);
+                hit(center, Hit::DoctorRun);
                 f.render_widget(p, center);
             }
             DoctorStatus::Working(msg) => {
@@ -103,10 +122,10 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
                         Span::styled(
                             "⠼ ",
                             Style::default()
-                                .fg(Color::Yellow)
+                                .fg(theme.yellow)
                                 .add_modifier(Modifier::BOLD),
                         ),
-                        Span::styled(msg, Style::default().fg(Color::Cyan)),
+                        Span::styled(msg, Style::default().fg(theme.secondary)),
                     ]),
                 ];
                 let p = Paragraph::new(text).alignment(Alignment::Center);
@@ -117,7 +136,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
                     Line::from(Span::styled(
                         "Diagnostic Report:",
                         Style::default()
-                            .fg(Color::Green)
+                            .fg(theme.green)
                             .add_modifier(Modifier::BOLD),
                     )),
                     Line::from(""),
@@ -129,11 +148,14 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
                         text.push(Line::from(Span::styled(
                             line,
                             Style::default()
-                                .fg(Color::Yellow)
+                                .fg(theme.yellow)
                                 .add_modifier(Modifier::BOLD),
                         )));
                     } else {
-                        text.push(Line::from(line));
+                        text.push(Line::from(Span::styled(
+                            line,
+                            Style::default().fg(theme.text),
+                        )));
                     }
                 }
 
@@ -145,19 +167,20 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
                     Line::from(""),
                     Line::from(Span::styled(
                         "Analysis Failed",
-                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                        Style::default().fg(theme.red).add_modifier(Modifier::BOLD),
                     )),
                     Line::from(""),
-                    Line::from(Span::styled(e, Style::default().fg(Color::White))),
+                    Line::from(Span::styled(e, Style::default().fg(theme.text))),
                     Line::from(""),
                     Line::from(Span::styled(
-                        "Press [Enter] to try again",
-                        Style::default().fg(Color::DarkGray),
+                        "Press [Enter] or click to try again",
+                        Style::default().fg(theme.dim),
                     )),
                 ];
                 let p = Paragraph::new(text)
                     .alignment(Alignment::Center)
                     .wrap(Wrap { trim: true });
+                hit(center, Hit::DoctorRun);
                 f.render_widget(p, center);
             }
         }

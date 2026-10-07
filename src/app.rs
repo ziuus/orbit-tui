@@ -909,7 +909,8 @@ impl App {
                     | Hit::SettingRow(_)
                     | Hit::Overlay
                     | Hit::MenuRow(_)
-                    | Hit::Notifications => {}
+                    | Hit::Notifications
+                    | Hit::DoctorRun => {}
                 }
             }
             return false;
@@ -977,6 +978,12 @@ impl App {
                     let back = ev.column < rect.x + rect.width / 3;
                     self.press(if back { KeyCode::Left } else { KeyCode::Right });
                     return true;
+                }
+                Hit::DoctorRun => {
+                    if self.mode == DashboardMode::Doctor {
+                        crate::monitors::doctor::trigger_diagnosis();
+                        return true;
+                    }
                 }
                 Hit::NotePreview | Hit::SettingRow(_) | Hit::Overlay | Hit::MenuRow(_) => {}
                 Hit::Panel(panel) => {

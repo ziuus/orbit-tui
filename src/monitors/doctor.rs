@@ -75,16 +75,31 @@ pub fn trigger_diagnosis() {
                 .send_json(body)
             {
                 Ok(res) => {
+                    let status = res.status();
                     if let Ok(json) = res.into_body().read_json::<serde_json::Value>() {
                         if let Some(content) = json["choices"][0]["message"]["content"].as_str() {
                             *STATE.lock().unwrap() = DoctorStatus::Done(content.to_string());
+                        } else if let Some(error_msg) = json["error"]["message"].as_str() {
+                            *STATE.lock().unwrap() = DoctorStatus::Error(format!("OpenAI Error: {}", error_msg));
                         } else {
                             *STATE.lock().unwrap() = DoctorStatus::Error("Failed to parse OpenAI response.".to_string());
                         }
+                    } else {
+                        *STATE.lock().unwrap() = DoctorStatus::Error(format!("HTTP {}: Failed to read response", status));
                     }
                 }
                 Err(e) => {
-                    *STATE.lock().unwrap() = DoctorStatus::Error(format!("API Error: {}", e));
+                    let err_msg = e.to_string();
+                    let friendly = if err_msg.contains("401") || err_msg.contains("Unauthorized") {
+                        "Invalid API key. Check ORBIT_OPENAI_KEY.".to_string()
+                    } else if err_msg.contains("429") || err_msg.contains("rate limit") {
+                        "Rate limited. Wait a moment and try again.".to_string()
+                    } else if err_msg.contains("timeout") || err_msg.contains("timed out") {
+                        "Request timed out. Check your network connection.".to_string()
+                    } else {
+                        format!("API Error: {}", err_msg)
+                    };
+                    *STATE.lock().unwrap() = DoctorStatus::Error(friendly);
                 }
             }
         })

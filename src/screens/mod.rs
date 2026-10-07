@@ -44,6 +44,8 @@ pub enum Hit {
     MenuRow(usize),
     /// The notification center trigger.
     Notifications,
+    /// The Orbit AI Diagnostics run button.
+    DoctorRun,
 }
 
 static HITS: std::sync::Mutex<Vec<(Rect, Hit)>> = std::sync::Mutex::new(Vec::new());
