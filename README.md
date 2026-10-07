@@ -11,17 +11,17 @@ A fast, aesthetic terminal system dashboard in Rust. The most complete keyboard-
 [![CI](https://img.shields.io/github/actions/workflow/status/ziuus/orbit-tui/ci.yml?style=for-the-badge&label=CI)](https://github.com/ziuus/orbit-tui/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/ziuus/orbit-tui?style=for-the-badge&color=4A9E8E)](https://github.com/ziuus/orbit-tui/releases)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
-[![Integrations](https://img.shields.io/badge/Community_Extensions-27-052e16?style=for-the-badge&logo=github&logoColor=white)](https://github.com/ziuus/vanta-integrations)
-[![Landing page](https://img.shields.io/badge/Landing_Page-030712?style=for-the-badge&logo=vercel&logoColor=white)](https://orbit-website-omega.vercel.app)
+[![Integrations](https://img.shields.io/badge/Community_Extensions-27-052e16?style=for-the-badge&logo=github&logoColor=white)](https://github.com/ziuus/orbit-integrations)
+[![Landing page](https://img.shields.io/badge/Landing_Page-030712?style=for-the-badge&logo=vercel&logoColor=white)](https://orbit-tui.vercel.app)
 
 <br />
 
-<a href="https://orbit-website-omega.vercel.app">
+<a href="https://orbit-tui.vercel.app">
   <img src="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/vanta-demo.gif" alt="Orbit Live Demo" width="900" style="border-radius: 8px;" />
 </a>
 
 <p align="center">
-  <em>Live terminal dashboard in action. <a href="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/vanta-demo.mp4">Watch 1080p 60FPS video</a> • <a href="https://orbit-website-omega.vercel.app">Visit Website</a></em>
+  <em>Live terminal dashboard in action. <a href="https://raw.githubusercontent.com/ziuus/orbit-tui/main/docs/vanta-demo.mp4">Watch 1080p 60FPS video</a> • <a href="https://orbit-tui.vercel.app">Visit Website</a></em>
 </p>
 
 <p align="center">
@@ -177,7 +177,7 @@ Orbit is fully extensible via WebAssembly (WASM). You can install community widg
 - **Install via Menu:** Run `orbit menu` to browse and install extensions interactively.
 - **Local Dev:** Use `orbit link /path/to/my_widget.wasm` to instantly test your custom plugin locally without publishing it.
 
-Read more about building plugins at the [orbit-integrations](https://github.com/ziuus/vanta-integrations) repository.
+Read more about building plugins at the [orbit-integrations](https://github.com/ziuus/orbit-integrations) repository.
 
 ## Configuration & Customization
 
