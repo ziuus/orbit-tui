@@ -1,7 +1,17 @@
-# GitHub Sponsors. Requires the Sponsors profile to be enabled at
-# https://github.com/sponsors/ziuus — a FUNDING.yml alone renders no button.
+# GitHub Sponsors
 github: [ziuus]
 
-# Commercial placement (the in-UI sponsor slot) is a separate track.
-# See SPONSORS.md for the media kit and contact address.
-custom: https://github.com/sponsors/ziuus
+# Ko-fi
+ko_fi: noelyt101
+
+# Buy Me a Coffee
+buy_me_a_coffee: ziuus
+
+# Patreon
+patreon: noelpaul
+
+# Open Collective
+open_collective: noelpaul
+
+# Custom donation links
+custom: ['https://github.com/sponsors/ziuus']
