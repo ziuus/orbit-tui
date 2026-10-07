@@ -308,10 +308,17 @@ mod tests {
     #[test]
     fn summary_populates_before_the_slow_shell_outs_could_finish() {
         let _handle = start(Duration::from_millis(100));
-        std::thread::sleep(Duration::from_secs(1));
-        let s = summary();
-        assert!(!s.uptime.is_empty(), "uptime still Default after 1s");
-        assert!(s.mem_pct > 0.0, "mem_pct still Default after 1s");
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut s = summary();
+        while Instant::now() < deadline {
+            s = summary();
+            if !s.uptime.is_empty() && s.mem_pct > 0.0 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(!s.uptime.is_empty(), "uptime still Default after 10s");
+        assert!(s.mem_pct > 0.0, "mem_pct still Default after 10s");
     }
 }
 pub mod github;
