@@ -165,6 +165,7 @@ fn fetch_command_with_timeout(cmd: &str, timeout: Duration) -> FetchResult {
     // Spawn without a shell.
     let mut child = match std::process::Command::new(exe)
         .args(args)
+        .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
         .spawn()
@@ -396,11 +397,16 @@ mod tests {
     #[test]
     fn worker_spawns_for_valid_config() {
         let cfg = cmd_cfg("test_w", "echo 99");
-        let worker = DataWorker::spawn(&cfg);
-        assert!(worker.is_some());
-        // Give it a moment to execute.
-        std::thread::sleep(Duration::from_millis(300));
-        let r = worker.unwrap().result.lock().unwrap().clone();
+        let worker = DataWorker::spawn(&cfg).expect("worker should spawn");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut r = FetchResult::Loading;
+        while Instant::now() < deadline {
+            r = worker.result.lock().unwrap().clone();
+            if r != FetchResult::Loading {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
         assert_eq!(r, FetchResult::Ok("99".into()));
     }
 
@@ -419,8 +425,15 @@ mod tests {
         std::fs::write(&path, "77\n").unwrap();
         let cfg = file_cfg("bat_test", path.to_str().unwrap());
         let worker = DataWorker::spawn(&cfg).unwrap();
-        std::thread::sleep(Duration::from_millis(300));
-        let r = worker.result.lock().unwrap().clone();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut r = FetchResult::Loading;
+        while Instant::now() < deadline {
+            r = worker.result.lock().unwrap().clone();
+            if r != FetchResult::Loading {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
         let _ = std::fs::remove_file(&path);
         assert_eq!(r, FetchResult::Ok("77".into()));
     }
