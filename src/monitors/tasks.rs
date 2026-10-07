@@ -39,7 +39,7 @@ pub fn get_todo_file() -> PathBuf {
 pub fn ensure_todo_file() {
     let file_path = get_todo_file();
     if !file_path.exists() {
-        let default_content = "# Orbit Tasks\n\n- [ ] Welcome to Orbit Workspace!\n- [ ] Press Space to toggle completion\n- [ ] Press Enter or 'e' to edit in your terminal editor\n- [ ] Tasks marked with ! are urgent\n";
+        let default_content = "# Orbit Tasks\n\n- [ ] Welcome to Orbit Workspace!\n- [ ] Press Space to toggle completion\n- [ ] Press Enter or 'e' to edit\n- [ ] Tasks marked with ! are urgent\n";
         let _ = fs::write(&file_path, default_content);
     }
 }
