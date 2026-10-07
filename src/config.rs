@@ -155,9 +155,9 @@ pub enum PerformanceMode {
 #[serde(rename_all = "snake_case")]
 pub enum DesignStyle {
     /// Rounded borders, quiet titles. The default.
-    #[default]
     Soft,
     /// Material UI style: clean crisp cards, elevated pill badges and structured dividers.
+    #[default]
     Material,
     /// No boxes at all: titles and whitespace carry the structure.
     Minimal,
@@ -401,7 +401,7 @@ impl Default for UiConfig {
     fn default() -> Self {
         Self {
             performance_mode: PerformanceMode::Normal,
-            style: DesignStyle::Soft,
+            style: DesignStyle::Material,
             monitor_layout: "classic".to_string(),
             focus_layout: "lookout".to_string(),
             refresh_rate: 0.5,
