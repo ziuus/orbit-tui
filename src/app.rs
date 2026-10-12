@@ -427,6 +427,7 @@ pub struct App {
     pub help_scroll: u16,
     pub show_settings: bool,
     pub show_setup_wizard: bool,
+    pub show_vanta_migration_popup: bool,
     pub setup_wizard_step: usize,
     pub setup_install_log: String,
     pub settings_row: usize,
@@ -526,6 +527,7 @@ impl App {
             help_scroll: 0,
             show_settings: false,
             show_setup_wizard: false,
+            show_vanta_migration_popup: false,
             setup_wizard_step: 0,
             setup_install_log: String::new(),
             settings_row: 0,
@@ -571,7 +573,7 @@ impl App {
         app
     }
 
-    fn toast(&mut self, msg: impl Into<String>) {
+    pub fn toast(&mut self, msg: impl Into<String>) {
         self.toast = Some((msg.into(), Instant::now()));
     }
 
@@ -1191,6 +1193,11 @@ impl App {
                 _ => {}
             }
             self.sync_selected_pid();
+            return;
+        }
+
+        if self.show_vanta_migration_popup {
+            crate::screens::migration_notice::handle_key(self, key.code);
             return;
         }
 
@@ -2473,6 +2480,9 @@ impl App {
         }
         if self.show_notifications {
             screens::notifications::render(f, area, self);
+        }
+        if self.show_vanta_migration_popup {
+            screens::migration_notice::render(f, area, self);
         }
     }
 

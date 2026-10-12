@@ -81,6 +81,14 @@ fn main() -> io::Result<()> {
     if is_first_run {
         app.show_setup_wizard = true;
     }
+
+    // Check if legacy vanta config exists or vanta migration is active
+    let legacy_vanta_config = directories::BaseDirs::new()
+        .map(|b| b.config_dir().join("vanta"))
+        .is_some_and(|p| p.exists());
+    if legacy_vanta_config && !app.show_setup_wizard {
+        app.show_vanta_migration_popup = true;
+    }
     app.ext_manager.register(
         Box::new(orbit_tui::extension::template::TemplateExtension),
         app.config.extensions.as_ref(),
