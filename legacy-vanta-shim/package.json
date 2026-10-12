@@ -6,8 +6,7 @@
     "vanta": "bin/vanta.js"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "files": [
     "bin/vanta.js",
