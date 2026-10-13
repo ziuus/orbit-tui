@@ -35,7 +35,7 @@ impl WasmExtension {
         let metadata_bytes = plugin.call::<(), Vec<u8>>("metadata", ())?;
         let metadata: ExtensionMetadata = serde_json::from_slice(&metadata_bytes)?;
 
-        if !metadata.api_version.starts_with("0.9") {
+        if !metadata.api_version.starts_with("0.9") && !metadata.api_version.starts_with("0.10") {
             return Err(extism::Error::msg(format!(
                 "Unsupported extension API version: {}",
                 metadata.api_version
@@ -116,6 +116,16 @@ impl Component for WasmComponent {
         if !rendered {
             if let Some(prev) = self.last_widgets.lock().unwrap().get(&self.id) {
                 ui_renderer::render_widget(prev, f, area);
+            } else {
+                let p = crate::screens::panel(f, area, &self.id, _theme, false);
+                f.render_widget(
+                    ratatui::widgets::Paragraph::new(format!(
+                        "Extension '{}' unavailable or crashed.\nPress '8' for debug logs.",
+                        self.id
+                    ))
+                    .style(ratatui::style::Style::default().fg(_theme.dim)),
+                    p,
+                );
             }
         }
     }
@@ -150,5 +160,31 @@ impl Component for WasmComponent {
             }
         }
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sentinel_wasm_execution() {
+        let Some(proj) = directories::ProjectDirs::from("", "", "orbit") else {
+            return;
+        };
+        let path = proj.config_dir().join("extensions/sentinel.wasm");
+        if !path.exists() {
+            return;
+        }
+        let ext = WasmExtension::new(path).expect("sentinel.wasm should load");
+        assert_eq!(ext.metadata().id, "sentinel");
+        assert!(ext.widgets.contains(&"sentinel".to_string()));
+
+        let mut plugin = ext.plugin.lock().unwrap();
+        let bytes = plugin
+            .call::<&str, Vec<u8>>("render_widget", "sentinel")
+            .expect("sentinel render_widget should succeed");
+        let parsed = serde_json::from_slice::<UiWidget>(&bytes).expect("valid UiWidget json");
+        assert!(parsed.validate().is_ok());
     }
 }
