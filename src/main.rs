@@ -104,6 +104,11 @@ fn main() -> io::Result<()> {
                     }
                 }
             }
+            for col in &app.config.dashboard.layout {
+                for widget_id in col {
+                    needed.insert(widget_id.to_lowercase());
+                }
+            }
             for page in &app.config.pages {
                 for col in &page.layout {
                     for widget_id in col {
