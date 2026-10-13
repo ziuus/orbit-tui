@@ -1,0 +1,10 @@
+# Ayu Dark — https://github.com/ayu-theme/vscode-ayu
+bg = "#0d1017"
+surface = "#141821"
+accent = "#e6b450"
+secondary = "#4fbfff"
+text = "#bfbdb6"
+dim = "#5a6378"
+green = "#70bf56"
+yellow = "#fdb04c"
+red = "#f06b73"

@@ -1,0 +1,10 @@
+# Carbonfox — https://github.com/EdenEast/nightfox.nvim
+bg = "#161616"
+surface = "#2a2a2a"
+accent = "#78a9ff"
+secondary = "#be95ff"
+text = "#f2f4f8"
+dim = "#6e6f70"
+green = "#25be6a"
+yellow = "#08bdba"
+red = "#ee5396"

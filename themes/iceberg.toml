@@ -1,0 +1,10 @@
+# Iceberg — https://github.com/cocopon/iceberg.vim
+bg = "#161821"
+surface = "#1e2132"
+accent = "#84a0c6"
+secondary = "#a093c7"
+text = "#c6c8d1"
+dim = "#6b7089"
+green = "#b4be82"
+yellow = "#e2a478"
+red = "#e27878"

@@ -1,0 +1,10 @@
+# Catppuccin Macchiato — https://catppuccin.com
+bg = "#24273a"
+surface = "#363a4f"
+accent = "#c6a0f6"
+secondary = "#8aadf4"
+text = "#cad3f5"
+dim = "#6e738d"
+green = "#a6da95"
+yellow = "#eed49f"
+red = "#ed8796"

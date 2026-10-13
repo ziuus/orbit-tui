@@ -1,0 +1,10 @@
+# Dawnfox (light) — https://github.com/EdenEast/nightfox.nvim
+bg = "#faf4ed"
+surface = "#d0d8d8"
+accent = "#286983"
+secondary = "#907aa9"
+text = "#575279"
+dim = "#9893a5"
+green = "#618774"
+yellow = "#ea9d34"
+red = "#b4637a"

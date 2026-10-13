@@ -1,0 +1,10 @@
+# Dayfox (light) — https://github.com/EdenEast/nightfox.nvim
+bg = "#f6f2ee"
+surface = "#e7d2be"
+accent = "#2848a9"
+secondary = "#6e33ce"
+text = "#3d2b5a"
+dim = "#837a72"
+green = "#396847"
+yellow = "#ac5402"
+red = "#a5222f"

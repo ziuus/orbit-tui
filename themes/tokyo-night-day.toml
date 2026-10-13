@@ -1,0 +1,10 @@
+# Tokyo Night Day (light) — https://github.com/folke/tokyonight.nvim
+bg = "#e1e2e7"
+surface = "#c4c8da"
+accent = "#2e7de9"
+secondary = "#9854f1"
+text = "#3760bf"
+dim = "#a1a6c5"
+green = "#587539"
+yellow = "#8c6c3e"
+red = "#f52a65"

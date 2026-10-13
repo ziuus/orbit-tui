@@ -1,0 +1,10 @@
+# Night Owl — https://github.com/sdras/night-owl-vscode-theme
+bg = "#011627"
+surface = "#0b2942"
+accent = "#82aaff"
+secondary = "#c792ea"
+text = "#d6deeb"
+dim = "#637777"
+green = "#22da6e"
+yellow = "#ecc48d"
+red = "#ef5350"

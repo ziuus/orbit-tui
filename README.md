@@ -111,6 +111,8 @@ You can load custom themes dynamically without recompiling Orbit:
 3. Define your colors using hex codes (`bg`, `accent`, `surface`, etc.).
 4. Press `T` in Orbit to cycle to it.
 
+Want more? There are some community presets (Night Owl, Nightfox, Rosé Pine Dawn and more) in [`themes/`](themes/). Copy one over or just `orbit link themes/<name>.toml`.
+
 ## 🔌 Extensions & Plugins
 
 Orbit is fully extensible via WebAssembly (WASM). You can install community widgets, or build your own!

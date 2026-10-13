@@ -1,0 +1,10 @@
+# Nightfox — https://github.com/EdenEast/nightfox.nvim
+bg = "#192330"
+surface = "#29394f"
+accent = "#719cd6"
+secondary = "#9d79d6"
+text = "#cdcecf"
+dim = "#738091"
+green = "#81b29a"
+yellow = "#dbc074"
+red = "#c94f6d"

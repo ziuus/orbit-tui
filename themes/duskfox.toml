@@ -1,0 +1,10 @@
+# Duskfox — https://github.com/EdenEast/nightfox.nvim
+bg = "#232136"
+surface = "#433c59"
+accent = "#569fba"
+secondary = "#c4a7e7"
+text = "#e0def4"
+dim = "#817c9c"
+green = "#a3be8c"
+yellow = "#f6c177"
+red = "#eb6f92"

@@ -44,8 +44,10 @@ cargo test
   `kill()` or the child is left a zombie.
 - `src/screens/` — one file per page; `screens::panel()` is the shared chrome.
 - `src/app.rs` — state, key handling, title/status bars.
-- `src/theme.rs` — palettes. Add a theme by adding a constructor and its name
-  to `THEME_NAMES`.
+- `src/theme.rs` — palettes. Add a built-in theme by adding a row to
+  `PALETTES` and its name to `BUILTIN_THEMES`.
+- `themes/` — community TOML presets. See
+  [themes/README.md](themes/README.md).
 
 ## Conventions
 

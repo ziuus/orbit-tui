@@ -1,0 +1,10 @@
+# Tokyo Night Moon — https://github.com/folke/tokyonight.nvim
+bg = "#222436"
+surface = "#2f334d"
+accent = "#82aaff"
+secondary = "#c099ff"
+text = "#c8d3f5"
+dim = "#545c7e"
+green = "#c3e88d"
+yellow = "#ffc777"
+red = "#ff757f"

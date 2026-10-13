@@ -1,0 +1,10 @@
+# Nordfox — https://github.com/EdenEast/nightfox.nvim
+bg = "#2e3440"
+surface = "#3e4a5b"
+accent = "#81a1c1"
+secondary = "#b48ead"
+text = "#cdcecf"
+dim = "#60728a"
+green = "#a3be8c"
+yellow = "#ebcb8b"
+red = "#bf616a"

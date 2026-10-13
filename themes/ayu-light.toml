@@ -1,0 +1,10 @@
+# Ayu Light — https://github.com/ayu-theme/vscode-ayu
+bg = "#f8f9fa"
+surface = "#ebeef0"
+accent = "#f29718"
+secondary = "#21a1e2"
+text = "#5c6166"
+dim = "#828e9f"
+green = "#6cbf43"
+yellow = "#e7a100"
+red = "#f06b6c"

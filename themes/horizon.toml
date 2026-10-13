@@ -1,0 +1,10 @@
+# Horizon — https://github.com/jolaleye/horizon-theme-vscode
+bg = "#1c1e26"
+surface = "#2e303e"
+accent = "#ee64ac"
+secondary = "#26bbd9"
+text = "#d5d8da"
+dim = "#6c6f93"
+green = "#29d398"
+yellow = "#fab795"
+red = "#e95678"

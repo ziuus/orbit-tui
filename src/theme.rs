@@ -515,4 +515,21 @@ mod tests {
         assert!(Theme::from_name("catppuccin-latte").is_light());
         assert!(!Theme::from_name("phosphor").is_light());
     }
+
+    #[test]
+    fn community_presets_parse() {
+        // The loader skips a broken file silently, so catch typos here.
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("themes");
+        for path in fs::read_dir(dir).unwrap().flatten().map(|e| e.path()) {
+            if path.extension().is_some_and(|e| e == "toml") {
+                let name = path.file_stem().unwrap().to_string_lossy();
+                assert!(
+                    !BUILTIN_THEMES.contains(&&*name),
+                    "{name}: shadows a built-in"
+                );
+                let ct: CustomTheme = toml::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+                assert!(ct.to_theme().is_some(), "{name}: bad hex colour");
+            }
+        }
+    }
 }
