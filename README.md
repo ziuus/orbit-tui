@@ -158,6 +158,10 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** first to understand our sampler-thre
 
 Looking for something to work on? Check out our **[good first issues](https://github.com/ziuus/orbit-tui/issues?q=is%3Aissue+is%3Aopen+label%3A"good+first+issue")**.
 
+## 🧩 Ecosystem & Companion Tools
+
+* **[settings-tui](https://github.com/ziuus/settings-tui)** — Lightweight universal Linux Settings Center for your terminal (D-Bus, PipeWire, BlueZ, Hyprland, systemd). The settings management companion to Orbit's system monitoring.
+
 ## 📄 License
 
 [MIT](LICENSE) — Do what you like, keep the notice.
