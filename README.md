@@ -115,12 +115,47 @@ Want more? There are some community presets (Night Owl, Nightfox, Rosé Pine Daw
 
 ## 🔌 Extensions & Plugins
 
-Orbit is fully extensible via WebAssembly (WASM). You can install community widgets, or build your own!
+Orbit is fully extensible via sandboxed WebAssembly (WASM). Anyone can install community widgets or build their own!
 
-- **Install via Menu:** Run `orbit menu` to browse and install extensions interactively.
-- **Local Dev:** Use `orbit link /path/to/my_widget.wasm` to test custom plugins instantly without publishing.
+### Quick Tutorial: Installing Extensions
 
-Explore and download community extensions at our official registry:
+Browse and install verified extensions directly from the terminal:
+
+```bash
+# 1. Browse community extensions
+orbit browse
+
+# 2. Install any extension (e.g. 3D Crypto Coin)
+orbit install crypto_coin
+
+# 3. Enable in ~/.config/orbit/config.toml
+orbit enable crypto_coin
+```
+
+Drop the installed widget ID (e.g. `"coin"`) anywhere into your `[dashboard.layout]` in `~/.config/orbit/config.toml`:
+
+```toml
+[dashboard]
+layout = [
+    ["system", "coin", "cpu", "storage"],
+    ["clock", "media", "processes", "network"],
+    ["weather", "calendar", "upnext", "status"]
+]
+```
+
+### Quick Tutorial: Building Your Own Extension
+
+We provide ready-to-use templates for every extension type:
+- **Component (Widget)**: Rust WASM plugin returning a UI widget (`templates/component`)
+- **Page (Workspace)**: Multi-column custom page layout (`templates/page`)
+- **Theme (Palette)**: Custom 9-color TOML palette (`templates/theme`)
+
+Test your plugin locally in Orbit without publishing:
+```bash
+orbit link /path/to/my_widget.wasm
+```
+
+Explore the official registry and templates:
 👉 **[github.com/ziuus/orbit-integrations](https://github.com/ziuus/orbit-integrations)**
 
 ## 📚 Documentation
