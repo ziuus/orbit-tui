@@ -36,15 +36,17 @@ pub struct DashboardConfig {
 }
 
 impl DashboardConfig {
-    pub fn preset_lookout() -> Vec<Vec<String>> {
+    /// Clean, balanced 3-column daily driver.
+    pub fn preset_overview() -> Vec<Vec<String>> {
         let col = |names: &[&str]| names.iter().map(|s| s.to_string()).collect();
         vec![
-            col(&["clock", "tasks", "news", "pomodoro"]),
-            col(&["calendar", "agenda", "media", "cpu", "memory"]),
-            col(&["weather", "notes", "network", "disk"]),
+            col(&["gauges", "cpu", "memory", "storage"]),
+            col(&["clock", "media", "processes"]),
+            col(&["weather", "calendar", "status"]),
         ]
     }
 
+    /// Dense operational cockpit for power users.
     pub fn preset_cockpit() -> Vec<Vec<String>> {
         let col = |names: &[&str]| names.iter().map(|s| s.to_string()).collect();
         vec![
@@ -54,24 +56,7 @@ impl DashboardConfig {
         ]
     }
 
-    /// The cockpit layout shipped before v0.11. Configs that still hold it
-    /// verbatim were never customised, so they're upgraded on load.
-    fn legacy_cockpit() -> Vec<Vec<String>> {
-        let col = |names: &[&str]| names.iter().map(|s| s.to_string()).collect();
-        vec![
-            col(&["system", "gauges", "cpu", "storage"]),
-            col(&["clock", "media", "visualizer", "processes"]),
-            col(&["status", "weather", "memory", "network", "calendar"]),
-        ]
-    }
-
-    pub fn preset_minimal() -> Vec<Vec<String>> {
-        vec![
-            vec!["clock".into(), "weather".into()],
-            vec!["system".into(), "cpu".into()],
-        ]
-    }
-
+    /// Focused hardware, process, and network telemetry.
     pub fn preset_monitoring() -> Vec<Vec<String>> {
         vec![
             vec!["system".into(), "gauges".into(), "cpu".into()],
@@ -85,30 +70,49 @@ impl DashboardConfig {
         ]
     }
 
-    pub fn preset_aesthetic() -> Vec<Vec<String>> {
+    /// Zen 2-column view with just essentials and zero clutter.
+    pub fn preset_minimal() -> Vec<Vec<String>> {
         vec![
-            vec!["clock".into(), "weather".into(), "media".into()],
-            vec!["donut".into(), "matrix".into()],
-            vec!["calendar".into(), "visualizer".into()],
+            vec!["clock".into(), "weather".into()],
+            vec!["gauges".into(), "cpu".into(), "memory".into()],
         ]
     }
 
-    pub fn preset_workspace() -> Vec<Vec<String>> {
+    /// The legacy cockpit shipped before v0.11. Configs that still hold it
+    /// verbatim were never customised, so they're upgraded on load.
+    fn legacy_cockpit() -> Vec<Vec<String>> {
+        let col = |names: &[&str]| names.iter().map(|s| s.to_string()).collect();
         vec![
-            vec!["clock".into(), "agenda".into(), "tasks".into()],
-            vec!["notes".into()],
-            vec!["files".into(), "processes".into()],
+            col(&["system", "gauges", "cpu", "storage"]),
+            col(&["clock", "media", "visualizer", "processes"]),
+            col(&["status", "weather", "memory", "network", "calendar"]),
         ]
     }
 
     /// Fill an empty layout and upgrade an untouched legacy cockpit.
     fn migrate(&mut self) {
-        if self.layout.is_empty()
-            || self.layout == Self::legacy_cockpit()
+        if self.layout.is_empty() {
+            let p =
+                if self.preset.is_empty() || self.preset == "lookout" || self.preset == "panoramic"
+                {
+                    "overview".to_string()
+                } else {
+                    self.preset.clone()
+                };
+            self.apply_preset(&p);
+            return;
+        }
+
+        if self.preset == "lookout" || self.preset == "panoramic" {
+            self.apply_preset("overview");
+            return;
+        }
+
+        if self.layout == Self::legacy_cockpit()
             || (self.layout == Self::preset_cockpit() && self.preset != "cockpit")
         {
             if self.preset.is_empty() {
-                self.preset = "cockpit".to_string();
+                self.preset = "overview".to_string();
             }
             let p = self.preset.clone();
             self.apply_preset(&p);
@@ -118,12 +122,10 @@ impl DashboardConfig {
     pub fn apply_preset(&mut self, preset_name: &str) {
         self.preset = preset_name.to_string();
         match preset_name {
-            "lookout" | "panoramic" => self.layout = Self::preset_lookout(),
+            "overview" | "lookout" | "panoramic" => self.layout = Self::preset_overview(),
             "cockpit" => self.layout = Self::preset_cockpit(),
-            "minimal" => self.layout = Self::preset_minimal(),
             "monitoring" => self.layout = Self::preset_monitoring(),
-            "aesthetic" => self.layout = Self::preset_aesthetic(),
-            "workspace" => self.layout = Self::preset_workspace(),
+            "minimal" => self.layout = Self::preset_minimal(),
             _ => {} // For custom, we just leave the layout as-is
         }
     }
@@ -132,8 +134,8 @@ impl DashboardConfig {
 impl Default for DashboardConfig {
     fn default() -> Self {
         Self {
-            preset: "lookout".to_string(),
-            layout: Self::preset_lookout(),
+            preset: "overview".to_string(),
+            layout: Self::preset_overview(),
         }
     }
 }
@@ -403,7 +405,7 @@ impl Default for UiConfig {
             performance_mode: PerformanceMode::Normal,
             style: DesignStyle::Material,
             monitor_layout: "classic".to_string(),
-            focus_layout: "lookout".to_string(),
+            focus_layout: "classic".to_string(),
             refresh_rate: 0.5,
             fps: 30,
             theme: "dark".to_string(),
@@ -894,10 +896,11 @@ mod tests {
             fps = 60
         "#;
         let cfg: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(cfg.dashboard.layout, DashboardConfig::preset_lookout());
+        assert_eq!(cfg.dashboard.layout, DashboardConfig::preset_overview());
+        assert_eq!(cfg.dashboard.preset, "overview");
         assert_eq!(
             cfg.dashboard.layout[2],
-            vec!["weather", "notes", "network", "disk"]
+            vec!["weather", "calendar", "status"]
         );
     }
 

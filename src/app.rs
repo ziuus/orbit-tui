@@ -81,23 +81,6 @@ impl PanelId {
     /// Tab order for a page, honouring widget toggles and custom dashboard layout.
     pub fn for_mode(mode: &DashboardMode, cfg: &Config) -> Vec<PanelId> {
         if *mode == DashboardMode::Dashboard {
-            if cfg.dashboard.preset == "lookout" || cfg.dashboard.preset == "panoramic" {
-                return vec![
-                    PanelId::Clock,
-                    PanelId::Calendar,
-                    PanelId::Weather,
-                    PanelId::Tasks,
-                    PanelId::Agenda,
-                    PanelId::WriterNotes,
-                    PanelId::News,
-                    PanelId::Media,
-                    PanelId::Timer,
-                    PanelId::Cpu,
-                    PanelId::Memory,
-                    PanelId::Network,
-                    PanelId::Disk,
-                ];
-            }
             let mut list = Vec::new();
             for col in &cfg.dashboard.layout {
                 for name in col {
@@ -427,7 +410,6 @@ pub struct App {
     pub help_scroll: u16,
     pub show_settings: bool,
     pub show_setup_wizard: bool,
-    pub show_vanta_migration_popup: bool,
     pub setup_wizard_step: usize,
     pub setup_install_log: String,
     pub settings_row: usize,
@@ -527,7 +509,6 @@ impl App {
             help_scroll: 0,
             show_settings: false,
             show_setup_wizard: false,
-            show_vanta_migration_popup: false,
             setup_wizard_step: 0,
             setup_install_log: String::new(),
             settings_row: 0,
@@ -660,14 +641,7 @@ impl App {
 
     /// Step the current page to its next/previous layout.
     pub fn cycle_layout(&mut self, forward: bool) {
-        const OVERVIEW: [&str; 6] = [
-            "lookout",
-            "cockpit",
-            "monitoring",
-            "minimal",
-            "aesthetic",
-            "workspace",
-        ];
+        const OVERVIEW: [&str; 4] = ["overview", "cockpit", "monitoring", "minimal"];
         let (list, cur): (&[&str], String) = match self.mode {
             DashboardMode::Dashboard => (&OVERVIEW, self.config.dashboard.preset.clone()),
             DashboardMode::Monitor => (
@@ -1193,11 +1167,6 @@ impl App {
                 _ => {}
             }
             self.sync_selected_pid();
-            return;
-        }
-
-        if self.show_vanta_migration_popup {
-            crate::screens::migration_notice::handle_key(self, key.code);
             return;
         }
 
@@ -2366,71 +2335,14 @@ impl App {
             && self.zoomed.is_none()
             && self.toast.is_none()
             && !self.panel_states.pinned_media_input_active;
-        let ad_snap = crate::monitors::ad::snapshot();
-        let ad_h = if ad_snap.ready { 5 } else { 0 };
-
-        let [title_bar, main, ad_bar, status_bar] = Layout::vertical([
+        let [title_bar, main, status_bar] = Layout::vertical([
             Constraint::Length(1),
             Constraint::Min(0),
-            Constraint::Length(ad_h),
             Constraint::Length(u16::from(!quiet)),
         ])
         .areas(area);
 
         self.render_title(f, title_bar);
-
-        if ad_snap.ready {
-            use ratatui::{
-                layout::Alignment,
-                style::{Color, Modifier, Style},
-                text::{Line, Span},
-                widgets::{Block, Borders, Paragraph},
-            };
-            let ad_block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Rgb(100, 200, 100)));
-
-            // Replicate Freebuff style exactly:
-            // GPT-6.1 Sol (Green)                                  Ad (Gray, right)
-            // Included in every plan.
-            // [See plans] freebuff.com
-
-            // ratatui Paragraph doesn't support left/right alignment on the same line easily,
-            // so we do title_top for "Ad" right aligned.
-            let ad_block = ad_block.title_top(
-                Line::from("Ad")
-                    .style(Style::default().fg(Color::DarkGray))
-                    .alignment(Alignment::Right),
-            );
-
-            let ad_text = vec![
-                Line::from(vec![Span::styled(
-                    ad_snap.message,
-                    Style::default()
-                        .fg(Color::Rgb(150, 255, 150))
-                        .add_modifier(Modifier::BOLD),
-                )]),
-                Line::from(vec![Span::raw(ad_snap.subtext)]),
-                Line::from(vec![
-                    Span::styled(
-                        " See plans ",
-                        Style::default()
-                            .fg(Color::Black)
-                            .bg(Color::Rgb(150, 255, 150)),
-                    ),
-                    Span::raw(" "),
-                    Span::styled(
-                        ad_snap.url,
-                        Style::default()
-                            .fg(Color::Gray)
-                            .add_modifier(Modifier::UNDERLINED),
-                    ),
-                ]),
-            ];
-
-            let p = Paragraph::new(ad_text).block(ad_block);
-            f.render_widget(p, ad_bar);
-        }
 
         match (self.zoomed, self.mode.clone()) {
             (Some(p), _) => screens::render_panel(f, main, self, p),
@@ -2480,9 +2392,6 @@ impl App {
         }
         if self.show_notifications {
             screens::notifications::render(f, area, self);
-        }
-        if self.show_vanta_migration_popup {
-            screens::migration_notice::render(f, area, self);
         }
     }
 

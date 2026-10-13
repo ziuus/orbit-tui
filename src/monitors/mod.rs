@@ -1,4 +1,3 @@
-pub mod ad;
 pub mod agenda;
 pub mod connections;
 pub mod cpu;
@@ -235,7 +234,6 @@ pub fn start(interval: Duration) -> Arc<AtomicU64> {
     facts_thread();
     weather::start();
     tasks::start();
-    ad::start();
     crypto::start();
     agenda::start();
     let url = crate::config::Config::load().widgets.news_feed;
