@@ -25,13 +25,21 @@ pub struct CustomPageConfig {
     pub layout: Vec<Vec<String>>,
 }
 
+fn default_dashboard_preset() -> String {
+    "overview".to_string()
+}
+
+fn default_dashboard_layout() -> Vec<Vec<String>> {
+    DashboardConfig::preset_overview()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
 pub struct DashboardConfig {
-    /// The currently selected layout preset name (e.g. "cockpit", "minimal").
+    /// The currently selected layout preset name (e.g. "overview", "cockpit", "minimal").
+    #[serde(default = "default_dashboard_preset")]
     pub preset: String,
     /// Multi-column layout specifying the panel names in order for each column.
-    /// Default: 3-column cockpit.
+    #[serde(default = "default_dashboard_layout")]
     pub layout: Vec<Vec<String>>,
 }
 
@@ -91,7 +99,9 @@ impl DashboardConfig {
 
     /// Fill an empty layout and upgrade an untouched legacy cockpit.
     fn migrate(&mut self) {
-        if self.layout.is_empty() {
+        if self.layout.is_empty()
+            || (self.layout == Self::preset_overview() && self.preset != "overview")
+        {
             let p =
                 if self.preset.is_empty() || self.preset == "lookout" || self.preset == "panoramic"
                 {
