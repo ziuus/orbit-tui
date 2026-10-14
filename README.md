@@ -37,7 +37,10 @@ It uses zero web tech, runs on roughly **0.5% of a core at idle**, and bypasses 
 Install Orbit via NPM (Recommended for prebuilt binaries) or Cargo.
 
 ```bash
-# Via NPM (Recommended)
+# Via Homebrew (macOS & Linux)
+brew install ziuus/orbit/orbit
+
+# Via NPM (Prebuilt binaries)
 npm install -g @ziuus/orbit
 
 # Via Cargo
