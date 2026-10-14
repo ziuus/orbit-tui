@@ -108,9 +108,7 @@ pub fn synthwave(buf: &mut Buffer, area: Rect, theme: &Theme, motion: bool, nigh
 
             // Layered mountain ridges: background distant range + foreground jagged peak
             let ridge_far = horizon
-                - h * (0.09
-                    + 0.04 * (fx * 0.03 + 2.1).sin()
-                    + 0.025 * (fx * 0.08 + 1.2).sin());
+                - h * (0.09 + 0.04 * (fx * 0.03 + 2.1).sin() + 0.025 * (fx * 0.08 + 1.2).sin());
             let ridge_near = horizon
                 - h * (0.045
                     + 0.035 * (fx * 0.06 + 0.8).sin()
@@ -122,7 +120,11 @@ pub fn synthwave(buf: &mut Buffer, area: Rect, theme: &Theme, motion: bool, nigh
                 return lerp(ground, theme.secondary, 0.22 + (fy - ridge_near) / h);
             }
             if fy > ridge_far {
-                return lerp(ground, blend(theme.bg, theme.secondary, 0.35), 0.15 + (fy - ridge_far) / h);
+                return lerp(
+                    ground,
+                    blend(theme.bg, theme.secondary, 0.35),
+                    0.15 + (fy - ridge_far) / h,
+                );
             }
 
             if d < sun_r {
@@ -134,7 +136,10 @@ pub fn synthwave(buf: &mut Buffer, area: Rect, theme: &Theme, motion: bool, nigh
                     return lerp(sun_core, theme.text, (0.3 - v).max(0.0));
                 }
             }
-            let halo = (1.0 - (d - sun_r) / (sun_r * 1.5)).clamp(0.0, 1.0).powf(1.6) * 0.45;
+            let halo = (1.0 - (d - sun_r) / (sun_r * 1.5))
+                .clamp(0.0, 1.0)
+                .powf(1.6)
+                * 0.45;
             let sky_col = sky(theme, x, y, horizon, t, glow);
             return lerp(sky_col, theme.red, halo);
         }

@@ -862,22 +862,38 @@ fn caption(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
     let day = now.format("%a %d %b").to_string();
 
     let mut spans = vec![
-        Span::styled(format!(" {} ", time), Style::default().fg(theme.text).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!(" {} ", time),
+            Style::default().fg(theme.text).add_modifier(Modifier::BOLD),
+        ),
         Span::styled("· ", Style::default().fg(theme.dim)),
         Span::styled(format!("{} ", day), Style::default().fg(theme.secondary)),
         Span::styled("· ", Style::default().fg(theme.dim)),
         Span::styled("cpu ", Style::default().fg(theme.dim)),
-        Span::styled(format!("{:.0}% ", app.summary.cpu_pct), Style::default().fg(if app.summary.cpu_pct > 80.0 { theme.red } else { theme.accent })),
+        Span::styled(
+            format!("{:.0}% ", app.summary.cpu_pct),
+            Style::default().fg(if app.summary.cpu_pct > 80.0 {
+                theme.red
+            } else {
+                theme.accent
+            }),
+        ),
         Span::styled("· ", Style::default().fg(theme.dim)),
         Span::styled("mem ", Style::default().fg(theme.dim)),
-        Span::styled(format!("{:.0}% ", app.summary.mem_pct), Style::default().fg(theme.secondary)),
+        Span::styled(
+            format!("{:.0}% ", app.summary.mem_pct),
+            Style::default().fg(theme.secondary),
+        ),
     ];
 
     let wx = crate::monitors::weather::snapshot();
     if wx.ready {
         let cond = crate::monitors::weather::describe(wx.condition_code);
         spans.push(Span::styled("· ", Style::default().fg(theme.dim)));
-        spans.push(Span::styled(format!("{:.0}°C {} ", wx.temp_c, cond), Style::default().fg(theme.yellow)));
+        spans.push(Span::styled(
+            format!("{:.0}°C {} ", wx.temp_c, cond),
+            Style::default().fg(theme.yellow),
+        ));
     }
 
     if let Some(track) = media::current_track() {
@@ -886,7 +902,10 @@ fn caption(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
             spans.push(Span::styled("♫ ", Style::default().fg(theme.green)));
             let max_track = 24.min(track.title.chars().count());
             let tr: String = track.title.chars().take(max_track).collect();
-            spans.push(Span::styled(format!("{} ", tr), Style::default().fg(theme.text).add_modifier(Modifier::BOLD)));
+            spans.push(Span::styled(
+                format!("{} ", tr),
+                Style::default().fg(theme.text).add_modifier(Modifier::BOLD),
+            ));
         }
     }
 
@@ -911,10 +930,7 @@ fn caption(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
         .style(Style::default().bg(theme.bg));
     let inner = block.inner(card);
     f.render_widget(block, card);
-    f.render_widget(
-        Paragraph::new(line).alignment(Alignment::Center),
-        inner,
-    );
+    f.render_widget(Paragraph::new(line).alignment(Alignment::Center), inner);
 }
 
 fn starfield(f: &mut Frame, area: Rect, _app: &mut App, theme: &Theme) {

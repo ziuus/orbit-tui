@@ -153,9 +153,12 @@ impl<'a> Widget for SnowWidget<'a> {
                     y: area.y + y,
                 }) {
                     let ch = if p == pile - 1 { '▔' } else { '█' };
-                    let col = if p == pile - 1 { self.theme.text } else { self.theme.surface };
-                    c.set_char(ch)
-                        .set_style(Style::default().fg(col));
+                    let col = if p == pile - 1 {
+                        self.theme.text
+                    } else {
+                        self.theme.surface
+                    };
+                    c.set_char(ch).set_style(Style::default().fg(col));
                 }
             }
         }
@@ -175,8 +178,7 @@ impl<'a> Widget for SnowWidget<'a> {
                 } else {
                     ('·', self.theme.dim)
                 };
-                c.set_char(ch)
-                    .set_style(Style::default().fg(col));
+                c.set_char(ch).set_style(Style::default().fg(col));
             }
         }
     }

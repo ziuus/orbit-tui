@@ -173,8 +173,7 @@ impl<'a> Widget for LifeWidget<'a> {
                         x: area.x + x,
                         y: area.y + y,
                     }) {
-                        c.set_char(ch)
-                            .set_style(Style::default().fg(col));
+                        c.set_char(ch).set_style(Style::default().fg(col));
                     }
                 }
             }
