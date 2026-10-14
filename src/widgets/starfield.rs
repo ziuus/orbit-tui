@@ -138,39 +138,45 @@ impl<'a> Widget for StarfieldWidget<'a> {
 
                 let intensity = (1.0 - star.z).clamp(0.0, 1.0);
 
-                let color = if intensity > 0.8 {
+                let color = if intensity > 0.85 {
                     self.theme.text
-                } else if intensity > 0.4 {
+                } else if intensity > 0.60 {
+                    self.theme.accent
+                } else if intensity > 0.35 {
                     self.theme.secondary
                 } else {
                     self.theme.dim
                 };
 
-                let char_idx = if self.speed > 0.5 {
+                let char_idx = if self.speed > 0.35 {
                     let dx = sx - cx;
-                    let dy = sy - cy;
-                    if dx.abs() > dy.abs() {
-                        '-'
+                    let dy = (sy - cy) * 2.0;
+                    if dx.abs() > dy.abs() * 1.5 {
+                        '━'
+                    } else if dy.abs() > dx.abs() * 1.5 {
+                        '┃'
+                    } else if (dx > 0.0 && dy > 0.0) || (dx < 0.0 && dy < 0.0) {
+                        '╲'
                     } else {
-                        '|'
+                        '╱'
                     }
+                } else if intensity > 0.80 {
+                    '✦'
+                } else if intensity > 0.50 {
+                    '•'
+                } else if intensity > 0.25 {
+                    '·'
                 } else {
-                    if intensity > 0.8 {
-                        '*'
-                    } else if intensity > 0.5 {
-                        '+'
-                    } else {
-                        '.'
-                    }
+                    '▪'
                 };
 
-                buf.cell_mut(ratatui::layout::Position {
+                if let Some(cell) = buf.cell_mut(ratatui::layout::Position {
                     x: cell_x,
                     y: cell_y,
-                })
-                .unwrap()
-                .set_char(char_idx)
-                .set_style(Style::default().fg(color));
+                }) {
+                    cell.set_char(char_idx)
+                        .set_style(Style::default().fg(color));
+                }
             }
 
             i += 1;

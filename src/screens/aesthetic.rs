@@ -847,31 +847,73 @@ fn render_footer(f: &mut Frame, area: Rect, theme: &Theme, list: &[Scene], idx: 
     );
 }
 
-/// A small time/date pill wandering along the bottom-left corner, for the
-/// full-bleed scenes that have no clock of their own.
+/// Informative floating glass capsule for ambient scenes.
+/// Shows live timepiece, CPU & RAM telemetry, weather, and active audio track.
 fn caption(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
+    if area.height < 5 || area.width < 30 {
+        return;
+    }
     let now = chrono::Local::now();
     let time = if app.config.ui.clock_24h {
         now.format("%H:%M").to_string()
     } else {
         now.format("%-I:%M %P").to_string()
     };
-    let text = format!(" {}  ·  {} ", time, now.format("%A"));
-    let w = (text.chars().count() as u16).min(area.width);
-    if area.height < 4 || w == 0 {
+    let day = now.format("%a %d %b").to_string();
+
+    let mut spans = vec![
+        Span::styled(format!(" {} ", time), Style::default().fg(theme.text).add_modifier(Modifier::BOLD)),
+        Span::styled("· ", Style::default().fg(theme.dim)),
+        Span::styled(format!("{} ", day), Style::default().fg(theme.secondary)),
+        Span::styled("· ", Style::default().fg(theme.dim)),
+        Span::styled("cpu ", Style::default().fg(theme.dim)),
+        Span::styled(format!("{:.0}% ", app.summary.cpu_pct), Style::default().fg(if app.summary.cpu_pct > 80.0 { theme.red } else { theme.accent })),
+        Span::styled("· ", Style::default().fg(theme.dim)),
+        Span::styled("mem ", Style::default().fg(theme.dim)),
+        Span::styled(format!("{:.0}% ", app.summary.mem_pct), Style::default().fg(theme.secondary)),
+    ];
+
+    let wx = crate::monitors::weather::snapshot();
+    if wx.ready {
+        let cond = crate::monitors::weather::describe(wx.condition_code);
+        spans.push(Span::styled("· ", Style::default().fg(theme.dim)));
+        spans.push(Span::styled(format!("{:.0}°C {} ", wx.temp_c, cond), Style::default().fg(theme.yellow)));
+    }
+
+    if let Some(track) = media::current_track() {
+        if !track.title.is_empty() {
+            spans.push(Span::styled("· ", Style::default().fg(theme.dim)));
+            spans.push(Span::styled("♫ ", Style::default().fg(theme.green)));
+            let max_track = 24.min(track.title.chars().count());
+            let tr: String = track.title.chars().take(max_track).collect();
+            spans.push(Span::styled(format!("{} ", tr), Style::default().fg(theme.text).add_modifier(Modifier::BOLD)));
+        }
+    }
+
+    let line = Line::from(spans);
+    let line_len = line.width() as u16;
+    let card_w = (line_len + 4).min(area.width.saturating_sub(4));
+    if card_w < 20 {
         return;
     }
-    let x = area.x + 2 + tri(t, 6).min(area.width.saturating_sub(w + 2));
-    let y = area.bottom().saturating_sub(3 + tri(t / 5, 1));
+
+    let (x, y) = (
+        area.x + 2 + tri(t, 8).min(area.width.saturating_sub(card_w + 2)),
+        area.bottom().saturating_sub(4 + tri(t / 6, 1)),
+    );
+    let card = Rect::new(x, y, card_w, 3);
+
+    f.render_widget(Clear, card);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(theme.surface))
+        .style(Style::default().bg(theme.bg));
+    let inner = block.inner(card);
+    f.render_widget(block, card);
     f.render_widget(
-        Paragraph::new(Span::styled(
-            text,
-            Style::default()
-                .fg(theme.text)
-                .bg(theme.bg)
-                .add_modifier(Modifier::BOLD),
-        )),
-        Rect::new(x, y, w, 1),
+        Paragraph::new(line).alignment(Alignment::Center),
+        inner,
     );
 }
 

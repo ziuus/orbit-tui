@@ -140,17 +140,41 @@ struct LifeWidget<'a> {
 
 impl<'a> Widget for LifeWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        let w = self.state.width;
-        let h = self.state.height;
-        for y in 0..h {
-            for x in 0..w {
-                if self.state.grid[(y * w + x) as usize] {
+        let w = self.state.width as i32;
+        let h = self.state.height as i32;
+        for y in 0..self.state.height {
+            for x in 0..self.state.width {
+                let idx = (y * self.state.width + x) as usize;
+                if self.state.grid[idx] {
+                    // Count local density for color temperature glow
+                    let mut neighbors = 0;
+                    for dy in -1..=1 {
+                        for dx in -1..=1 {
+                            if dx == 0 && dy == 0 {
+                                continue;
+                            }
+                            let nx = (x as i32 + dx).rem_euclid(w) as usize;
+                            let ny = (y as i32 + dy).rem_euclid(h) as usize;
+                            if self.state.grid[ny * (w as usize) + nx] {
+                                neighbors += 1;
+                            }
+                        }
+                    }
+
+                    let (ch, col) = if neighbors >= 3 {
+                        ('◆', self.theme.accent)
+                    } else if neighbors == 2 {
+                        ('●', self.theme.secondary)
+                    } else {
+                        ('▪', self.theme.dim)
+                    };
+
                     if let Some(c) = buf.cell_mut(Position {
                         x: area.x + x,
                         y: area.y + y,
                     }) {
-                        c.set_char('■')
-                            .set_style(Style::default().fg(self.theme.secondary));
+                        c.set_char(ch)
+                            .set_style(Style::default().fg(col));
                     }
                 }
             }

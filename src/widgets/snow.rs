@@ -152,8 +152,10 @@ impl<'a> Widget for SnowWidget<'a> {
                     x: area.x + x,
                     y: area.y + y,
                 }) {
-                    c.set_char('▇')
-                        .set_style(Style::default().fg(self.theme.secondary));
+                    let ch = if p == pile - 1 { '▔' } else { '█' };
+                    let col = if p == pile - 1 { self.theme.text } else { self.theme.surface };
+                    c.set_char(ch)
+                        .set_style(Style::default().fg(col));
                 }
             }
         }
@@ -166,8 +168,15 @@ impl<'a> Widget for SnowWidget<'a> {
                 x: area.x + cx,
                 y: area.y + cy,
             }) {
-                c.set_char(if flake.speed > 10.0 { '*' } else { '.' })
-                    .set_style(Style::default().fg(self.theme.text));
+                let (ch, col) = if flake.speed > 12.0 {
+                    ('❄', self.theme.text)
+                } else if flake.speed > 8.0 {
+                    ('❅', self.theme.accent)
+                } else {
+                    ('·', self.theme.dim)
+                };
+                c.set_char(ch)
+                    .set_style(Style::default().fg(col));
             }
         }
     }
