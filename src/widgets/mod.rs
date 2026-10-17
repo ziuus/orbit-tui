@@ -1,4 +1,5 @@
 pub mod agenda;
+pub mod agents;
 pub mod block_graph;
 pub mod braille_image;
 pub mod calendar;

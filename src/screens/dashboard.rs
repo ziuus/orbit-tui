@@ -146,6 +146,10 @@ fn is_flex_panel(name: &str) -> bool {
             | "media-preview"
             | "image"
             | "files"
+            | "agents"
+            | "ai"
+            | "agent_status"
+            | "fleet"
             | "filespace_browser"
             | "filespace_preview"
             | "crypto_coin"
@@ -220,6 +224,7 @@ fn panel_size(name: &str, ctx: &SizeCtx, adjustment: i16) -> Size {
         "news" => (8, 5, 4),
         "notes" | "writer" | "obsidian" | "files" => (10, 6, 5),
         "tasks" | "agenda" => (6, 4, 6),
+        "agents" | "ai" | "agent_status" | "fleet" => (7, 4, 7),
         "filespace_path" => (3, 3, 5),
         "filespace_sidebar" => (10, 6, 5),
         "filespace_queue" => (8, 5, 5),
@@ -646,6 +651,18 @@ fn render_dashboard_panel(
             let inner = panel(f, area, "file manager", theme, focus(PanelId::Files));
 
             crate::widgets::files::render(f, inner, app);
+        }
+        "agents" | "ai" | "agent_status" | "fleet" => {
+            let inner = panel_full(
+                f,
+                area,
+                "ai agents",
+                None,
+                Some("e station"),
+                theme,
+                focus(PanelId::Agents),
+            );
+            crate::widgets::agents::render(f, inner, theme, focus(PanelId::Agents));
         }
         custom_id => {
             let mut matched = false;

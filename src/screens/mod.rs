@@ -357,6 +357,7 @@ pub fn render_panel(f: &mut Frame, area: Rect, app: &mut crate::app::App, id: cr
         }
         P::WriterNotes => {}
         P::Files => {}
+        P::Agents => crate::widgets::agents::render(f, inner, theme, true),
         P::Processes => {
             let ps = &app.panel_states;
             crate::monitors::processes::render(

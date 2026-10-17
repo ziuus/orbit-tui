@@ -73,6 +73,7 @@ pub enum PanelId {
     WriterNotes,
     Files,
     PinnedMedia,
+    Agents,
     /// A user-defined custom widget at the given index in `CustomWidgetManager`.
     Custom(usize),
 }
@@ -177,6 +178,7 @@ impl PanelId {
             "video" | "donut" => w.video.then_some(PanelId::Video),
             "notes" | "writer" | "obsidian" => Some(PanelId::WriterNotes),
             "files" => Some(PanelId::Files),
+            "agents" | "ai" | "agent_status" | "fleet" => w.agents.then_some(PanelId::Agents),
             custom_id => {
                 if let Some(pos) = cfg
                     .custom_widgets
@@ -219,6 +221,7 @@ impl PanelId {
             &PanelId::News => "news",
             &PanelId::WriterNotes => "notes",
             &PanelId::Files => "files",
+            &PanelId::Agents => "ai agents",
         }
     }
 }
@@ -1214,9 +1217,111 @@ impl App {
         }
 
         if self.mode == DashboardMode::Doctor {
-            if let KeyCode::Enter = key.code {
-                crate::monitors::doctor::trigger_diagnosis();
-                return;
+            let has_active_session = {
+                let st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                st.active_session.is_some()
+            };
+
+            if has_active_session {
+                // Interactive session active in Agent Station
+                if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+                    crate::screens::doctor::send_signal_to_agent("C-c");
+                    return;
+                }
+                match key.code {
+                    KeyCode::Enter => {
+                        let cmd = {
+                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                            let s = st.input_buffer.clone();
+                            st.input_buffer.clear();
+                            s
+                        };
+                        crate::screens::doctor::send_input_to_agent(&cmd);
+                        return;
+                    }
+                    KeyCode::Backspace => {
+                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                        st.input_buffer.pop();
+                        return;
+                    }
+                    KeyCode::Esc => {
+                        crate::screens::doctor::terminate_agent_session();
+                        return;
+                    }
+                    KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        crate::screens::doctor::terminate_agent_session();
+                        return;
+                    }
+                    KeyCode::Up => {
+                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                        st.scroll = st.scroll.saturating_add(1);
+                        return;
+                    }
+                    KeyCode::Down => {
+                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                        st.scroll = st.scroll.saturating_sub(1);
+                        return;
+                    }
+                    KeyCode::PageUp => {
+                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                        st.scroll = st.scroll.saturating_add(10);
+                        return;
+                    }
+                    KeyCode::PageDown => {
+                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                        st.scroll = st.scroll.saturating_sub(10);
+                        return;
+                    }
+                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                        st.input_buffer.push(c);
+                        return;
+                    }
+                    _ => {}
+                }
+            } else {
+                // Standby mode: quick spawn hotkeys, or tab navigation
+                let (w, h) = crossterm::terminal::size().unwrap_or((120, 30));
+                match key.code {
+                    KeyCode::Char('c') => {
+                        let _ = crate::screens::doctor::spawn_agent(
+                            "claude",
+                            w.saturating_sub(30),
+                            h.saturating_sub(8),
+                        );
+                        return;
+                    }
+                    KeyCode::Char('o') => {
+                        let _ = crate::screens::doctor::spawn_agent(
+                            "opencode",
+                            w.saturating_sub(30),
+                            h.saturating_sub(8),
+                        );
+                        return;
+                    }
+                    KeyCode::Char('a') => {
+                        let _ = crate::screens::doctor::spawn_agent(
+                            "agy",
+                            w.saturating_sub(30),
+                            h.saturating_sub(8),
+                        );
+                        return;
+                    }
+                    KeyCode::Char('s') => {
+                        let _ = crate::screens::doctor::spawn_agent(
+                            "bash",
+                            w.saturating_sub(30),
+                            h.saturating_sub(8),
+                        );
+                        return;
+                    }
+                    KeyCode::Char('r') => {
+                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                        st.detected = crate::screens::doctor::scan_running_agents();
+                        return;
+                    }
+                    _ => {}
+                }
             }
         }
 
@@ -1965,6 +2070,11 @@ impl App {
     }
 
     fn trigger_focused_action(&mut self) {
+        if self.focused_panel == Some(PanelId::Agents) {
+            self.set_mode(DashboardMode::Doctor);
+            return;
+        }
+
         if self.focused_panel == Some(PanelId::Status) {
             let row_ids = crate::widgets::status::active_row_ids();
             let max_idx = row_ids.len().saturating_sub(1);
@@ -2826,6 +2936,10 @@ impl App {
                     hint("←→", "month");
                     hint("↑↓", "year");
                     hint("home", "today");
+                }
+                Some(PanelId::Agents) => {
+                    hint("e/enter", "station");
+                    hint("5", "quick jump");
                 }
                 _ => {
                     hint("tab", "focus");

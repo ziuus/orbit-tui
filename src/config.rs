@@ -475,6 +475,8 @@ pub struct WidgetConfig {
     pub agenda: bool,
     pub news: bool,
     pub news_feed: String,
+    #[serde(default = "default_true")]
+    pub agents: bool,
 }
 
 impl Default for WidgetConfig {
@@ -498,6 +500,7 @@ impl Default for WidgetConfig {
             agenda: true,
             news: true,
             news_feed: "https://news.ycombinator.com/rss".to_string(),
+            agents: true,
         }
     }
 }
