@@ -150,23 +150,30 @@ pub fn spawn_agent(cmd: &str, width: u16, height: u16) -> Result<(), String> {
         .args(["kill-session", "-t", TMUX_SESSION_NAME])
         .output();
 
+    let cwd = std::env::current_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| ".".to_string());
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "bash".to_string());
+
     let status = std::process::Command::new("tmux")
         .args([
             "new-session",
             "-d",
             "-s",
             TMUX_SESSION_NAME,
+            "-c",
+            &cwd,
             "-x",
             &width.max(40).to_string(),
             "-y",
             &height.max(10).to_string(),
-            "bash",
+            &shell,
         ])
         .status()
         .map_err(|e| format!("Failed to spawn agent in tmux: {}", e))?;
 
     if status.success() {
-        if !cmd.trim().is_empty() && cmd != "bash" {
+        if !cmd.trim().is_empty() && cmd != "bash" && cmd != "shell" {
             let _ = std::process::Command::new("tmux")
                 .args(["send-keys", "-t", TMUX_SESSION_NAME, cmd, "Enter"])
                 .output();
@@ -174,7 +181,7 @@ pub fn spawn_agent(cmd: &str, width: u16, height: u16) -> Result<(), String> {
         let mut st = AGENT_STATE.lock().unwrap();
         st.active_session = Some(cmd.to_string());
         st.history
-            .push_back(format!("⚡ Launched [{}] in embedded agent pane.", cmd));
+            .push_back(format!("⚡ Launched [{}] in: {}", cmd, cwd));
         st.session_screen.clear();
         st.scroll = 0;
         Ok(())
@@ -183,6 +190,18 @@ pub fn spawn_agent(cmd: &str, width: u16, height: u16) -> Result<(), String> {
             "tmux exited with non-zero status: {:?}",
             status.code()
         ))
+    }
+}
+
+/// Attach directly to the active tmux agent session with raw terminal handover.
+pub fn attach_to_agent_session() {
+    if is_session_alive() {
+        let _ = crate::mouse::suspended(|| {
+            std::process::Command::new("tmux")
+                .args(["attach-session", "-t", TMUX_SESSION_NAME])
+                .status()
+        });
+        let _ = std::process::Command::new("clear").status();
     }
 }
 
@@ -543,23 +562,51 @@ fn render_command_bar(f: &mut Frame, area: Rect, theme: &Theme, st: &AgentTermin
     f.render_widget(block, area);
 
     let content = if st.active_session.is_some() {
-        Line::from(vec![
-            Span::styled(
-                " PROMPT > ",
-                Style::default()
-                    .fg(theme.green)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                st.input_buffer.clone(),
-                Style::default().fg(theme.text).add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("█", Style::default().fg(theme.accent)),
-            Span::styled(
-                "  [Enter: Send · Esc/Ctrl+K: Terminate · Ctrl+C: Cancel · ↑↓: Scroll]",
-                Style::default().fg(theme.dim),
-            ),
-        ])
+        if !st.input_buffer.is_empty() {
+            Line::from(vec![
+                Span::styled(
+                    " PROMPT > ",
+                    Style::default()
+                        .fg(theme.green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    st.input_buffer.clone(),
+                    Style::default().fg(theme.text).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("█", Style::default().fg(theme.accent)),
+                Span::styled(
+                    "  [Enter: Send · Esc: Cancel · i: Attach Full Terminal]",
+                    Style::default().fg(theme.dim),
+                ),
+            ])
+        } else {
+            Line::from(vec![
+                Span::styled(
+                    " SESSION ACTIVE: ",
+                    Style::default()
+                        .fg(theme.green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "[Enter / i] ",
+                    Style::default()
+                        .fg(theme.accent)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("Attach Full Terminal  ", Style::default().fg(theme.text)),
+                Span::styled(
+                    "[k] ",
+                    Style::default().fg(theme.red).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("Terminate  ", Style::default().fg(theme.text)),
+                Span::styled("[↑↓] ", Style::default().fg(theme.secondary)),
+                Span::styled("Scroll  ", Style::default().fg(theme.dim)),
+                Span::styled("[1-5] ", Style::default().fg(theme.dim)),
+                Span::styled("Switch Tab  ", Style::default().fg(theme.dim)),
+                Span::styled("(Type to compose prompt)", Style::default().fg(theme.dim)),
+            ])
+        }
     } else {
         Line::from(vec![
             Span::styled(

@@ -1223,61 +1223,90 @@ impl App {
             };
 
             if has_active_session {
-                // Interactive session active in Agent Station
+                let is_composing = {
+                    let st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                    !st.input_buffer.is_empty()
+                };
+
                 if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
                     crate::screens::doctor::send_signal_to_agent("C-c");
                     return;
                 }
-                match key.code {
-                    KeyCode::Enter => {
-                        let cmd = {
+
+                if !is_composing {
+                    match key.code {
+                        KeyCode::Enter | KeyCode::Char('i') => {
+                            crate::screens::doctor::attach_to_agent_session();
+                            return;
+                        }
+                        KeyCode::Char('k') => {
+                            crate::screens::doctor::terminate_agent_session();
+                            return;
+                        }
+                        KeyCode::Up => {
                             let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                            let s = st.input_buffer.clone();
+                            st.scroll = st.scroll.saturating_add(1);
+                            return;
+                        }
+                        KeyCode::Down => {
+                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                            st.scroll = st.scroll.saturating_sub(1);
+                            return;
+                        }
+                        KeyCode::PageUp => {
+                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                            st.scroll = st.scroll.saturating_add(10);
+                            return;
+                        }
+                        KeyCode::PageDown => {
+                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                            st.scroll = st.scroll.saturating_sub(10);
+                            return;
+                        }
+                        KeyCode::Char(c) if c.is_ascii_digit() => {
+                            let n = c.to_digit(10).unwrap() as usize;
+                            let modes = self.available_modes();
+                            if n > 0 && n <= modes.len() {
+                                self.set_mode(modes[n - 1].clone());
+                                return;
+                            }
+                        }
+                        KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                            st.input_buffer.push(c);
+                            return;
+                        }
+                        _ => {}
+                    }
+                } else {
+                    match key.code {
+                        KeyCode::Enter => {
+                            let cmd = {
+                                let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                                let s = st.input_buffer.clone();
+                                st.input_buffer.clear();
+                                s
+                            };
+                            crate::screens::doctor::send_input_to_agent(&cmd);
+                            return;
+                        }
+                        KeyCode::Backspace => {
+                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                            st.input_buffer.pop();
+                            return;
+                        }
+                        KeyCode::Esc => {
+                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
                             st.input_buffer.clear();
-                            s
-                        };
-                        crate::screens::doctor::send_input_to_agent(&cmd);
-                        return;
+                            return;
+                        }
+                        KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                            st.input_buffer.push(c);
+                            return;
+                        }
+                        _ => {}
                     }
-                    KeyCode::Backspace => {
-                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                        st.input_buffer.pop();
-                        return;
-                    }
-                    KeyCode::Esc => {
-                        crate::screens::doctor::terminate_agent_session();
-                        return;
-                    }
-                    KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        crate::screens::doctor::terminate_agent_session();
-                        return;
-                    }
-                    KeyCode::Up => {
-                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                        st.scroll = st.scroll.saturating_add(1);
-                        return;
-                    }
-                    KeyCode::Down => {
-                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                        st.scroll = st.scroll.saturating_sub(1);
-                        return;
-                    }
-                    KeyCode::PageUp => {
-                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                        st.scroll = st.scroll.saturating_add(10);
-                        return;
-                    }
-                    KeyCode::PageDown => {
-                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                        st.scroll = st.scroll.saturating_sub(10);
-                        return;
-                    }
-                    KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                        st.input_buffer.push(c);
-                        return;
-                    }
-                    _ => {}
                 }
             } else {
                 // Standby mode: quick spawn hotkeys, or tab navigation
