@@ -38,7 +38,7 @@ Install Orbit via NPM (Recommended for prebuilt binaries) or Cargo.
 
 ```bash
 # Via Homebrew (macOS & Linux)
-brew install ziuus/orbit/orbit
+brew install ziuus/tap/orbit
 
 # Via NPM (Prebuilt binaries)
 npm install -g @ziuus/orbit
