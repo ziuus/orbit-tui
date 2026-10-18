@@ -1217,25 +1217,42 @@ impl App {
         }
 
         if self.mode == DashboardMode::Doctor {
-            let has_active_session = {
+            let (has_active_session, is_focused) = {
                 let st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                st.active_session.is_some()
+                (st.active_session.is_some(), st.terminal_focused)
             };
 
             if has_active_session {
-                let is_composing = {
-                    let st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                    !st.input_buffer.is_empty()
-                };
+                if is_focused {
+                    // TERMINAL FOCUSED MODE:
+                    // 1. Unfocus back to Orbit Nav on Esc or Ctrl+O
+                    if key.code == KeyCode::Esc
+                        || (key.modifiers.contains(KeyModifiers::CONTROL)
+                            && key.code == KeyCode::Char('o'))
+                    {
+                        let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                        st.terminal_focused = false;
+                        return;
+                    }
 
-                if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
-                    crate::screens::doctor::send_signal_to_agent("C-c");
+                    // 2. Fullscreen Handover on Alt+Enter
+                    if key.modifiers.contains(KeyModifiers::ALT) && key.code == KeyCode::Enter {
+                        crate::screens::doctor::attach_to_agent_session();
+                        return;
+                    }
+
+                    // 3. Forward ALL other keys directly to tmux (no Orbit dashboard conflicts!)
+                    crate::screens::doctor::forward_key_to_tmux(key);
                     return;
-                }
-
-                if !is_composing {
+                } else {
+                    // ORBIT NAV MODE (Doctor Screen with active session):
                     match key.code {
                         KeyCode::Enter | KeyCode::Char('i') => {
+                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
+                            st.terminal_focused = true;
+                            return;
+                        }
+                        KeyCode::Char('f') => {
                             crate::screens::doctor::attach_to_agent_session();
                             return;
                         }
@@ -1263,49 +1280,15 @@ impl App {
                             st.scroll = st.scroll.saturating_sub(10);
                             return;
                         }
-                        KeyCode::Char(c) if c.is_ascii_digit() => {
-                            let n = c.to_digit(10).unwrap() as usize;
-                            let modes = self.available_modes();
-                            if n > 0 && n <= modes.len() {
-                                self.set_mode(modes[n - 1].clone());
+                        _ => {
+                            if key.modifiers.contains(KeyModifiers::ALT)
+                                && key.code == KeyCode::Enter
+                            {
+                                crate::screens::doctor::attach_to_agent_session();
                                 return;
                             }
+                            // Other keys (1-5 for tabs, q for quit, space, etc.) fall through to Orbit navigation!
                         }
-                        KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                            st.input_buffer.push(c);
-                            return;
-                        }
-                        _ => {}
-                    }
-                } else {
-                    match key.code {
-                        KeyCode::Enter => {
-                            let cmd = {
-                                let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                                let s = st.input_buffer.clone();
-                                st.input_buffer.clear();
-                                s
-                            };
-                            crate::screens::doctor::send_input_to_agent(&cmd);
-                            return;
-                        }
-                        KeyCode::Backspace => {
-                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                            st.input_buffer.pop();
-                            return;
-                        }
-                        KeyCode::Esc => {
-                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                            st.input_buffer.clear();
-                            return;
-                        }
-                        KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
-                            let mut st = crate::screens::doctor::AGENT_STATE.lock().unwrap();
-                            st.input_buffer.push(c);
-                            return;
-                        }
-                        _ => {}
                     }
                 }
             } else {

@@ -53,6 +53,7 @@ pub struct DetectedAgent {
 
 pub struct AgentTerminalState {
     pub active_session: Option<String>,
+    pub terminal_focused: bool,
     pub input_buffer: String,
     pub scroll: usize,
     pub history: VecDeque<String>,
@@ -65,6 +66,7 @@ impl Default for AgentTerminalState {
     fn default() -> Self {
         Self {
             active_session: None,
+            terminal_focused: false,
             input_buffer: String::new(),
             scroll: 0,
             history: VecDeque::with_capacity(500),
@@ -180,6 +182,7 @@ pub fn spawn_agent(cmd: &str, width: u16, height: u16) -> Result<(), String> {
         }
         let mut st = AGENT_STATE.lock().unwrap();
         st.active_session = Some(cmd.to_string());
+        st.terminal_focused = true;
         st.history
             .push_back(format!("⚡ Launched [{}] in: {}", cmd, cwd));
         st.session_screen.clear();
@@ -221,6 +224,101 @@ pub fn send_signal_to_agent(sig: &str) {
         .output();
 }
 
+/// Forward raw crossterm key event directly to tmux session without conflict.
+pub fn forward_key_to_tmux(key: crossterm::event::KeyEvent) {
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        let key_str = match key.code {
+            KeyCode::Char('c') => "C-c",
+            KeyCode::Char('d') => "C-d",
+            KeyCode::Char('z') => "C-z",
+            KeyCode::Char('l') => "C-l",
+            KeyCode::Char('u') => "C-u",
+            KeyCode::Char('w') => "C-w",
+            KeyCode::Char('a') => "C-a",
+            KeyCode::Char('e') => "C-e",
+            KeyCode::Char('r') => "C-r",
+            KeyCode::Char('k') => "C-k",
+            KeyCode::Char('t') => "C-t",
+            KeyCode::Char('p') => "C-p",
+            KeyCode::Char('n') => "C-n",
+            KeyCode::Char('b') => "C-b",
+            KeyCode::Char('f') => "C-f",
+            _ => return,
+        };
+        let _ = std::process::Command::new("tmux")
+            .args(["send-keys", "-t", TMUX_SESSION_NAME, key_str])
+            .output();
+        return;
+    }
+
+    match key.code {
+        KeyCode::Char(c) => {
+            let s = c.to_string();
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "-l", &s])
+                .output();
+        }
+        KeyCode::Enter => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Enter"])
+                .output();
+        }
+        KeyCode::Backspace => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "BSpace"])
+                .output();
+        }
+        KeyCode::Tab => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Tab"])
+                .output();
+        }
+        KeyCode::Up => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Up"])
+                .output();
+        }
+        KeyCode::Down => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Down"])
+                .output();
+        }
+        KeyCode::Left => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Left"])
+                .output();
+        }
+        KeyCode::Right => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Right"])
+                .output();
+        }
+        KeyCode::Home => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Home"])
+                .output();
+        }
+        KeyCode::End => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "End"])
+                .output();
+        }
+        KeyCode::PageUp => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "PgUp"])
+                .output();
+        }
+        KeyCode::PageDown => {
+            let _ = std::process::Command::new("tmux")
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, "PgDn"])
+                .output();
+        }
+        _ => {}
+    }
+}
+
 /// Capture output lines from running tmux session.
 pub fn poll_agent_output() -> Vec<String> {
     let output = std::process::Command::new("tmux")
@@ -247,6 +345,7 @@ pub fn terminate_agent_session() {
         .output();
     let mut st = AGENT_STATE.lock().unwrap();
     st.active_session = None;
+    st.terminal_focused = false;
     st.session_screen.clear();
     st.history
         .push_back("⏹ Terminated agent session.".to_string());
@@ -265,6 +364,7 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
                     st.session_screen = poll_agent_output();
                 } else {
                     st.active_session = None;
+                    st.terminal_focused = false;
                     st.history
                         .push_back("⏹ Agent session completed.".to_string());
                 }
@@ -374,24 +474,43 @@ fn render_agent_hud(
 }
 
 fn render_console(f: &mut Frame, area: Rect, theme: &Theme, st: &AgentTerminalState) {
+    let (border_color, status_badge) = if st.active_session.is_some() {
+        if st.terminal_focused {
+            (
+                theme.green,
+                Span::styled(
+                    " ● TERMINAL FOCUSED (Esc: Orbit Nav · Alt+Enter: Fullscreen) ",
+                    Style::default()
+                        .fg(theme.green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            )
+        } else {
+            (
+                theme.accent,
+                Span::styled(
+                    " ○ ORBIT NAV MODE (Enter/i: Focus Terminal) ",
+                    Style::default().fg(theme.yellow),
+                ),
+            )
+        }
+    } else {
+        (
+            theme.dim,
+            Span::styled(" ○ IDLE ", Style::default().fg(theme.dim)),
+        )
+    };
+
     let block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(if st.active_session.is_some() {
-            theme.accent
-        } else {
-            theme.dim
-        }))
+        .border_style(Style::default().fg(border_color))
         .title(Line::from(vec![
             Span::styled(
                 " ⚡ AI AGENT RUNTIME CONSOLE ",
                 Style::default().fg(theme.text).add_modifier(Modifier::BOLD),
             ),
-            if st.active_session.is_some() {
-                Span::styled(" ● LIVE PTY STREAM ", Style::default().fg(theme.green))
-            } else {
-                Span::styled(" ○ IDLE ", Style::default().fg(theme.dim))
-            },
+            status_badge,
         ]));
 
     let inner = block.inner(area);
@@ -553,7 +672,11 @@ fn render_command_bar(f: &mut Frame, area: Rect, theme: &Theme, st: &AgentTermin
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(if st.active_session.is_some() {
-            theme.accent
+            if st.terminal_focused {
+                theme.green
+            } else {
+                theme.accent
+            }
         } else {
             theme.surface
         }));
@@ -562,39 +685,57 @@ fn render_command_bar(f: &mut Frame, area: Rect, theme: &Theme, st: &AgentTermin
     f.render_widget(block, area);
 
     let content = if st.active_session.is_some() {
-        if !st.input_buffer.is_empty() {
+        if st.terminal_focused {
             Line::from(vec![
                 Span::styled(
-                    " PROMPT > ",
+                    " ⌨ TERMINAL FOCUSED: ",
                     Style::default()
                         .fg(theme.green)
                         .add_modifier(Modifier::BOLD),
                 ),
+                Span::styled("Keys pass to agent · ", Style::default().fg(theme.text)),
                 Span::styled(
-                    st.input_buffer.clone(),
-                    Style::default().fg(theme.text).add_modifier(Modifier::BOLD),
+                    "[Esc] ",
+                    Style::default()
+                        .fg(theme.yellow)
+                        .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled("█", Style::default().fg(theme.accent)),
+                Span::styled("Orbit Nav Mode · ", Style::default().fg(theme.dim)),
                 Span::styled(
-                    "  [Enter: Send · Esc: Cancel · i: Attach Full Terminal]",
-                    Style::default().fg(theme.dim),
+                    "[Alt+Enter] ",
+                    Style::default()
+                        .fg(theme.accent)
+                        .add_modifier(Modifier::BOLD),
                 ),
+                Span::styled("Fullscreen · ", Style::default().fg(theme.dim)),
+                Span::styled(
+                    "[Ctrl+C] ",
+                    Style::default().fg(theme.red).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("Interrupt", Style::default().fg(theme.dim)),
             ])
         } else {
             Line::from(vec![
                 Span::styled(
-                    " SESSION ACTIVE: ",
+                    " ◈ ORBIT NAV MODE: ",
                     Style::default()
-                        .fg(theme.green)
+                        .fg(theme.accent)
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     "[Enter / i] ",
                     Style::default()
+                        .fg(theme.green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("Focus Terminal  ", Style::default().fg(theme.text)),
+                Span::styled(
+                    "[Alt+Enter / f] ",
+                    Style::default()
                         .fg(theme.accent)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled("Attach Full Terminal  ", Style::default().fg(theme.text)),
+                Span::styled("Fullscreen  ", Style::default().fg(theme.text)),
                 Span::styled(
                     "[k] ",
                     Style::default().fg(theme.red).add_modifier(Modifier::BOLD),
@@ -603,8 +744,9 @@ fn render_command_bar(f: &mut Frame, area: Rect, theme: &Theme, st: &AgentTermin
                 Span::styled("[↑↓] ", Style::default().fg(theme.secondary)),
                 Span::styled("Scroll  ", Style::default().fg(theme.dim)),
                 Span::styled("[1-5] ", Style::default().fg(theme.dim)),
-                Span::styled("Switch Tab  ", Style::default().fg(theme.dim)),
-                Span::styled("(Type to compose prompt)", Style::default().fg(theme.dim)),
+                Span::styled("Tabs  ", Style::default().fg(theme.dim)),
+                Span::styled("[q] ", Style::default().fg(theme.dim)),
+                Span::styled("Quit", Style::default().fg(theme.dim)),
             ])
         }
     } else {
