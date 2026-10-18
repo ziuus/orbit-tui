@@ -57,7 +57,14 @@ cargo install --git https://github.com/ziuus/orbit-tui.git
 | `2` | **Monitor** | Comprehensive system & process matrix. Filter, sort, and manage running tasks effortlessly. |
 | `3` | **Aesthetic** | Ambient environments. Matrix rain, 3D starfield, spinning donut, pinned media, full-width visualizer. |
 | `4` | **Workspace** | Built-in File Manager (with image previews), Agenda, Tasks, RSS feeds, and Obsidian vault viewer. |
+| `5` | **Orbit AI** | Autonomous Agent Workstation. Supervise Claude Code, OpenCode, Antigravity, or Shell sessions 24/7 with zero key conflicts and instant fullscreen handover. |
 | `?` | **Help** | Keybind reference overlay. |
+
+### `5` — Orbit AI (Autonomous Agent Cockpit)
+Run and supervise background AI coding agents 24/7 without terminal context switches.
+- **Agent Fleet Telemetry**: Live RAM & CPU metrics for all active agents.
+- **Embedded PTY Stream**: 30 FPS non-blocking live terminal stream.
+- **Zero Key Conflicts**: Dual-mode terminal focus passes all keystrokes (`space`, `q`, `Tab`, `1-5`) directly to your agent. Press `Esc` anytime for Orbit Nav mode, or `Alt+Enter` for native fullscreen tmux handover.
 
 ### `2` — Monitor
 A deep dive into your system's heartbeat. Every vital graph on top, every active process below. Sort it, filter it, tree it, kill it.
@@ -85,7 +92,7 @@ Turn your terminal into a productivity hub. Manage files (with image previews), 
 
 | Key | Action |
 |-----|--------|
-| `1` `2` `3` `4` | Switch workspace (persisted as startup page) |
+| `1` `2` `3` `4` `5` | Switch workspace (persisted as startup page) |
 | `Tab` / `Shift-Tab` | Cycle panel focus · `Esc` clears |
 | `Enter` | Zoom the focused panel to the full page · `Esc` back |
 | `T` | Next theme (persisted) |
