@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{LazyLock, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
@@ -10,6 +12,15 @@ use ratatui::Frame;
 
 use crate::app::App;
 use crate::theme::Theme;
+
+#[derive(Debug)]
+pub enum TmuxInput {
+    Literal(String),
+    Special(&'static str),
+}
+
+static WORKER_STARTED: AtomicBool = AtomicBool::new(false);
+static KEY_TX: LazyLock<Mutex<Option<Sender<TmuxInput>>>> = LazyLock::new(|| Mutex::new(None));
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AgentKind {
@@ -82,13 +93,141 @@ pub static AGENT_STATE: LazyLock<Mutex<AgentTerminalState>> =
 
 const TMUX_SESSION_NAME: &str = "orbit_agent_session";
 
-/// Check if a CLI binary is reachable in PATH.
+/// Check if a CLI binary is reachable in PATH without spawning child processes.
 pub fn is_binary_available(cmd: &str) -> bool {
-    std::process::Command::new("which")
-        .arg(cmd)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    if let Some(path_var) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            let full_path = dir.join(cmd);
+            if full_path.is_file() {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    if let Ok(meta) = full_path.metadata() {
+                        if meta.permissions().mode() & 0o111 != 0 {
+                            return true;
+                        }
+                    }
+                }
+                #[cfg(not(unix))]
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Ensure background terminal capture & telemetry worker is running.
+pub fn ensure_worker_started() {
+    if WORKER_STARTED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    let (tx, rx) = channel::<TmuxInput>();
+    if let Ok(mut lock) = KEY_TX.lock() {
+        *lock = Some(tx);
+    }
+
+    std::thread::spawn(move || {
+        agent_worker_loop(rx);
+    });
+}
+
+fn agent_worker_loop(rx: Receiver<TmuxInput>) {
+    let mut last_agent_scan = Instant::now() - Duration::from_secs(10);
+    let mut last_alive_check = Instant::now();
+
+    loop {
+        // 1. Process all pending keys non-blocking
+        while let Ok(cmd) = rx.try_recv() {
+            match cmd {
+                TmuxInput::Literal(s) => {
+                    let _ = std::process::Command::new("tmux")
+                        .args(["send-keys", "-t", TMUX_SESSION_NAME, "-l", &s])
+                        .output();
+                }
+                TmuxInput::Special(s) => {
+                    let _ = std::process::Command::new("tmux")
+                        .args(["send-keys", "-t", TMUX_SESSION_NAME, s])
+                        .output();
+                }
+            }
+        }
+
+        let is_active = {
+            let st = AGENT_STATE.lock().unwrap();
+            st.active_session.is_some()
+        };
+
+        if is_active {
+            // Live capture pane
+            let lines = poll_agent_output();
+            if let Ok(mut st) = AGENT_STATE.lock() {
+                st.session_screen = lines;
+            }
+
+            // Check alive every 1 second
+            if last_alive_check.elapsed() >= Duration::from_millis(1000) {
+                if !is_session_alive() {
+                    if let Ok(mut st) = AGENT_STATE.lock() {
+                        st.active_session = None;
+                        st.terminal_focused = false;
+                        st.history
+                            .push_back("⏹ Agent session completed.".to_string());
+                    }
+                }
+                last_alive_check = Instant::now();
+            }
+        }
+
+        // Fleet telemetry scan every 2.5 seconds
+        if last_agent_scan.elapsed() >= Duration::from_millis(2500) {
+            let detected = scan_running_agents();
+            if let Ok(mut st) = AGENT_STATE.lock() {
+                st.detected = detected;
+            }
+            last_agent_scan = Instant::now();
+        }
+
+        // Adaptive frame sleep / interrupt
+        if is_active {
+            // Wait up to 35ms (~28 fps) or wake immediately on incoming key
+            if let Ok(cmd) = rx.recv_timeout(Duration::from_millis(35)) {
+                match cmd {
+                    TmuxInput::Literal(s) => {
+                        let _ = std::process::Command::new("tmux")
+                            .args(["send-keys", "-t", TMUX_SESSION_NAME, "-l", &s])
+                            .output();
+                    }
+                    TmuxInput::Special(s) => {
+                        let _ = std::process::Command::new("tmux")
+                            .args(["send-keys", "-t", TMUX_SESSION_NAME, s])
+                            .output();
+                    }
+                }
+                // Immediately refresh screen on user typing
+                let lines = poll_agent_output();
+                if let Ok(mut st) = AGENT_STATE.lock() {
+                    st.session_screen = lines;
+                }
+            }
+        } else {
+            // Idle: sleep up to 500ms or wake immediately if a key arrives
+            if let Ok(cmd) = rx.recv_timeout(Duration::from_millis(500)) {
+                match cmd {
+                    TmuxInput::Literal(s) => {
+                        let _ = std::process::Command::new("tmux")
+                            .args(["send-keys", "-t", TMUX_SESSION_NAME, "-l", &s])
+                            .output();
+                    }
+                    TmuxInput::Special(s) => {
+                        let _ = std::process::Command::new("tmux")
+                            .args(["send-keys", "-t", TMUX_SESSION_NAME, s])
+                            .output();
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Detect active AI agents running on the machine (claude, opencode, agy, etc.)
@@ -219,16 +358,24 @@ pub fn send_input_to_agent(input: &str) {
 
 /// Send raw key/signal (e.g. C-c) to active tmux agent session.
 pub fn send_signal_to_agent(sig: &str) {
+    ensure_worker_started();
+    if let Ok(lock) = KEY_TX.lock() {
+        if let Some(tx) = lock.as_ref() {
+            let _ = tx.send(TmuxInput::Special("C-c"));
+            return;
+        }
+    }
     let _ = std::process::Command::new("tmux")
         .args(["send-keys", "-t", TMUX_SESSION_NAME, sig])
         .output();
 }
 
-/// Forward raw crossterm key event directly to tmux session without conflict.
+/// Forward raw crossterm key event directly to tmux session asynchronously.
 pub fn forward_key_to_tmux(key: crossterm::event::KeyEvent) {
+    ensure_worker_started();
     use crossterm::event::{KeyCode, KeyModifiers};
 
-    if key.modifiers.contains(KeyModifiers::CONTROL) {
+    let input = if key.modifiers.contains(KeyModifiers::CONTROL) {
         let key_str = match key.code {
             KeyCode::Char('c') => "C-c",
             KeyCode::Char('d') => "C-d",
@@ -247,75 +394,43 @@ pub fn forward_key_to_tmux(key: crossterm::event::KeyEvent) {
             KeyCode::Char('f') => "C-f",
             _ => return,
         };
-        let _ = std::process::Command::new("tmux")
-            .args(["send-keys", "-t", TMUX_SESSION_NAME, key_str])
-            .output();
-        return;
+        TmuxInput::Special(key_str)
+    } else {
+        match key.code {
+            KeyCode::Char(c) => TmuxInput::Literal(c.to_string()),
+            KeyCode::Enter => TmuxInput::Special("Enter"),
+            KeyCode::Backspace => TmuxInput::Special("BSpace"),
+            KeyCode::Tab => TmuxInput::Special("Tab"),
+            KeyCode::Up => TmuxInput::Special("Up"),
+            KeyCode::Down => TmuxInput::Special("Down"),
+            KeyCode::Left => TmuxInput::Special("Left"),
+            KeyCode::Right => TmuxInput::Special("Right"),
+            KeyCode::Home => TmuxInput::Special("Home"),
+            KeyCode::End => TmuxInput::Special("End"),
+            KeyCode::PageUp => TmuxInput::Special("PgUp"),
+            KeyCode::PageDown => TmuxInput::Special("PgDn"),
+            _ => return,
+        }
+    };
+
+    if let Ok(lock) = KEY_TX.lock() {
+        if let Some(tx) = lock.as_ref() {
+            let _ = tx.send(input);
+            return;
+        }
     }
 
-    match key.code {
-        KeyCode::Char(c) => {
-            let s = c.to_string();
+    match input {
+        TmuxInput::Literal(s) => {
             let _ = std::process::Command::new("tmux")
                 .args(["send-keys", "-t", TMUX_SESSION_NAME, "-l", &s])
                 .output();
         }
-        KeyCode::Enter => {
+        TmuxInput::Special(s) => {
             let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Enter"])
+                .args(["send-keys", "-t", TMUX_SESSION_NAME, s])
                 .output();
         }
-        KeyCode::Backspace => {
-            let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "BSpace"])
-                .output();
-        }
-        KeyCode::Tab => {
-            let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Tab"])
-                .output();
-        }
-        KeyCode::Up => {
-            let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Up"])
-                .output();
-        }
-        KeyCode::Down => {
-            let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Down"])
-                .output();
-        }
-        KeyCode::Left => {
-            let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Left"])
-                .output();
-        }
-        KeyCode::Right => {
-            let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Right"])
-                .output();
-        }
-        KeyCode::Home => {
-            let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "Home"])
-                .output();
-        }
-        KeyCode::End => {
-            let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "End"])
-                .output();
-        }
-        KeyCode::PageUp => {
-            let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "PgUp"])
-                .output();
-        }
-        KeyCode::PageDown => {
-            let _ = std::process::Command::new("tmux")
-                .args(["send-keys", "-t", TMUX_SESSION_NAME, "PgDn"])
-                .output();
-        }
-        _ => {}
     }
 }
 
@@ -352,28 +467,15 @@ pub fn terminate_agent_session() {
 }
 
 pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
+    ensure_worker_started();
     let theme = &app.theme;
 
-    // Refresh telemetry every 800ms
-    {
-        let mut st = AGENT_STATE.lock().unwrap();
-        if st.last_poll.elapsed() >= std::time::Duration::from_millis(800) {
-            st.detected = scan_running_agents();
-            if st.active_session.is_some() {
-                if is_session_alive() {
-                    st.session_screen = poll_agent_output();
-                } else {
-                    st.active_session = None;
-                    st.terminal_focused = false;
-                    st.history
-                        .push_back("⏹ Agent session completed.".to_string());
-                }
-            }
-            st.last_poll = Instant::now();
-        }
-    }
-
     let st = AGENT_STATE.lock().unwrap();
+
+    // While an agent session is active, request 30 FPS for buttery smooth terminal streaming
+    if st.active_session.is_some() {
+        crate::anim::request(30);
+    }
 
     let [top_hud, main_body, bottom_bar] = ratatui::layout::Layout::vertical([
         ratatui::layout::Constraint::Length(3),
