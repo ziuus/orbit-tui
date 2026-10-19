@@ -111,6 +111,14 @@ pub fn is_binary_available(cmd: &str) -> bool {
                 #[cfg(not(unix))]
                 return true;
             }
+            #[cfg(windows)]
+            {
+                for ext in ["exe", "cmd", "bat"] {
+                    if full_path.with_extension(ext).is_file() {
+                        return true;
+                    }
+                }
+            }
         }
     }
     false
@@ -915,7 +923,14 @@ mod tests {
 
     #[test]
     fn test_is_binary_available() {
+        #[cfg(unix)]
         assert!(is_binary_available("sh") || is_binary_available("bash"));
+        #[cfg(windows)]
+        assert!(
+            is_binary_available("cmd")
+                || is_binary_available("powershell")
+                || is_binary_available("cargo")
+        );
         assert!(!is_binary_available("non_existent_binary_xyz_12345"));
     }
 
