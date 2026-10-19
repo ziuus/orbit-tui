@@ -37,14 +37,17 @@ It uses zero web tech, runs on roughly **0.5% of a core at idle**, and bypasses 
 Install Orbit via NPM (Recommended for prebuilt binaries) or Cargo.
 
 ```bash
+# Via Cargo Binstall (Instant prebuilt binary)
+cargo binstall orbit-tui
+
 # Via Homebrew (macOS & Linux)
 brew install ziuus/tap/orbit
 
 # Via NPM (Prebuilt binaries)
 npm install -g @ziuus/orbit
 
-# Via Cargo
-cargo install --git https://github.com/ziuus/orbit-tui.git
+# Via Cargo (Compile from source)
+cargo install orbit-tui
 ```
 
 > **Note:** If you are migrating from our previous iteration, simply rename your configuration folder: `mv ~/.config/vanta ~/.config/orbit`

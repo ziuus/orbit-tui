@@ -13,6 +13,11 @@ readme = "README.md"
 keywords = ["tui", "dashboard", "monitor", "ratatui", "system"]
 categories = ["command-line-utilities"]
 
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/orbit-{ target }.tar.gz"
+bin-dir = "{ bin }"
+pkg-fmt = "tgz"
+
 [dependencies]
 ratatui = "0.29"
 crossterm = "0.28"
