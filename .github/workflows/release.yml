@@ -5,6 +5,10 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.ref_name || github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   id-token: write
@@ -87,4 +91,17 @@ jobs:
 
       - name: Publish to npm
         working-directory: npm
-        run: npm publish --access public --provenance
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          PACKAGE_VER=$(node -p "require('./package.json').version")
+          if npm view "${PACKAGE_NAME}@${PACKAGE_VER}" version >/dev/null 2>&1; then
+            echo "${PACKAGE_NAME}@${PACKAGE_VER} is already published on npm. Skipping publish step."
+          else
+            npm publish --access public --provenance || {
+              if npm view "${PACKAGE_NAME}@${PACKAGE_VER}" version >/dev/null 2>&1; then
+                echo "${PACKAGE_NAME}@${PACKAGE_VER} is already published on npm. Continuing."
+              else
+                exit 1
+              fi
+            }
+          fi
