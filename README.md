@@ -7,6 +7,7 @@
 Orbit is a fast, highly-aesthetic terminal OS and developer dashboard written in Rust. It's the most complete keyboard-driven workspace — one pane, four modes, zero mouse.
 
 [![npm version](https://img.shields.io/npm/v/@ziuus/orbit?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@ziuus/orbit)
+[![AUR version](https://img.shields.io/aur/version/orbit-tui-bin?style=for-the-badge&logo=arch-linux&logoColor=white&color=1793d1)](https://aur.archlinux.org/packages/orbit-tui-bin)
 [![npm weekly](https://img.shields.io/npm/dw/@ziuus/orbit?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@ziuus/orbit)
 [![CI](https://img.shields.io/github/actions/workflow/status/ziuus/orbit-tui/ci.yml?style=for-the-badge&label=CI)](https://github.com/ziuus/orbit-tui/actions/workflows/ci.yml)
 [![Integrations](https://img.shields.io/badge/Community_Extensions-27-052e16?style=for-the-badge&logo=github&logoColor=white)](https://github.com/ziuus/orbit-integrations)
@@ -37,13 +38,21 @@ It uses zero web tech, runs on roughly **0.5% of a core at idle**, and bypasses 
 Install Orbit via NPM (Recommended for prebuilt binaries) or Cargo.
 
 ```bash
+# Instant zero-install launch via NPX
+npx @ziuus/orbit
+
+# Via Arch Linux (AUR)
+yay -S orbit-tui-bin
+# or
+paru -S orbit-tui-bin
+
 # Via Cargo Binstall (Instant prebuilt binary)
 cargo binstall orbit-tui
 
 # Via Homebrew (macOS & Linux)
 brew install ziuus/tap/orbit
 
-# Via NPM (Prebuilt binaries)
+# Via NPM (Global install)
 npm install -g @ziuus/orbit
 
 # Via Cargo (Compile from source)
