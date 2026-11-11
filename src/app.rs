@@ -423,6 +423,9 @@ pub struct App {
     /// The Esc menu.
     pub show_menu: bool,
     pub menu_row: usize,
+    pub show_theme_menu: bool,
+    pub theme_menu_idx: usize,
+    pub theme_menu_search: String,
     pub quick_setting_index: usize,
     /// Notification Center overlay.
     pub show_notifications: bool,
@@ -524,6 +527,9 @@ impl App {
             show_help: false,
             show_menu: false,
             menu_row: 0,
+            show_theme_menu: false,
+            theme_menu_idx: 0,
+            theme_menu_search: String::new(),
             quick_setting_index: 0,
             show_notifications: false,
             notif_selected: 0,
@@ -693,15 +699,19 @@ impl App {
         self.toast(format!("layout · {}", next));
     }
 
-    fn set_theme(&mut self, next: String) {
+    pub fn preview_theme(&mut self, next: &str) {
         self.config.ui.theme = next.to_string();
-        let base = Theme::from_name(&next);
+        let base = Theme::from_name(next);
         self.theme = if self.config.ui.high_contrast {
             base.high_contrast()
         } else {
             base
         };
         self.night = None;
+    }
+
+    pub fn set_theme(&mut self, next: String) {
+        self.preview_theme(&next);
         self.config.save();
         self.toast(format!("theme · {}", next));
     }
@@ -789,6 +799,36 @@ impl App {
             return true;
         }
         if self.show_menu {
+            if self.show_theme_menu {
+                let filtered = crate::screens::menu::filtered_themes(&self.theme_menu_search);
+                let n = filtered.len();
+                if let Some(down) = wheel {
+                    if n > 0 {
+                        self.theme_menu_idx = if down {
+                            (self.theme_menu_idx + 1) % n
+                        } else {
+                            (self.theme_menu_idx + n - 1) % n
+                        };
+                        self.preview_theme(&filtered[self.theme_menu_idx]);
+                    }
+                    return true;
+                }
+                match crate::screens::hits_at(ev.column, ev.row)
+                    .first()
+                    .map(|(h, _)| *h)
+                {
+                    Some(crate::screens::Hit::MenuRow(i)) => {
+                        if i < n {
+                            self.theme_menu_idx = i;
+                            self.set_theme(filtered[i].clone());
+                            self.show_theme_menu = false;
+                        }
+                    }
+                    Some(crate::screens::Hit::Overlay) => {}
+                    _ => self.show_theme_menu = false,
+                }
+                return true;
+            }
             let n = crate::screens::menu::ITEMS.len();
             if let Some(down) = wheel {
                 self.menu_row = if down {

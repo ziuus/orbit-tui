@@ -204,6 +204,10 @@ pub fn blend(a: Color, b: Color, t: f32) -> Color {
 }
 
 impl Theme {
+    pub fn all_names() -> Vec<String> {
+        theme_names()
+    }
+
     pub fn from_name(name: &str) -> Self {
         if let Some(custom) = CUSTOM_THEMES.get(name) {
             return custom.clone();

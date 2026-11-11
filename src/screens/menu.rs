@@ -142,6 +142,10 @@ fn value(app: &App, item: Item) -> Option<String> {
 }
 
 pub fn render(f: &mut Frame, area: Rect, app: &App) {
+    if app.show_theme_menu {
+        return render_theme_picker(f, area, app);
+    }
+
     use crate::config::DesignStyle as D;
     let theme = &app.theme;
     let style_mode = crate::screens::design();
@@ -298,7 +302,156 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     }
 }
 
+pub fn filtered_themes(search: &str) -> Vec<String> {
+    let all = Theme::all_names();
+    if search.trim().is_empty() {
+        return all;
+    }
+    let q = search.to_ascii_lowercase();
+    all.into_iter()
+        .filter(|n| n.to_ascii_lowercase().contains(&q))
+        .collect()
+}
+
+pub fn render_theme_picker(f: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+    dim_backdrop(f.buffer_mut(), area, theme);
+
+    let filtered = filtered_themes(&app.theme_menu_search);
+    let box_w = 58u16.min(area.width.saturating_sub(4));
+    let box_h = 20u16.min(area.height.saturating_sub(4));
+    let box_area = Rect::new(
+        area.x + area.width.saturating_sub(box_w) / 2,
+        area.y + area.height.saturating_sub(box_h) / 2,
+        box_w,
+        box_h,
+    );
+    hit(box_area, Hit::Overlay);
+    f.render_widget(Clear, box_area);
+
+    let title = if app.theme_menu_search.is_empty() {
+        format!(" 🎨 Themes ({}) ", filtered.len())
+    } else {
+        format!(
+            " 🎨 Themes ({}) · Search: {}█ ",
+            filtered.len(),
+            app.theme_menu_search
+        )
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::default().fg(theme.accent))
+        .title(
+            Line::from(Span::styled(
+                title,
+                Style::default()
+                    .fg(theme.accent)
+                    .add_modifier(Modifier::BOLD),
+            ))
+            .centered(),
+        )
+        .title_bottom(
+            Line::from(Span::styled(
+                " [↑↓:Preview  Enter:Apply  Esc:Back  Type to filter] ",
+                Style::default().fg(theme.dim),
+            ))
+            .centered(),
+        )
+        .style(Style::default().bg(theme.bg));
+
+    f.render_widget(block, box_area);
+
+    let inner = Rect::new(
+        box_area.x + 2,
+        box_area.y + 1,
+        box_area.width.saturating_sub(4),
+        box_area.height.saturating_sub(2),
+    );
+
+    if filtered.is_empty() {
+        let empty = Paragraph::new(Line::from(Span::styled(
+            "No matching themes found.",
+            Style::default().fg(theme.dim),
+        )))
+        .centered();
+        f.render_widget(empty, Rect::new(inner.x, inner.y + 2, inner.width, 1));
+        return;
+    }
+
+    let visible_rows = inner.height as usize;
+    let selected_idx = app.theme_menu_idx.min(filtered.len().saturating_sub(1));
+    let scroll_offset = if selected_idx >= visible_rows {
+        selected_idx.saturating_sub(visible_rows - 1)
+    } else {
+        0
+    };
+
+    for (row, name) in filtered
+        .iter()
+        .skip(scroll_offset)
+        .take(visible_rows)
+        .enumerate()
+    {
+        let actual_idx = scroll_offset + row;
+        let is_sel = actual_idx == selected_idx;
+        let is_active = name == &app.config.ui.theme;
+        let r = Rect::new(inner.x, inner.y + row as u16, inner.width, 1);
+        hit(r, Hit::MenuRow(actual_idx));
+
+        let t = Theme::from_name(name);
+
+        let cursor = if is_sel { "▸ " } else { "  " };
+        let active_mark = if is_active { "✓ " } else { "  " };
+
+        let row_bg = if is_sel { theme.surface } else { theme.bg };
+
+        let row_style = if is_sel {
+            Style::default()
+                .fg(theme.accent)
+                .bg(row_bg)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(theme.text).bg(row_bg)
+        };
+
+        let mut spans = vec![
+            Span::styled(cursor, row_style),
+            Span::styled(
+                active_mark,
+                Style::default()
+                    .fg(if is_active { theme.green } else { theme.dim })
+                    .bg(row_bg),
+            ),
+            Span::styled(format!("{:<20}", name), row_style),
+            Span::styled(" ", Style::default().bg(row_bg)),
+            // Swatches: accent, secondary, surface, bg, green, red
+            Span::styled("█", Style::default().fg(t.accent).bg(row_bg)),
+            Span::styled("█", Style::default().fg(t.secondary).bg(row_bg)),
+            Span::styled("█", Style::default().fg(t.surface).bg(row_bg)),
+            Span::styled("█", Style::default().fg(t.bg).bg(row_bg)),
+            Span::styled("█", Style::default().fg(t.green).bg(row_bg)),
+            Span::styled("█", Style::default().fg(t.red).bg(row_bg)),
+            Span::styled(" ", Style::default().bg(row_bg)),
+        ];
+
+        let used = 2 + 2 + 20 + 1 + 6 + 1;
+        if (inner.width as usize) > used {
+            spans.push(Span::styled(
+                " ".repeat(inner.width as usize - used),
+                Style::default().bg(row_bg),
+            ));
+        }
+
+        f.render_widget(Paragraph::new(Line::from(spans)), r);
+    }
+}
+
 pub fn handle_key(app: &mut App, key: crossterm::event::KeyCode) {
+    if app.show_theme_menu {
+        return handle_theme_key(app, key);
+    }
     use crossterm::event::KeyCode::*;
     let n = ITEMS.len();
     match key {
@@ -308,6 +461,69 @@ pub fn handle_key(app: &mut App, key: crossterm::event::KeyCode) {
         Right | Char('l') => change(app, true),
         Enter | Char(' ') => activate(app),
         Esc | Char('q') => app.show_menu = false,
+        _ => {}
+    }
+}
+
+pub fn handle_theme_key(app: &mut App, key: crossterm::event::KeyCode) {
+    use crossterm::event::KeyCode::*;
+    let filtered = filtered_themes(&app.theme_menu_search);
+    let n = filtered.len();
+    match key {
+        Esc => {
+            app.show_theme_menu = false;
+        }
+        Up => {
+            if n > 0 {
+                app.theme_menu_idx = (app.theme_menu_idx + n - 1) % n;
+                let next = filtered[app.theme_menu_idx].clone();
+                app.preview_theme(&next);
+            }
+        }
+        Down => {
+            if n > 0 {
+                app.theme_menu_idx = (app.theme_menu_idx + 1) % n;
+                let next = filtered[app.theme_menu_idx].clone();
+                app.preview_theme(&next);
+            }
+        }
+        PageUp => {
+            if n > 0 {
+                app.theme_menu_idx = app.theme_menu_idx.saturating_sub(6);
+                let next = filtered[app.theme_menu_idx].clone();
+                app.preview_theme(&next);
+            }
+        }
+        PageDown => {
+            if n > 0 {
+                app.theme_menu_idx = (app.theme_menu_idx + 6).min(n - 1);
+                let next = filtered[app.theme_menu_idx].clone();
+                app.preview_theme(&next);
+            }
+        }
+        Enter => {
+            if n > 0 && app.theme_menu_idx < n {
+                let picked = filtered[app.theme_menu_idx].clone();
+                app.set_theme(picked);
+            }
+            app.show_theme_menu = false;
+        }
+        Backspace => {
+            app.theme_menu_search.pop();
+            app.theme_menu_idx = 0;
+            let refiltered = filtered_themes(&app.theme_menu_search);
+            if !refiltered.is_empty() {
+                app.preview_theme(&refiltered[0]);
+            }
+        }
+        Char(c) => {
+            app.theme_menu_search.push(c);
+            app.theme_menu_idx = 0;
+            let refiltered = filtered_themes(&app.theme_menu_search);
+            if !refiltered.is_empty() {
+                app.preview_theme(&refiltered[0]);
+            }
+        }
         _ => {}
     }
 }
@@ -330,6 +546,17 @@ fn change(app: &mut App, forward: bool) {
 
 pub fn activate(app: &mut App) {
     let item = ITEMS[app.menu_row];
+    if item == Item::Theme {
+        app.show_theme_menu = true;
+        app.theme_menu_search.clear();
+        let all = Theme::all_names();
+        if let Some(pos) = all.iter().position(|n| n == &app.config.ui.theme) {
+            app.theme_menu_idx = pos;
+        } else {
+            app.theme_menu_idx = 0;
+        }
+        return;
+    }
     if item.cycles() && item != Item::QuickSettings {
         return change(app, true);
     }
@@ -344,5 +571,50 @@ pub fn activate(app: &mut App) {
         Item::Help => app.show_help = true,
         Item::Quit => app.running = false,
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::KeyCode;
+
+    #[test]
+    fn test_filtered_themes_empty_and_matching() {
+        let all = filtered_themes("");
+        assert!(all.len() >= 30);
+        assert!(all.contains(&"catppuccin".to_string()));
+
+        let tokyo = filtered_themes("tokyo");
+        assert!(tokyo.len() >= 2);
+        for name in &tokyo {
+            assert!(name.to_ascii_lowercase().contains("tokyo"));
+        }
+
+        let none = filtered_themes("definitely_not_a_valid_theme_xyz123");
+        assert!(none.is_empty());
+    }
+
+    #[test]
+    fn test_menu_activate_opens_theme_picker() {
+        let mut app = App::new(crate::config::Config::default());
+        app.menu_row = 1; // Item::Theme
+        activate(&mut app);
+
+        assert!(app.show_theme_menu);
+        let all = Theme::all_names();
+        let expected_idx = all
+            .iter()
+            .position(|n| n == &app.config.ui.theme)
+            .unwrap_or(0);
+        assert_eq!(app.theme_menu_idx, expected_idx);
+
+        // Selecting a theme via Enter applies it and closes the picker
+        app.theme_menu_search = "matrix-green".to_string();
+        app.theme_menu_idx = 0;
+        handle_theme_key(&mut app, KeyCode::Enter);
+
+        assert!(!app.show_theme_menu);
+        assert_eq!(app.config.ui.theme, "matrix-green");
     }
 }
