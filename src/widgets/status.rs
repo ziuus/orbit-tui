@@ -21,6 +21,7 @@ struct Facts {
     packages: Option<usize>,
     updates: Option<usize>,
     wifi: Option<(String, u8)>,
+    bluetooth: Option<String>,
     ip: Option<String>,
     docker: Option<(usize, usize)>, // running, total
 }
@@ -192,6 +193,53 @@ fn read_wifi() -> Option<(String, u8)> {
     None
 }
 
+/// Reads current Bluetooth state or connected device summary.
+fn read_bluetooth() -> Option<String> {
+    if !Path::new("/sys/class/bluetooth").exists() {
+        return None;
+    }
+    let has_adapter = fs::read_dir("/sys/class/bluetooth").ok()?.any(|entry| {
+        entry
+            .map(|e| e.file_name().to_string_lossy().starts_with("hci"))
+            .unwrap_or(false)
+    });
+    if !has_adapter {
+        return None;
+    }
+
+    if let Some(out) = run("bluetoothctl", &["devices", "Connected"]) {
+        let lines: Vec<&str> = out.lines().filter(|l| !l.trim().is_empty()).collect();
+        if !lines.is_empty() {
+            if lines.len() == 1 {
+                let mut parts = lines[0].split_whitespace();
+                let _ = parts.next();
+                let _ = parts.next();
+                let name = parts.collect::<Vec<_>>().join(" ");
+                if !name.is_empty() {
+                    return Some(name);
+                }
+            } else {
+                return Some(format!("{} connected", lines.len()));
+            }
+        }
+    }
+
+    if let Some(out) = run("bluetoothctl", &["show"]) {
+        for line in out.lines() {
+            let l = line.trim();
+            if l.starts_with("Powered:") {
+                if l.contains("yes") {
+                    return Some("on".to_string());
+                } else {
+                    return Some("off".to_string());
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Primary IPv4 address, prioritizing the default gateway route.
 fn read_ip() -> Option<String> {
     let default_iface = if let Ok(route) = fs::read_to_string("/proc/net/route") {
@@ -287,12 +335,14 @@ pub fn sample() {
 
     let packages = count_packages();
     let wifi = read_wifi();
+    let bluetooth = read_bluetooth();
     let ip = read_ip();
     let docker = read_docker();
 
     let mut c = CACHE.lock().unwrap();
     c.facts.packages = packages;
     c.facts.wifi = wifi;
+    c.facts.bluetooth = bluetooth;
     c.facts.ip = ip;
     c.facts.docker = docker;
     c.stamp = Some(Instant::now());
@@ -379,6 +429,24 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, is_focused: bool, select
             Span::styled(format!(" {:>3}%", sig), Style::default().fg(theme.dim)),
         ];
         lines.push(build_line(i, "WIFI", left, right));
+        i += 1;
+    }
+
+    if let Some(bt) = &fx.bluetooth {
+        let b_name = avail.saturating_sub(12).clamp(6, 14);
+        let ellip = crate::widgets::meter::ellipsize(bt, b_name);
+        let left = vec![Span::styled(ellip, Style::default().fg(theme.text))];
+        let right = vec![Span::styled(
+            if bt == "off" {
+                "off"
+            } else if bt == "on" {
+                "ready"
+            } else {
+                "paired"
+            },
+            Style::default().fg(if bt == "off" { theme.dim } else { theme.accent }),
+        )];
+        lines.push(build_line(i, "BT", left, right));
         i += 1;
     }
 
@@ -579,6 +647,9 @@ pub fn active_row_ids() -> Vec<&'static str> {
     let mut ids = Vec::new();
     if fx.wifi.is_some() {
         ids.push("wifi");
+    }
+    if fx.bluetooth.is_some() {
+        ids.push("bluetooth");
     }
     if fx.ip.is_some() {
         ids.push("ip");

@@ -17,6 +17,23 @@ use crate::theme::Theme;
 use crate::widgets::media::{self, Action};
 use crate::widgets::music_viz;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuickSetting {
+    All,
+    Wifi,
+    Bluetooth,
+    Sound,
+    Power,
+}
+
+pub const QUICK_SETTINGS: [QuickSetting; 5] = [
+    QuickSetting::All,
+    QuickSetting::Wifi,
+    QuickSetting::Bluetooth,
+    QuickSetting::Sound,
+    QuickSetting::Power,
+];
+
 /// Sort field for the processes panel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SortField {
@@ -406,6 +423,7 @@ pub struct App {
     /// The Esc menu.
     pub show_menu: bool,
     pub menu_row: usize,
+    pub quick_setting_index: usize,
     /// Notification Center overlay.
     pub show_notifications: bool,
     pub notif_selected: usize,
@@ -506,6 +524,7 @@ impl App {
             show_help: false,
             show_menu: false,
             menu_row: 0,
+            quick_setting_index: 0,
             show_notifications: false,
             notif_selected: 0,
             notif_scroll: 0,
@@ -2081,6 +2100,102 @@ impl App {
         out
     }
 
+    pub fn quick_setting_label(&self) -> String {
+        match QUICK_SETTINGS[self.quick_setting_index % QUICK_SETTINGS.len()] {
+            QuickSetting::All => "all".to_string(),
+            QuickSetting::Wifi => "wifi".to_string(),
+            QuickSetting::Bluetooth => "bluetooth".to_string(),
+            QuickSetting::Sound => "sound".to_string(),
+            QuickSetting::Power => "power".to_string(),
+        }
+    }
+
+    pub fn cycle_quick_setting(&mut self, forward: bool) {
+        let n = QUICK_SETTINGS.len();
+        self.quick_setting_index = if forward {
+            (self.quick_setting_index + 1) % n
+        } else {
+            (self.quick_setting_index + n - 1) % n
+        };
+    }
+
+    pub fn launch_current_quick_setting(&mut self) {
+        let qs = QUICK_SETTINGS[self.quick_setting_index % QUICK_SETTINGS.len()];
+        self.launch_quick_setting(qs);
+    }
+
+    pub fn launch_quick_setting(&mut self, setting: QuickSetting) {
+        let has_settings_tui = crate::screens::doctor::is_binary_available("settings-tui");
+        let cmd: Vec<String> = match setting {
+            QuickSetting::All => {
+                if has_settings_tui {
+                    vec!["settings-tui".to_string()]
+                } else {
+                    vec!["nmtui".to_string()]
+                }
+            }
+            QuickSetting::Wifi => {
+                if has_settings_tui {
+                    vec![
+                        "settings-tui".to_string(),
+                        "-s".to_string(),
+                        "Network".to_string(),
+                    ]
+                } else {
+                    vec!["nmtui".to_string()]
+                }
+            }
+            QuickSetting::Bluetooth => {
+                if has_settings_tui {
+                    vec![
+                        "settings-tui".to_string(),
+                        "-s".to_string(),
+                        "Bluetooth".to_string(),
+                    ]
+                } else if crate::screens::doctor::is_binary_available("bluetuith") {
+                    vec!["bluetuith".to_string()]
+                } else {
+                    vec!["bluetoothctl".to_string()]
+                }
+            }
+            QuickSetting::Sound => {
+                if has_settings_tui {
+                    vec![
+                        "settings-tui".to_string(),
+                        "-s".to_string(),
+                        "Sound".to_string(),
+                    ]
+                } else if crate::screens::doctor::is_binary_available("alsamixer") {
+                    vec!["alsamixer".to_string()]
+                } else {
+                    vec!["pactl".to_string(), "info".to_string()]
+                }
+            }
+            QuickSetting::Power => {
+                if has_settings_tui {
+                    vec![
+                        "settings-tui".to_string(),
+                        "-s".to_string(),
+                        "Power".to_string(),
+                    ]
+                } else {
+                    vec!["upower".to_string(), "-d".to_string()]
+                }
+            }
+        };
+
+        if !cmd.is_empty() {
+            let _ = crate::mouse::suspended(|| {
+                let mut c = std::process::Command::new(&cmd[0]);
+                if cmd.len() > 1 {
+                    c.args(&cmd[1..]);
+                }
+                c.status()
+            });
+            let _ = std::process::Command::new("clear").status();
+        }
+    }
+
     fn trigger_focused_action(&mut self) {
         if self.focused_panel == Some(PanelId::Agents) {
             self.set_mode(DashboardMode::Doctor);
@@ -2092,16 +2207,30 @@ impl App {
             let max_idx = row_ids.len().saturating_sub(1);
             let sel = self.panel_states.status_selected.min(max_idx);
             if let Some(row_id) = row_ids.get(sel) {
-                let cmd = match *row_id {
-                    "wifi" => "nmtui",
-                    "procs" | "load" | "memory" => "htop",
-                    "docker" => "lazydocker",
+                match *row_id {
+                    "wifi" => {
+                        self.launch_quick_setting(QuickSetting::Wifi);
+                        return;
+                    }
+                    "bluetooth" => {
+                        self.launch_quick_setting(QuickSetting::Bluetooth);
+                        return;
+                    }
+                    "procs" | "load" | "memory" => {
+                        let _ =
+                            crate::mouse::suspended(|| std::process::Command::new("htop").status());
+                        let _ = std::process::Command::new("clear").status();
+                        return;
+                    }
+                    "docker" => {
+                        let _ = crate::mouse::suspended(|| {
+                            std::process::Command::new("lazydocker").status()
+                        });
+                        let _ = std::process::Command::new("clear").status();
+                        return;
+                    }
                     _ => return, // No action
-                };
-
-                let _ = crate::mouse::suspended(|| std::process::Command::new(cmd).status());
-                let _ = std::process::Command::new("clear").status();
-                return;
+                }
             }
         }
 
@@ -3127,5 +3256,29 @@ mod tests {
             proto(&[("TERM", "foot"), ("TMUX", "/tmp/tmux-1000/default,1,0")]),
             ProtocolType::Halfblocks
         );
+    }
+
+    #[test]
+    fn test_quick_settings_cycle_and_labels() {
+        let mut app = App::new(Config::default());
+        assert_eq!(app.quick_setting_label(), "all");
+
+        app.cycle_quick_setting(true);
+        assert_eq!(app.quick_setting_label(), "wifi");
+
+        app.cycle_quick_setting(true);
+        assert_eq!(app.quick_setting_label(), "bluetooth");
+
+        app.cycle_quick_setting(true);
+        assert_eq!(app.quick_setting_label(), "sound");
+
+        app.cycle_quick_setting(true);
+        assert_eq!(app.quick_setting_label(), "power");
+
+        app.cycle_quick_setting(true);
+        assert_eq!(app.quick_setting_label(), "all");
+
+        app.cycle_quick_setting(false);
+        assert_eq!(app.quick_setting_label(), "power");
     }
 }

@@ -20,17 +20,19 @@ pub enum Item {
     Style,
     Layout,
     Notifications,
+    QuickSettings,
     Options,
     Help,
     Quit,
 }
 
-pub const ITEMS: [Item; 8] = [
+pub const ITEMS: [Item; 9] = [
     Item::Resume,
     Item::Theme,
     Item::Style,
     Item::Layout,
     Item::Notifications,
+    Item::QuickSettings,
     Item::Options,
     Item::Help,
     Item::Quit,
@@ -44,6 +46,7 @@ impl Item {
             Item::Style => "style",
             Item::Layout => "layout",
             Item::Notifications => "notifications",
+            Item::QuickSettings => "quick settings",
             Item::Options => "options",
             Item::Help => "help",
             Item::Quit => "quit",
@@ -51,7 +54,10 @@ impl Item {
     }
     /// Items whose value ←/→ cycles in place.
     fn cycles(self) -> bool {
-        matches!(self, Item::Theme | Item::Style | Item::Layout)
+        matches!(
+            self,
+            Item::Theme | Item::Style | Item::Layout | Item::QuickSettings
+        )
     }
 }
 
@@ -119,6 +125,7 @@ fn value(app: &App, item: Item) -> Option<String> {
         Item::Theme => app.config.ui.theme.clone(),
         Item::Style => app.config.ui.style.label().to_string(),
         Item::Layout => app.layout_name(),
+        Item::QuickSettings => app.quick_setting_label(),
         Item::Notifications => {
             let unread = crate::notify::unread_count();
             let total = crate::notify::list().len();
@@ -316,17 +323,19 @@ fn change(app: &mut App, forward: bool) {
         }
         Item::Style => app.cycle_style(forward),
         Item::Layout => app.cycle_layout(forward),
+        Item::QuickSettings => app.cycle_quick_setting(forward),
         _ => {}
     }
 }
 
 pub fn activate(app: &mut App) {
     let item = ITEMS[app.menu_row];
-    if item.cycles() {
+    if item.cycles() && item != Item::QuickSettings {
         return change(app, true);
     }
     app.show_menu = false;
     match item {
+        Item::QuickSettings => app.launch_current_quick_setting(),
         Item::Notifications => {
             app.show_notifications = true;
             crate::notify::mark_all_read();
