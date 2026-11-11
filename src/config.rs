@@ -289,6 +289,9 @@ pub struct UiConfig {
     /// Desktop notifications for alerts and the focus timer.
     #[serde(default = "default_true")]
     pub notify: bool,
+    /// Terminal audible bell (\x07) and visual alert when Pomodoro focus timer completes.
+    #[serde(default = "default_true")]
+    pub focus_bell: bool,
     /// Dim every colour during these hours: "22:00-07:00", "always", or ""
     /// (off). Wraps past midnight.
     pub night_hours: String,
@@ -477,6 +480,7 @@ impl Default for UiConfig {
             ambient_exclude: Vec::new(),
             mouse: true,
             notify: true,
+            focus_bell: true,
         }
     }
 }

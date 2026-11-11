@@ -50,6 +50,7 @@ pub enum SettingType {
     AmbientRotate,
     FocusMinutes,
     BreakMinutes,
+    FocusBell,
     Mouse,
     Notify,
     QuietHours,
@@ -233,6 +234,12 @@ pub const SETTINGS_ITEMS: &[Item] = &[
         "focus",
         "Break length",
         "Minutes per short break.",
+    ),
+    item(
+        S::FocusBell,
+        "focus",
+        "Focus alert bell",
+        "Audible bell (\\x07) and visual flash when focus session ends.",
     ),
     item(
         S::PerformanceMode,
@@ -419,6 +426,7 @@ fn value(app: &App, kind: SettingType) -> Value {
         },
         S::FocusMinutes => format!("{} min", ui.focus_minutes),
         S::BreakMinutes => format!("{} min", ui.break_minutes),
+        S::FocusBell => return Value::Switch(ui.focus_bell),
         S::Mouse => return Value::Switch(ui.mouse),
         S::Notify => return Value::Switch(ui.notify),
         S::QuietHours => match ui.quiet_hours.trim() {
@@ -807,6 +815,7 @@ pub fn change_setting(app: &mut App, forward: bool) {
         S::BreakMinutes => {
             ui.break_minutes = cycle(&[3, 5, 10, 15], &ui.break_minutes, forward);
         }
+        S::FocusBell => ui.focus_bell = !ui.focus_bell,
         S::Mouse => {
             ui.mouse = !ui.mouse;
             if ui.mouse {

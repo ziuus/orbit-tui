@@ -78,6 +78,8 @@ pub struct Timer {
     pub done: u32,
     /// Whether the current phase has been started at least once.
     pub started: bool,
+    /// When set, the timer widget flashes visually until this instant.
+    pub flash_until: Option<Instant>,
 }
 
 impl Timer {
@@ -88,6 +90,7 @@ impl Timer {
             ends_at: None,
             done: 0,
             started: false,
+            flash_until: None,
         }
     }
 
@@ -145,9 +148,14 @@ impl Timer {
         if self.ends_at.is_some_and(|end| now >= end) {
             let finished = self.phase;
             self.advance(d);
+            self.flash_until = Some(now + Duration::from_millis(2000));
             return Some(finished);
         }
         None
+    }
+
+    pub fn is_flashing(&self, now: Instant) -> bool {
+        self.flash_until.is_some_and(|end| now < end)
     }
 
     /// Fraction of the current phase elapsed.
@@ -182,12 +190,20 @@ pub fn skip(ui: &UiConfig) {
 pub fn tick(ui: &UiConfig) {
     let finished = with(ui, |t, d| t.tick(Instant::now(), d));
     if let Some(phase) = finished {
-        let body = match phase {
-            Phase::Focus => "Focus session done. Take a break.",
-            _ => "Break's over. Back to it.",
+        let (title, body) = match phase {
+            Phase::Focus => (
+                "Focus Session Done",
+                "Focus session complete. Take a break.",
+            ),
+            _ => ("Break Ended", "Break is over. Back to focus."),
         };
+        if ui.focus_bell {
+            use std::io::Write;
+            let _ = std::io::stdout().write_all(b"\x07");
+            let _ = std::io::stdout().flush();
+        }
         if ui.notify {
-            crate::notify::send("orbit", body, crate::notify::Urgency::Normal);
+            crate::notify::record(title, body, crate::notify::Urgency::Normal);
         }
     }
 }
@@ -219,7 +235,7 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, ui: &UiConfig, focused: 
         return;
     }
     let now = Instant::now();
-    let (phase, running, started, left, frac, done) = with(ui, |t, d| {
+    let (phase, running, started, left, frac, done, flashing) = with(ui, |t, d| {
         (
             t.phase,
             t.running(),
@@ -227,10 +243,17 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, ui: &UiConfig, focused: 
             t.remaining(now),
             t.progress(now, d),
             t.done,
+            t.is_flashing(now),
         )
     });
-    let color = phase.color(theme);
-    let digits = if running || !started {
+    let color = if flashing {
+        theme.yellow
+    } else {
+        phase.color(theme)
+    };
+    let digits = if flashing {
+        theme.yellow
+    } else if running || !started {
         color
     } else {
         theme.dim
@@ -384,5 +407,21 @@ mod tests {
         assert_eq!(mmss(Duration::from_millis(59_001)), "01:00");
         assert_eq!(mmss(Duration::from_secs(25 * 60)), "25:00");
         assert_eq!(mmss(Duration::ZERO), "00:00");
+    }
+
+    #[test]
+    fn timer_tick_triggers_visual_flash() {
+        let d = d();
+        let mut t = Timer::new(&d);
+        let mut now = Instant::now();
+        t.toggle(now);
+        assert!(!t.is_flashing(now));
+
+        now += d.of(t.phase);
+        let finished = t.tick(now, &d);
+        assert_eq!(finished, Some(Phase::Focus));
+        assert!(t.is_flashing(now));
+        assert!(t.is_flashing(now + Duration::from_millis(1000)));
+        assert!(!t.is_flashing(now + Duration::from_millis(2500)));
     }
 }
