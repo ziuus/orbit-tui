@@ -785,7 +785,14 @@ pub fn change_setting(app: &mut App, forward: bool) {
                 ["braille", "minimal", "outline", "solid", "dotted", "hollow"].map(String::from);
             ui.clock_style = cycle(&styles, &ui.clock_style, forward);
         }
-        S::Clock24h => ui.clock_24h = !ui.clock_24h,
+        S::Clock24h => {
+            ui.clock_24h = !ui.clock_24h;
+            ui.time_format = Some(if ui.clock_24h {
+                "24h".to_string()
+            } else {
+                "12h".to_string()
+            });
+        }
         S::AmbientRotate => {
             ui.ambient_rotate_secs = cycle(
                 &[60, 120, 300, 600, 1800, 0],

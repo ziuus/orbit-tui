@@ -317,7 +317,7 @@ pub fn render_panel(f: &mut Frame, area: Rect, app: &mut crate::app::App, id: cr
             f,
             inner,
             theme,
-            app.config.ui.clock_24h,
+            app.config.ui.is_24h(),
             &app.config.ui.clock_font,
             &app.config.ui.clock_style,
             &app.config.ui.timezones,

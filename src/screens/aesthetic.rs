@@ -392,7 +392,7 @@ fn flip(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme) {
         f,
         area,
         theme,
-        app.config.ui.clock_24h,
+        app.config.ui.is_24h(),
         transparent,
         note.as_deref(),
     );
@@ -409,7 +409,7 @@ fn topo(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme, t: u64) {
         app.config.ui.motion_enabled,
         app.night == Some(true),
     );
-    let time = if app.config.ui.clock_24h {
+    let time = if app.config.ui.is_24h() {
         chrono::Local::now().format("%H:%M").to_string()
     } else {
         chrono::Local::now().format("%-I:%M %P").to_string()
@@ -509,7 +509,7 @@ fn gallery(f: &mut Frame, area: Rect, app: &mut App, theme: &Theme, _t: u64) {
             Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).areas(gallery_area);
         let p = app.config.ui.pinned_media_path.clone();
         pinned_media::render(f, img_box, app, &p, app.frame);
-        let time = if app.config.ui.clock_24h {
+        let time = if app.config.ui.is_24h() {
             chrono::Local::now().format(" %H:%M ").to_string()
         } else {
             chrono::Local::now().format(" %-I:%M %P ").to_string()
@@ -854,7 +854,7 @@ fn caption(f: &mut Frame, area: Rect, app: &App, theme: &Theme, t: u64) {
         return;
     }
     let now = chrono::Local::now();
-    let time = if app.config.ui.clock_24h {
+    let time = if app.config.ui.is_24h() {
         now.format("%H:%M").to_string()
     } else {
         now.format("%-I:%M %P").to_string()

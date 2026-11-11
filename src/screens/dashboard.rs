@@ -395,7 +395,7 @@ fn render_dashboard_panel(
                 f,
                 inner,
                 theme,
-                app.config.ui.clock_24h,
+                app.config.ui.is_24h(),
                 &app.config.ui.clock_font,
                 &app.config.ui.clock_style,
                 &[],

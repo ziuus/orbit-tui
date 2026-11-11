@@ -242,6 +242,9 @@ pub struct UiConfig {
     pub obsidian_vault: String,
     /// 24-hour clock (false = 12-hour with am/pm).
     pub clock_24h: bool,
+    /// Custom 12h/24h time format: "12h" | "24h"
+    #[serde(default)]
+    pub time_format: Option<String>,
     /// Clock font: standard | rounded | digital
     pub clock_font: String,
     pub pinned_media_path: String,
@@ -363,6 +366,29 @@ impl UiConfig {
             minute >= a || minute < b
         }
     }
+
+    /// Whether time is displayed in 24-hour format (derived from `time_format` or `clock_24h`).
+    pub fn is_24h(&self) -> bool {
+        if let Some(ref tf) = self.time_format {
+            let s = tf.trim().to_lowercase();
+            if s == "12h" || s == "12" {
+                return false;
+            }
+            if s == "24h" || s == "24" {
+                return true;
+            }
+        }
+        self.clock_24h
+    }
+
+    /// Canonical time format string ("12h" or "24h").
+    pub fn time_format_str(&self) -> &'static str {
+        if self.is_24h() {
+            "24h"
+        } else {
+            "12h"
+        }
+    }
 }
 
 fn default_battery_alert_pct() -> u8 {
@@ -422,6 +448,7 @@ impl Default for UiConfig {
             startup_mode: "dashboard".to_string(),
             obsidian_vault: "~".to_string(),
             clock_24h: true,
+            time_format: Some("24h".to_string()),
             clock_font: "minimal".to_string(),
             pinned_media_path: "".to_string(),
             clock_style: "braille".to_string(),
@@ -513,6 +540,21 @@ impl Config {
         cfg.ui.refresh_rate = cfg.ui.refresh_rate.clamp(0.1, 10.0);
         cfg.ui.fps = cfg.ui.fps.clamp(5, 120);
         cfg.dashboard.migrate();
+
+        if let Some(ref tf) = cfg.ui.time_format {
+            let s = tf.trim().to_lowercase();
+            if s == "12h" || s == "12" {
+                cfg.ui.clock_24h = false;
+            } else if s == "24h" || s == "24" {
+                cfg.ui.clock_24h = true;
+            }
+        } else {
+            cfg.ui.time_format = Some(if cfg.ui.clock_24h {
+                "24h".to_string()
+            } else {
+                "12h".to_string()
+            });
+        }
 
         // Ensure persistent machine ID exists for anonymous telemetry
         if cfg.machine_id.is_none() {
@@ -1001,5 +1043,44 @@ theme = "dark"
         let result = reset_startup_mode_if_matches_str(sample, &["CryptoPulse Terminal"]);
         assert!(result.contains("startup_mode = \"dashboard\""));
         assert!(result.contains("theme = \"dark\""));
+    }
+
+    #[test]
+    fn test_time_format_config_and_helpers() {
+        // 1. time_format = "12h"
+        let toml_12h = r#"
+            [ui]
+            time_format = "12h"
+        "#;
+        let cfg1: Config = toml::from_str(toml_12h).unwrap();
+        assert!(!cfg1.ui.is_24h());
+        assert_eq!(cfg1.ui.time_format_str(), "12h");
+
+        // 2. time_format = "24h"
+        let toml_24h = r#"
+            [ui]
+            time_format = "24h"
+        "#;
+        let cfg2: Config = toml::from_str(toml_24h).unwrap();
+        assert!(cfg2.ui.is_24h());
+        assert_eq!(cfg2.ui.time_format_str(), "24h");
+
+        // 3. Fallback to clock_24h = false
+        let toml_legacy_12h = r#"
+            [ui]
+            clock_24h = false
+        "#;
+        let cfg3: Config = toml::from_str(toml_legacy_12h).unwrap();
+        assert!(!cfg3.ui.is_24h());
+        assert_eq!(cfg3.ui.time_format_str(), "12h");
+
+        // 4. Fallback to clock_24h = true
+        let toml_legacy_24h = r#"
+            [ui]
+            clock_24h = true
+        "#;
+        let cfg4: Config = toml::from_str(toml_legacy_24h).unwrap();
+        assert!(cfg4.ui.is_24h());
+        assert_eq!(cfg4.ui.time_format_str(), "24h");
     }
 }
