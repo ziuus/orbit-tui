@@ -192,9 +192,11 @@ fn read_u64(p: std::path::PathBuf) -> Option<u64> {
 fn read_amd() -> Option<GpuData> {
     for card in drm_cards() {
         let dev = card.join("device");
-        let Some(util) = read_u64(dev.join("gpu_busy_percent")) else {
+        let vendor = fs::read_to_string(dev.join("vendor")).ok()?;
+        if vendor.trim() != "0x1002" {
             continue;
-        };
+        }
+        let util = read_u64(dev.join("gpu_busy_percent")).map(|u| u as f64);
         let temp_c = fs::read_dir(dev.join("hwmon")).ok().and_then(|d| {
             d.flatten()
                 .find_map(|h| read_u64(h.path().join("temp1_input")))
@@ -209,10 +211,17 @@ fn read_amd() -> Option<GpuData> {
                     .find(|l| l.ends_with('*'))
                     .and_then(|l| l.split_whitespace().nth(1))
                     .and_then(|v| v.trim_end_matches("Mhz").parse().ok())
+            })
+            .or_else(|| {
+                fs::read_dir(dev.join("hwmon")).ok().and_then(|d| {
+                    d.flatten()
+                        .find_map(|h| read_u64(h.path().join("freq1_input")))
+                        .map(|hz| hz / 1_000_000)
+                })
             });
         return Some(GpuData {
             name: "AMD Radeon".to_string(),
-            util_pct: Some(util as f64),
+            util_pct: util,
             temp_c,
             mem_used_mb: mem_used,
             mem_total_mb: mem_total,
@@ -293,7 +302,9 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, _is_detailed: bool) {
         return;
     }
 
-    let Some(util) = gpu.util_pct else {
+    let util = gpu.util_pct;
+    let has_vram = gpu.mem_total_mb.is_some_and(|t| t > 0.0);
+    if util.is_none() && !has_vram {
         let freq = gpu
             .freq_mhz
             .map(|m| format!(" · {} MHz", m))
@@ -305,23 +316,32 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, _is_detailed: bool) {
             theme,
         );
         return;
-    };
+    }
 
-    let has_vram = gpu.mem_total_mb.is_some_and(|t| t > 0.0);
     let chunks = Layout::vertical([
         Constraint::Length(1),
-        Constraint::Min(1),
+        Constraint::Min(if util.is_some() { 1 } else { 0 }),
         Constraint::Length(if has_vram { 1 } else { 0 }),
     ])
     .split(area);
 
-    let mut head = vec![
-        Span::styled(
-            format!("{:>3.0}%", util),
-            Style::default().fg(theme.usage(util)),
-        ),
-        Span::styled(format!("  {}", gpu.name), Style::default().fg(theme.text)),
-    ];
+    let mut head = Vec::new();
+    match util {
+        Some(u) => {
+            head.push(Span::styled(
+                format!("{:>3.0}%", u),
+                Style::default().fg(theme.usage(u)),
+            ));
+            head.push(Span::styled(
+                format!("  {}", gpu.name),
+                Style::default().fg(theme.text),
+            ));
+        }
+        None => head.push(Span::styled(
+            gpu.name.clone(),
+            Style::default().fg(theme.text),
+        )),
+    }
     if let Some(t) = gpu.temp_c {
         head.push(Span::styled(
             format!("  {:.0}°C", t),
@@ -334,17 +354,25 @@ pub fn render(f: &mut Frame, area: Rect, theme: &Theme, _is_detailed: bool) {
             Style::default().fg(theme.dim),
         ));
     }
+    if util.is_none() {
+        head.push(Span::styled(
+            "  · no util telemetry",
+            Style::default().fg(theme.dim),
+        ));
+    }
     f.render_widget(Paragraph::new(Line::from(head)), chunks[0]);
 
-    let hist = HISTORY.lock().unwrap().recent(1000);
-    f.render_widget(
-        BlockGraph::new(&hist).pending(theme.dim).max(100.0).colors(
-            theme.accent,
-            theme.yellow,
-            theme.red,
-        ),
-        chunks[1],
-    );
+    if util.is_some() {
+        let hist = HISTORY.lock().unwrap().recent(1000);
+        f.render_widget(
+            BlockGraph::new(&hist).pending(theme.dim).max(100.0).colors(
+                theme.accent,
+                theme.yellow,
+                theme.red,
+            ),
+            chunks[1],
+        );
+    }
 
     if has_vram {
         let used = gpu.mem_used_mb.unwrap_or(0.0);
@@ -377,5 +405,29 @@ mod tests {
         assert_eq!(nvidia_interval(Some(35.0)), TTL);
         assert!(nvidia_interval(Some(0.0)) > Duration::from_secs(5));
         assert!(nvidia_interval(None) > Duration::from_secs(5));
+    }
+
+    #[test]
+    fn test_short_name_stripping() {
+        assert_eq!(short_name("AMD Radeon RX 580"), "RX 580");
+        assert_eq!(short_name("NVIDIA GeForce RTX 4090"), "RTX 4090");
+        assert_eq!(short_name("Intel Corporation Iris Xe Graphics"), "Iris Xe");
+    }
+
+    #[test]
+    fn test_gpu_data_optional_util_handling() {
+        let gpu = GpuData {
+            name: "AMD Radeon".to_string(),
+            util_pct: None,
+            temp_c: Some(73.0),
+            mem_used_mb: Some(1383.0),
+            mem_total_mb: Some(2048.0),
+            freq_mhz: Some(958),
+            asleep: false,
+        };
+        assert!(gpu.util_pct.is_none());
+        assert_eq!(gpu.temp_c, Some(73.0));
+        assert_eq!(gpu.freq_mhz, Some(958));
+        assert!(gpu.mem_total_mb.is_some_and(|t| t > 0.0));
     }
 }

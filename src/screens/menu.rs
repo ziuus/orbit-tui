@@ -63,11 +63,11 @@ impl Item {
 
 /// 5×5 pixel letters for the logo; each pixel is drawn two cells wide.
 const LOGO: [[&str; 5]; 5] = [
-    ["#...#", "#...#", "#...#", ".#.#.", "..#.."],
-    [".###.", "#...#", "#####", "#...#", "#...#"],
-    ["#...#", "##..#", "#.#.#", "#..##", "#...#"],
+    [".###.", "#...#", "#...#", "#...#", ".###."],
+    ["####.", "#...#", "####.", "#..#.", "#...#"],
+    ["####.", "#...#", "####.", "#...#", "####."],
+    ["#####", "..#..", "..#..", "..#..", "#####"],
     ["#####", "..#..", "..#..", "..#..", "..#.."],
-    [".###.", "#...#", "#####", "#...#", "#...#"],
 ];
 const LOGO_W: u16 = 5 * 10 + 4 * 2;
 const LOGO_H: u16 = 5;
@@ -214,25 +214,25 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
     } else {
         let title_span = match style_mode {
             D::Retro => Span::styled(
-                "[ V A N T A ]",
+                "[ O R B I T ]",
                 Style::default()
                     .fg(theme.accent)
                     .add_modifier(Modifier::BOLD),
             ),
             D::Cyber => Span::styled(
-                "◢ V A N T A ◣",
+                "◢ O R B I T ◣",
                 Style::default()
                     .fg(theme.accent)
                     .add_modifier(Modifier::BOLD),
             ),
             D::Material => Span::styled(
-                "▰ V A N T A",
+                "▰ O R B I T",
                 Style::default()
                     .fg(theme.accent)
                     .add_modifier(Modifier::BOLD),
             ),
             _ => Span::styled(
-                "V A N T A",
+                "O R B I T",
                 Style::default()
                     .fg(theme.accent)
                     .add_modifier(Modifier::BOLD),
