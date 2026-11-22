@@ -708,7 +708,7 @@ pub fn change_setting(app: &mut App, forward: bool) {
     let ui = &mut app.config.ui;
     match kind {
         S::DashboardPreset => {
-            let presets = ["overview", "cockpit", "monitoring", "minimal"].map(String::from);
+            let presets = app.config.dashboard.available_presets();
             let next = cycle(&presets, &app.config.dashboard.preset, forward);
             app.config.dashboard.apply_preset(&next);
         }

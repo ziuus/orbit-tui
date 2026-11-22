@@ -55,8 +55,18 @@ pub fn render_layout(f: &mut Frame, area: Rect, app: &mut App, layout: &[Vec<Str
         Layout::vertical([Constraint::Min(0), Constraint::Length(custom_row_h)]).areas(area);
 
     let n_cols = layout.len().clamp(1, 4);
-    let col_constraints: Vec<Constraint> =
-        if is_main_dashboard && n_cols == 3 && app.panel_states.dash_ratios.len() == 3 {
+    let col_constraints: Vec<Constraint> = if is_main_dashboard {
+        let custom_ratios = app
+            .config
+            .dashboard
+            .layers
+            .get(&app.config.dashboard.preset)
+            .and_then(|l| l.ratios.as_ref())
+            .filter(|r| r.len() == n_cols);
+
+        if let Some(ratios) = custom_ratios {
+            ratios.iter().map(|&r| Constraint::Percentage(r)).collect()
+        } else if n_cols == 3 && app.panel_states.dash_ratios.len() == 3 {
             vec![
                 Constraint::Percentage(app.panel_states.dash_ratios[0]),
                 Constraint::Percentage(app.panel_states.dash_ratios[1]),
@@ -66,8 +76,42 @@ pub fn render_layout(f: &mut Frame, area: Rect, app: &mut App, layout: &[Vec<Str
             (0..n_cols)
                 .map(|_| Constraint::Ratio(1, n_cols as u32))
                 .collect()
-        };
+        }
+    } else {
+        (0..n_cols)
+            .map(|_| Constraint::Ratio(1, n_cols as u32))
+            .collect()
+    };
     let cols = Layout::horizontal(col_constraints).split(main_area);
+
+    if is_main_dashboard {
+        if let Some(layer) = app.config.dashboard.layers.get(&app.config.dashboard.preset) {
+            let motion = app.config.ui.motion_enabled;
+            let night = app.night == Some(true);
+            if let Some(ref scene_name) = layer.scene {
+                crate::widgets::scenes::render_scene_by_name(
+                    scene_name,
+                    f.buffer_mut(),
+                    main_area,
+                    &app.theme,
+                    motion,
+                    night,
+                );
+            }
+            if let Some(ref visual) = layer.visual {
+                if visual.position == crate::custom::layer::LayerPosition::Background {
+                    crate::widgets::scenes::render_visual_layer(
+                        visual,
+                        f.buffer_mut(),
+                        main_area,
+                        &app.theme,
+                        motion,
+                        night,
+                    );
+                }
+            }
+        }
+    }
 
     let mounts = disk::mounts().len().clamp(1, 4) as u16;
     let embed_viz = app.config.widgets.music_viz
@@ -121,6 +165,25 @@ pub fn render_layout(f: &mut Frame, area: Rect, app: &mut App, layout: &[Vec<Str
 
     if unassigned_custom_count > 0 && custom_area.height > 0 {
         render_custom_row(f, custom_area, app, unassigned_custom_count, layout);
+    }
+
+    if is_main_dashboard {
+        if let Some(layer) = app.config.dashboard.layers.get(&app.config.dashboard.preset) {
+            if let Some(ref visual) = layer.visual {
+                if visual.position != crate::custom::layer::LayerPosition::Background {
+                    let motion = app.config.ui.motion_enabled;
+                    let night = app.night == Some(true);
+                    crate::widgets::scenes::render_visual_layer(
+                        visual,
+                        f.buffer_mut(),
+                        main_area,
+                        &app.theme,
+                        motion,
+                        night,
+                    );
+                }
+            }
+        }
     }
 }
 

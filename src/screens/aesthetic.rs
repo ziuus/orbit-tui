@@ -144,6 +144,11 @@ pub fn scenes(app: &App) -> Vec<Scene> {
     if cfg.widgets.pinned_media {
         v.push(Scene::Gallery);
     }
+    for (key, layer) in &cfg.dashboard.layers {
+        if layer.enabled && (layer.scene.is_some() || layer.visual.is_some()) {
+            v.push(Scene::Custom(key.clone()));
+        }
+    }
     if !cfg.ui.ambient_exclude.is_empty() {
         v.retain(|s| {
             !cfg.ui
@@ -229,6 +234,32 @@ pub fn render(f: &mut Frame, area: Rect, app: &mut App) {
                 }
                 if matched {
                     break;
+                }
+            }
+            if !matched {
+                if let Some(layer) = app.config.dashboard.layers.get(id) {
+                    let motion = app.config.ui.motion_enabled;
+                    let night = app.night == Some(true);
+                    if let Some(ref scene_name) = layer.scene {
+                        crate::widgets::scenes::render_scene_by_name(
+                            scene_name,
+                            f.buffer_mut(),
+                            stage,
+                            theme,
+                            motion,
+                            night,
+                        );
+                    }
+                    if let Some(ref visual) = layer.visual {
+                        crate::widgets::scenes::render_visual_layer(
+                            visual,
+                            f.buffer_mut(),
+                            stage,
+                            theme,
+                            motion,
+                            night,
+                        );
+                    }
                 }
             }
         }

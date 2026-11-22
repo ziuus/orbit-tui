@@ -408,6 +408,188 @@ pub fn blackhole(buf: &mut Buffer, area: Rect, theme: &Theme, motion: bool, nigh
     });
 }
 
+/// Render a named scene onto `buf`. Supports procedural scenes (`synthwave`, `aurora`, `lava`,
+/// `cyberpunk`, `blackhole`) and procedural visual patterns (`grid`, `stars`, `waves`).
+pub fn render_scene_by_name(
+    name: &str,
+    buf: &mut Buffer,
+    area: Rect,
+    theme: &Theme,
+    motion: bool,
+    night: bool,
+) {
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+    match name.trim().to_lowercase().as_str() {
+        "synthwave" => synthwave(buf, area, theme, motion, night),
+        "aurora" => aurora(buf, area, theme, motion, night),
+        "lava" => lava(buf, area, theme, motion, night),
+        "cyberpunk" => cyberpunk(buf, area, theme, motion, night),
+        "blackhole" | "black_hole" => blackhole(buf, area, theme, motion, night),
+        "grid" => render_grid_layer(buf, area, theme, motion),
+        "stars" | "starfield" => render_stars_layer(buf, area, theme, motion),
+        "waves" => render_waves_layer(buf, area, theme, motion),
+        _ => {}
+    }
+}
+
+/// Ultra-minimal procedural dot/cross grid layer.
+pub fn render_grid_layer(buf: &mut Buffer, area: Rect, theme: &Theme, motion: bool) {
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+    let t = tick(motion);
+    let pulse = 0.7 + 0.3 * (t * 1.5).sin().abs();
+    let col = blend(theme.bg, theme.dim, 0.4 * pulse);
+    let style = Style::default().fg(col);
+
+    for cy in 0..area.height {
+        for cx in 0..area.width {
+            let x = area.x + cx;
+            let y = area.y + cy;
+            if cx % 4 == 0 && cy % 2 == 0 {
+                if let Some(cell) = buf.cell_mut((x, y)) {
+                    cell.set_char('·').set_style(style);
+                }
+            }
+        }
+    }
+}
+
+/// Ultra-minimal procedural twinkling starfield layer.
+pub fn render_stars_layer(buf: &mut Buffer, area: Rect, theme: &Theme, motion: bool) {
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+    let t = tick(motion);
+    for cy in 0..area.height {
+        for cx in 0..area.width {
+            let h = hash(cx as u32, cy as u32);
+            if h > 0.975 {
+                let x = area.x + cx;
+                let y = area.y + cy;
+                let phase = (t * 2.5 + h * TAU).sin();
+                let (ch, col) = if phase > 0.5 {
+                    ('✦', theme.accent)
+                } else if phase > -0.2 {
+                    ('·', theme.secondary)
+                } else {
+                    ('.', blend(theme.bg, theme.dim, 0.5))
+                };
+                if let Some(cell) = buf.cell_mut((x, y)) {
+                    cell.set_char(ch).set_style(Style::default().fg(col));
+                }
+            }
+        }
+    }
+}
+
+/// Ultra-minimal procedural animated horizontal wave contours.
+pub fn render_waves_layer(buf: &mut Buffer, area: Rect, theme: &Theme, motion: bool) {
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+    let t = tick(motion);
+    let mid_y = area.y + area.height / 2;
+    let style = Style::default().fg(blend(theme.bg, theme.accent, 0.5));
+
+    for cx in 0..area.width {
+        let x = area.x + cx;
+        let offset = ((cx as f32 * 0.15 + t * 2.0).sin() * 1.5).round() as i32;
+        let y = (mid_y as i32 + offset).clamp(area.y as i32, (area.bottom().saturating_sub(1)) as i32) as u16;
+        if let Some(cell) = buf.cell_mut((x, y)) {
+            cell.set_char('~').set_style(style);
+        }
+    }
+}
+
+/// Render static or transparent ASCII text into a buffer area.
+pub fn render_ascii_layer(
+    buf: &mut Buffer,
+    area: Rect,
+    content: &str,
+    theme: &Theme,
+    transparent: bool,
+) {
+    if area.width == 0 || area.height == 0 || content.is_empty() {
+        return;
+    }
+    let style = Style::default().fg(theme.accent);
+    for (row_idx, line) in content.lines().enumerate() {
+        let y = area.y + row_idx as u16;
+        if y >= area.bottom() {
+            break;
+        }
+        for (col_idx, ch) in line.chars().enumerate() {
+            let x = area.x + col_idx as u16;
+            if x >= area.right() {
+                break;
+            }
+            if transparent && ch == ' ' {
+                continue;
+            }
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.set_char(ch).set_style(style);
+            }
+        }
+    }
+}
+
+/// Renders an optional visual layer (ASCII art, grid, stars, or waves).
+pub fn render_visual_layer(
+    visual: &crate::custom::layer::VisualLayerConfig,
+    buf: &mut Buffer,
+    area: Rect,
+    theme: &Theme,
+    motion: bool,
+    _night: bool,
+) {
+    use crate::custom::layer::{parse_visual_frames, LayerPosition, VisualKind};
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+    match visual.kind {
+        VisualKind::Grid => render_grid_layer(buf, area, theme, motion),
+        VisualKind::Stars => render_stars_layer(buf, area, theme, motion),
+        VisualKind::Waves => render_waves_layer(buf, area, theme, motion),
+        VisualKind::Ascii => {
+            let text = if let Some(ref c) = visual.content {
+                Some(c.clone())
+            } else if let Some(ref path) = visual.file {
+                std::fs::read_to_string(path).ok()
+            } else {
+                None
+            };
+            let Some(content) = text else {
+                return;
+            };
+            let frames = parse_visual_frames(&content);
+            if frames.is_empty() {
+                return;
+            }
+            let active_frame = if frames.len() == 1 || visual.fps == 0 || !motion {
+                frames[0]
+            } else {
+                let t = tick(motion);
+                let idx = ((t * visual.fps as f32) as usize) % frames.len();
+                frames[idx]
+            };
+
+            let render_area = match visual.position {
+                LayerPosition::Banner => {
+                    let lines_count = active_frame.lines().count() as u16;
+                    let banner_h = lines_count.min(area.height);
+                    Rect::new(area.x, area.y, area.width, banner_h)
+                }
+                LayerPosition::Background | LayerPosition::Foreground => area,
+            };
+
+            render_ascii_layer(buf, render_area, active_frame, theme, visual.transparent);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -430,5 +612,66 @@ mod tests {
         let v: Vec<f32> = (0..100).map(|i| hash(i, i * 3)).collect();
         assert!(v.iter().all(|x| (0.0..=1.0).contains(x)));
         assert!(v.windows(2).any(|p| (p[0] - p[1]).abs() > 0.1));
+    }
+
+    #[test]
+    fn test_render_visual_layer_boundary_and_patterns() {
+        let t = Theme::dark();
+        for (w, h) in [(0, 0), (1, 1), (5, 5), (80, 24)] {
+            let area = Rect::new(0, 0, w, h);
+            let mut buf = Buffer::empty(area);
+
+            render_scene_by_name("grid", &mut buf, area, &t, true, false);
+            render_scene_by_name("stars", &mut buf, area, &t, true, false);
+            render_scene_by_name("waves", &mut buf, area, &t, true, false);
+            render_scene_by_name("nonexistent", &mut buf, area, &t, true, false);
+
+            use crate::custom::layer::{LayerPosition, VisualKind, VisualLayerConfig};
+            let vis_grid = VisualLayerConfig {
+                kind: VisualKind::Grid,
+                content: None,
+                file: None,
+                fps: 0,
+                position: LayerPosition::Background,
+                transparent: true,
+            };
+            render_visual_layer(&vis_grid, &mut buf, area, &t, true, false);
+
+            let vis_ascii = VisualLayerConfig {
+                kind: VisualKind::Ascii,
+                content: Some("HELLO\nWORLD".into()),
+                file: None,
+                fps: 10,
+                position: LayerPosition::Banner,
+                transparent: true,
+            };
+            render_visual_layer(&vis_ascii, &mut buf, area, &t, true, false);
+        }
+    }
+
+    #[test]
+    fn test_render_ascii_layer_transparency() {
+        let t = Theme::dark();
+        let area = Rect::new(0, 0, 10, 5);
+        let mut buf = Buffer::empty(area);
+
+        // Pre-fill buffer with 'X'
+        for y in 0..5 {
+            for x in 0..10 {
+                buf[(x, y)].set_char('X');
+            }
+        }
+
+        // Render transparent ASCII where spaces exist: "A B"
+        render_ascii_layer(&mut buf, area, "A B", &t, true);
+        assert_eq!(buf[(0, 0)].symbol(), "A");
+        assert_eq!(buf[(1, 0)].symbol(), "X"); // Space preserved 'X'
+        assert_eq!(buf[(2, 0)].symbol(), "B");
+
+        // Render non-transparent ASCII: spaces overwrite
+        render_ascii_layer(&mut buf, area, "C D", &t, false);
+        assert_eq!(buf[(0, 0)].symbol(), "C");
+        assert_eq!(buf[(1, 0)].symbol(), " "); // Space overwrote 'X'
+        assert_eq!(buf[(2, 0)].symbol(), "D");
     }
 }

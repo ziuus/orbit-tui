@@ -713,11 +713,27 @@ fn link(path: PathBuf) {
     }
 
     let stem = path.file_stem().unwrap().to_string_lossy().to_string();
+    let is_layer = if path.extension().and_then(|s| s.to_str()) == Some("toml") {
+        if path.to_string_lossy().contains("layer") {
+            true
+        } else if let Ok(content) = fs::read_to_string(&path) {
+            content.contains("layout")
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
     let ext_dir = if path.extension().and_then(|s| s.to_str()) == Some("toml") {
         let mut dir = directories::ProjectDirs::from("", "", "orbit")
             .map(|p| p.config_dir().to_path_buf())
             .unwrap_or_else(|| PathBuf::from("."));
-        dir.push("themes");
+        if is_layer {
+            dir.push("layers");
+        } else {
+            dir.push("themes");
+        }
         fs::create_dir_all(&dir).unwrap();
         dir
     } else {
@@ -744,6 +760,8 @@ fn link(path: PathBuf) {
                     "✓ Enabled '{}' in config.toml. You can now test it in Orbit!",
                     stem
                 );
+            } else if is_layer {
+                println!("✓ Layer '{}' linked. It is now available in Orbit!", stem);
             } else {
                 println!("✓ Theme '{}' linked. It is now available in Orbit!", stem);
             }

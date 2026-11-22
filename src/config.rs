@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::custom::config::CustomWidgetConfig;
+use crate::custom::layer::CommunityLayer;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -41,9 +43,56 @@ pub struct DashboardConfig {
     /// Multi-column layout specifying the panel names in order for each column.
     #[serde(default = "default_dashboard_layout")]
     pub layout: Vec<Vec<String>>,
+    /// Custom community layers.
+    #[serde(
+        default,
+        deserialize_with = "crate::custom::layer::deserialize_layers",
+        serialize_with = "crate::custom::layer::serialize_inline_layers"
+    )]
+    pub layers: BTreeMap<String, CommunityLayer>,
 }
 
 impl DashboardConfig {
+    pub const BUILTIN_PRESETS: [&'static str; 4] =
+        ["overview", "cockpit", "monitoring", "minimal"];
+
+    /// Return all available presets: built-in presets first, followed by custom community layers in deterministic order.
+    pub fn available_presets(&self) -> Vec<String> {
+        let mut list: Vec<String> = Self::BUILTIN_PRESETS.iter().map(|s| s.to_string()).collect();
+        for (key, layer) in &self.layers {
+            if layer.enabled && !list.contains(key) {
+                list.push(key.clone());
+            }
+        }
+        list
+    }
+
+    /// Retrieve layout matrix for a given preset or community layer.
+    pub fn get_layout_for(&self, name: &str) -> Option<Vec<Vec<String>>> {
+        match name {
+            "overview" | "lookout" | "panoramic" => Some(Self::preset_overview()),
+            "cockpit" => Some(Self::preset_cockpit()),
+            "monitoring" => Some(Self::preset_monitoring()),
+            "minimal" => Some(Self::preset_minimal()),
+            custom => self.layers.get(custom).map(|l| l.layout.clone()),
+        }
+    }
+
+    /// Retrieve community layer definition by name if present.
+    pub fn get_layer(&self, name: &str) -> Option<&CommunityLayer> {
+        self.layers.get(name)
+    }
+
+    /// Load external community layers from disk (~/.config/orbit/layers/*.toml and repo layers/*.toml).
+    pub fn discover_external_layers(&mut self) {
+        let discovered = crate::custom::layer::discover_layers();
+        for (key, layer) in discovered {
+            if !self.layers.contains_key(&key) {
+                self.layers.insert(key, layer);
+            }
+        }
+    }
+
     /// Clean, balanced 3-column daily driver.
     pub fn preset_overview() -> Vec<Vec<String>> {
         let col = |names: &[&str]| names.iter().map(|s| s.to_string()).collect();
@@ -131,12 +180,10 @@ impl DashboardConfig {
 
     pub fn apply_preset(&mut self, preset_name: &str) {
         self.preset = preset_name.to_string();
-        match preset_name {
-            "overview" | "lookout" | "panoramic" => self.layout = Self::preset_overview(),
-            "cockpit" => self.layout = Self::preset_cockpit(),
-            "monitoring" => self.layout = Self::preset_monitoring(),
-            "minimal" => self.layout = Self::preset_minimal(),
-            _ => {} // For custom, we just leave the layout as-is
+        if let Some(layout) = self.get_layout_for(preset_name) {
+            if !layout.is_empty() {
+                self.layout = layout;
+            }
         }
     }
 }
@@ -146,6 +193,7 @@ impl Default for DashboardConfig {
         Self {
             preset: "overview".to_string(),
             layout: Self::preset_overview(),
+            layers: BTreeMap::new(),
         }
     }
 }
@@ -543,6 +591,7 @@ impl Config {
         let mut cfg: Config = toml::from_str(&content).unwrap_or_default();
         cfg.ui.refresh_rate = cfg.ui.refresh_rate.clamp(0.1, 10.0);
         cfg.ui.fps = cfg.ui.fps.clamp(5, 120);
+        cfg.dashboard.discover_external_layers();
         cfg.dashboard.migrate();
 
         if let Some(ref tf) = cfg.ui.time_format {
@@ -968,6 +1017,7 @@ mod tests {
         let mut legacy = DashboardConfig {
             preset: "cockpit".into(),
             layout: DashboardConfig::legacy_cockpit(),
+            layers: BTreeMap::new(),
         };
         legacy.migrate();
         assert_eq!(legacy.layout, DashboardConfig::preset_cockpit());
@@ -977,6 +1027,7 @@ mod tests {
         let mut custom = DashboardConfig {
             preset: "cockpit".into(),
             layout: custom_layout.clone(),
+            layers: BTreeMap::new(),
         };
         custom.migrate();
         assert_eq!(custom.layout, custom_layout);
@@ -995,6 +1046,91 @@ mod tests {
         assert_eq!(cfg.dashboard.layout.len(), 2);
         assert_eq!(cfg.dashboard.layout[0], vec!["clock", "system"]);
         assert_eq!(cfg.dashboard.layout[1], vec!["processes", "weather"]);
+    }
+
+    #[test]
+    fn test_dashboard_config_community_layers_inline_map() {
+        let toml_str = r#"
+            [dashboard]
+            preset = "devops"
+
+            [dashboard.layers.devops]
+            name = "DevOps Suite"
+            description = "Telemetry stack"
+            layout = [
+                ["cpu", "memory"],
+                ["network", "storage"]
+            ]
+            ratios = [50, 50]
+            scene = "cyberpunk"
+        "#;
+        let mut cfg: Config = toml::from_str(toml_str).unwrap();
+        assert!(cfg.dashboard.layers.contains_key("devops"));
+        let expected_layout = cfg.dashboard.layers["devops"].layout.clone();
+        assert_eq!(cfg.dashboard.layers["devops"].name.as_deref(), Some("DevOps Suite"));
+        assert_eq!(expected_layout.len(), 2);
+        assert_eq!(cfg.dashboard.layers["devops"].ratios, Some(vec![50, 50]));
+
+        let presets = cfg.dashboard.available_presets();
+        assert_eq!(presets, vec!["overview", "cockpit", "monitoring", "minimal", "devops"]);
+
+        cfg.dashboard.apply_preset("devops");
+        assert_eq!(cfg.dashboard.layout, expected_layout);
+
+        // Fallback test
+        cfg.dashboard.apply_preset("nonexistent");
+        assert_eq!(cfg.dashboard.preset, "nonexistent");
+        // Layout unchanged from previous valid preset
+        assert_eq!(cfg.dashboard.layout, expected_layout);
+    }
+
+    #[test]
+    fn test_dashboard_config_community_layers_array_syntax() {
+        let toml_str = r#"
+            [dashboard]
+            [[dashboard.layers]]
+            id = "zen"
+            name = "Zen Focus"
+            layout = [["clock"], ["weather"]]
+
+            [[dashboard.layers]]
+            id = "hacker"
+            layout = [["system"], ["processes"]]
+        "#;
+        let cfg: Config = toml::from_str(toml_str).unwrap();
+        assert_eq!(cfg.dashboard.layers.len(), 2);
+        assert!(cfg.dashboard.layers.contains_key("zen"));
+        assert!(cfg.dashboard.layers.contains_key("hacker"));
+        assert_eq!(cfg.dashboard.layers["zen"].name.as_deref(), Some("Zen Focus"));
+    }
+
+    #[test]
+    fn test_dashboard_config_roundtrip_preserves_inline_layers() {
+        let mut dash = DashboardConfig::default();
+        let mut layer = CommunityLayer {
+            id: Some("custom_a".into()),
+            name: Some("Custom A".into()),
+            description: None,
+            layout: vec![vec!["cpu".into()]],
+            ratios: None,
+            scene: None,
+            visual: None,
+            enabled: true,
+            is_external: false,
+        };
+        dash.layers.insert("custom_a".into(), layer.clone());
+
+        // External layer should be skipped on serialize
+        layer.is_external = true;
+        dash.layers.insert("external_b".into(), layer);
+
+        let toml_out = toml::to_string(&dash).expect("serialize dash");
+        assert!(toml_out.contains("custom_a"));
+        assert!(!toml_out.contains("external_b"));
+
+        let deserialized: DashboardConfig = toml::from_str(&toml_out).expect("deserialize dash");
+        assert!(deserialized.layers.contains_key("custom_a"));
+        assert!(!deserialized.layers.contains_key("external_b"));
     }
 
     #[test]

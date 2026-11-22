@@ -5,9 +5,12 @@
 //! independently.
 
 pub mod config;
+pub mod layer;
 pub mod renderer;
 pub mod source;
 pub mod widget;
+
+pub use layer::{CommunityLayer, CommunityLayerConfig, LayerPosition, VisualKind, VisualLayerConfig};
 
 use ratatui::layout::Rect;
 use ratatui::Frame;

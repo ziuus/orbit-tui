@@ -452,7 +452,7 @@ pub struct App {
     /// it to be rebuilt on the next frame (after a theme or setting change).
     pub night: Option<bool>,
     /// Short transient message shown in the status bar (theme changed, killed pid …).
-    toast: Option<(String, Instant)>,
+    pub toast: Option<(String, Instant)>,
     /// First press of k/K arms this; the second press within the window fires.
     pending_signal: Option<(u32, &'static str, Instant)>,
     sampler_interval: std::sync::Arc<std::sync::atomic::AtomicU64>,
@@ -669,34 +669,64 @@ impl App {
 
     /// Step the current page to its next/previous layout.
     pub fn cycle_layout(&mut self, forward: bool) {
-        const OVERVIEW: [&str; 4] = ["overview", "cockpit", "monitoring", "minimal"];
-        let (list, cur): (&[&str], String) = match self.mode {
-            DashboardMode::Dashboard => (&OVERVIEW, self.config.dashboard.preset.clone()),
-            DashboardMode::Monitor => (
-                &screens::monitor::LAYOUTS,
-                self.config.ui.monitor_layout.clone(),
-            ),
-            DashboardMode::Workspace => (
-                &screens::workspace::LAYOUTS,
-                self.config.ui.focus_layout.clone(),
-            ),
-            _ => return,
-        };
-        let n = list.len();
-        let i = list.iter().position(|p| *p == cur).unwrap_or(0);
-        let next = list[if forward {
-            (i + 1) % n
-        } else {
-            (i + n - 1) % n
-        }]
-        .to_string();
         match self.mode {
-            DashboardMode::Dashboard => self.config.dashboard.apply_preset(&next),
-            DashboardMode::Monitor => self.config.ui.monitor_layout = next.clone(),
-            _ => self.config.ui.focus_layout = next.clone(),
+            DashboardMode::Dashboard => {
+                let presets = self.config.dashboard.available_presets();
+                if presets.is_empty() {
+                    return;
+                }
+                let cur = &self.config.dashboard.preset;
+                let n = presets.len();
+                let i = presets.iter().position(|p| p == cur).unwrap_or(0);
+                let next = presets[if forward {
+                    (i + 1) % n
+                } else {
+                    (i + n - 1) % n
+                }]
+                .clone();
+                self.config.dashboard.apply_preset(&next);
+                self.config.save();
+                let display_title = self
+                    .config
+                    .dashboard
+                    .layers
+                    .get(&next)
+                    .map(|l| l.display_name(&next))
+                    .unwrap_or_else(|| next.clone());
+                self.toast(format!("layout · {}", display_title));
+            }
+            DashboardMode::Monitor => {
+                let list = &screens::monitor::LAYOUTS;
+                let cur = self.config.ui.monitor_layout.clone();
+                let n = list.len();
+                let i = list.iter().position(|p| *p == cur).unwrap_or(0);
+                let next = list[if forward {
+                    (i + 1) % n
+                } else {
+                    (i + n - 1) % n
+                }]
+                .to_string();
+                self.config.ui.monitor_layout = next.clone();
+                self.config.save();
+                self.toast(format!("layout · {}", next));
+            }
+            DashboardMode::Workspace => {
+                let list = &screens::workspace::LAYOUTS;
+                let cur = self.config.ui.focus_layout.clone();
+                let n = list.len();
+                let i = list.iter().position(|p| *p == cur).unwrap_or(0);
+                let next = list[if forward {
+                    (i + 1) % n
+                } else {
+                    (i + n - 1) % n
+                }]
+                .to_string();
+                self.config.ui.focus_layout = next.clone();
+                self.config.save();
+                self.toast(format!("layout · {}", next));
+            }
+            _ => {}
         }
-        self.config.save();
-        self.toast(format!("layout · {}", next));
     }
 
     pub fn preview_theme(&mut self, next: &str) {
